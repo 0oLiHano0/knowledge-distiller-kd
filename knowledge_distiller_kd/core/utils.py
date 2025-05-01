@@ -213,10 +213,8 @@ def get_markdown_parser() -> mistune.Markdown:
         - list: 列表（默认启用）
     """
     # 创建一个新的解析器实例
-    markdown = mistune.create_markdown(
-        escape=False,  # 不转义 HTML
-        renderer=None  # 使用默认渲染器
-    )
+    renderer = mistune.HTMLRenderer()
+    markdown = mistune.Markdown(renderer)
     return markdown
 
 def sort_blocks_key(block_info: Tuple[Union[str, Path], Union[int, str], str, str]) -> Tuple[str, Union[int, float], Union[int, str]]:

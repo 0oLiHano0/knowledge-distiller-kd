@@ -39,9 +39,6 @@ from knowledge_distiller_kd.core import constants
 # 2. 需要安装：mistune, sentence-transformers (可选, 用于语义分析)
 # 3. 同项目模块: constants, utils, md5_analyzer, semantic_analyzer (使用绝对导入)
 
-# 使用 utils 中配置好的 logger
-logger = logger
-
 # 开发环境配置
 DEV_DEFAULT_INPUT_DIR = "input"
 DEV_DEFAULT_OUTPUT_DIR = "output"
@@ -277,7 +274,9 @@ class KDToolCLI:
 
             try:
                 # 执行步骤
-                if not step_func():
+                result = step_func()
+                # 对于 MD5 去重和语义去重，即使没有找到重复内容也继续执行
+                if result is False and step_name not in ["MD5 去重", "语义去重"]:
                     logger.error(f"Analysis stopped: {step_name} failed.")
                     print(f"[错误] {step_name}失败，分析中止。")
                     return False
@@ -392,25 +391,67 @@ class KDToolCLI:
 
                 try:
                     # 解析 Markdown 内容
-                    tokens = get_markdown_parser().parse(content)
+                    parser = get_markdown_parser()
+                    tokens = parser.parse(content)
 
                     # 提取内容块
                     block_index = 0
-                    for token in tokens:
-                        if isinstance(token, list):
-                            continue  # 跳过列表类型的 token
+                    current_paragraph = []
+                    in_code_block = False
+                    code_block_lines = []
+                    
+                    # 按行处理内容
+                    for line in content.split('\n'):
+                        # 检测代码块开始
+                        if line.strip().startswith('```'):
+                            if not in_code_block:
+                                # 开始新的代码块
+                                in_code_block = True
+                                code_block_lines = [line]
+                            else:
+                                # 结束当前代码块
+                                in_code_block = False
+                                code_block_lines.append(line)
+                                # 将整个代码块作为一个单元添加到块数据中
+                                self.blocks_data.append((
+                                    file_path,
+                                    block_index,
+                                    'code',
+                                    '\n'.join(code_block_lines)
+                                ))
+                                block_index += 1
+                                code_block_lines = []
+                            continue
                         
-                        token_type = token['type']
-                        token_text = token['text'].strip()
-                        
-                        if token_text:  # 只处理非空内容
-                            self.blocks_data.append((
-                                file_path,
-                                block_index,
-                                token_type,
-                                token_text
-                            ))
-                            block_index += 1
+                        if in_code_block:
+                            # 在代码块内，收集所有行
+                            code_block_lines.append(line)
+                        else:
+                            # 非代码块内容，按原有逻辑处理
+                            line = line.strip()
+                            if not line:  # 空行表示段落结束
+                                if current_paragraph:
+                                    # 将当前段落添加到块数据中
+                                    self.blocks_data.append((
+                                        file_path,
+                                        block_index,
+                                        'content',
+                                        '\n'.join(current_paragraph)
+                                    ))
+                                    block_index += 1
+                                    current_paragraph = []
+                            elif not line.startswith('#'):  # 跳过标题行
+                                current_paragraph.append(line)
+                    
+                    # 处理最后一个段落
+                    if current_paragraph:
+                        self.blocks_data.append((
+                            file_path,
+                            block_index,
+                            'content',
+                            '\n'.join(current_paragraph)
+                        ))
+                        block_index += 1
 
                     success_count += 1
 
@@ -440,9 +481,12 @@ class KDToolCLI:
                 details={"error": str(e)}
             )
 
-    def _initialize_decisions(self) -> None:
+    def _initialize_decisions(self) -> bool:
         """
         初始化所有内容块的决策状态。
+
+        Returns:
+            bool: 如果成功初始化了至少一个决策返回 True，否则返回 False
 
         Process:
             1. 清空旧的决策数据
@@ -491,11 +535,14 @@ class KDToolCLI:
                 for file_name, block_index, error in error_blocks:
                     print(f"  - {file_name}#{block_index}: {error}")
 
+            return len(self.block_decisions) > 0
+
         except Exception as e:
             # 记录初始化过程中的错误
             error_msg = "Error during decision initialization."
             logger.error(error_msg, exc_info=True)
             print(f"[错误] 初始化块决策时出错: {e}")
+            return False
 
     def load_decisions(self) -> bool:
         """
@@ -892,7 +939,7 @@ class KDToolCLI:
             if choice == '1':
                 # 查看 MD5 重复
                 if self.md5_analyzer and self.md5_analyzer.md5_duplicates:
-                    self.md5_analyzer.display_md5_duplicates_list()
+                    self.md5_analyzer._display_md5_duplicates_list()
                 else:
                     print("\n[信息] 没有找到 MD5 重复的块。")
 
@@ -1112,14 +1159,15 @@ if __name__ == "__main__":
 
     # --- 初始化日志和工具 ---
     log_level = logging.DEBUG if args.debug else logging.INFO
-    utils.setup_logger(log_level)
+    setup_logger(log_level)
     logger.info("KD Tool started.")
     logger.debug(f"Parsed arguments: {args}") # 记录解析的参数
 
     # 使用解析出的参数实例化 KDToolCLI
     kd_tool = KDToolCLI(
-        output_dir_path=args.output_dir,
-        decision_file_path=args.decision_file,
+        input_dir=args.input_dir,
+        decision_file=args.decision_file,
+        output_dir=args.output_dir,
         skip_semantic=args.skip_semantic,
         similarity_threshold=args.threshold
     )

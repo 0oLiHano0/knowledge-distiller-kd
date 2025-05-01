@@ -147,4 +147,54 @@ def test_find_md5_duplicates_whitespace(md5_analyzer: MD5Analyzer) -> None:
     md5_analyzer.find_md5_duplicates()
     # 由于标准化处理，这两个块应该被视为重复
     assert len(md5_analyzer.duplicate_blocks) == 1
+    assert len(md5_analyzer.md5_id_to_key) == 2
+
+def test_find_md5_duplicates_skip_headers(md5_analyzer: MD5Analyzer) -> None:
+    """
+    测试跳过标题的情况。
+    """
+    test_file = Path("test.md")
+    content1 = "# 标题\n\n这是内容"
+    content2 = "## 另一个标题\n\n这是内容"
+    md5_analyzer.tool.blocks_data = [
+        (test_file, 1, "content", content1),
+        (test_file, 2, "content", content2)
+    ]
+    md5_analyzer.find_md5_duplicates()
+    # 由于标题被跳过，这两个块应该被视为重复
+    assert len(md5_analyzer.duplicate_blocks) == 1
+    assert len(md5_analyzer.md5_id_to_key) == 2
+
+def test_find_md5_duplicates_normalize_text(md5_analyzer: MD5Analyzer) -> None:
+    """
+    测试文本标准化功能。
+    """
+    test_file = Path("test.md")
+    content1 = "这是内容，包含标点符号！"
+    content2 = "这是内容，包含标点符号！"
+    content3 = "这是内容，包含标点符号！"
+    md5_analyzer.tool.blocks_data = [
+        (test_file, 1, "content", content1),
+        (test_file, 2, "content", content2),
+        (test_file, 3, "content", content3)
+    ]
+    md5_analyzer.find_md5_duplicates()
+    # 这三个块应该被视为重复
+    assert len(md5_analyzer.duplicate_blocks) == 1
+    assert len(md5_analyzer.md5_id_to_key) == 3
+
+def test_find_md5_duplicates_different_content(md5_analyzer: MD5Analyzer) -> None:
+    """
+    测试不同内容的情况。
+    """
+    test_file = Path("test.md")
+    content1 = "这是第一段内容"
+    content2 = "这是第二段内容"
+    md5_analyzer.tool.blocks_data = [
+        (test_file, 1, "content", content1),
+        (test_file, 2, "content", content2)
+    ]
+    md5_analyzer.find_md5_duplicates()
+    # 这两个块不应该被视为重复
+    assert len(md5_analyzer.duplicate_blocks) == 0
     assert len(md5_analyzer.md5_id_to_key) == 2 

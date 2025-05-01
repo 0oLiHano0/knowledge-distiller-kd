@@ -13,6 +13,7 @@ import hashlib
 import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union, Any, DefaultDict
+import re
 
 from knowledge_distiller_kd.core.error_handler import (
     KDError, FileOperationError, ModelError, AnalysisError,
@@ -51,6 +52,7 @@ class MD5Analyzer:
         tool: KDToolCLI 实例的引用
         duplicate_blocks: 存储重复内容块的字典 {hash: [(file, index, type, text), ...]}
         md5_id_to_key: 存储 MD5 ID 到决策键的映射 {id: key}
+        md5_duplicates: 存储MD5重复内容的列表
     """
 
     def __init__(self, tool) -> None:
@@ -63,44 +65,88 @@ class MD5Analyzer:
         self.tool = tool
         self.duplicate_blocks = {}
         self.md5_id_to_key = {}
+        self.md5_duplicates = []
 
-    def find_md5_duplicates(self) -> None:
+    def find_md5_duplicates(self) -> bool:
         """
         使用MD5哈希查找重复内容。
+
+        Returns:
+            bool: 如果成功找到重复内容返回 True，否则返回 False
 
         Raises:
             AnalysisError: 当分析过程失败时
         """
         try:
             if not self.tool.blocks_data:
-                raise AnalysisError("没有可分析的内容块")
+                return False  # 没有内容块时返回False而不是抛出异常
 
             # 初始化哈希映射
             hash_map: DefaultDict[str, List[Tuple[Union[str, Path], Union[int, str], str, str]]] = collections.defaultdict(list)
-            calculated_hashes = 0
+            self.md5_id_to_key.clear()  # 清空旧的映射
+            block_id = 1  # 用于生成块ID
 
             # 遍历所有块
             for block_info in self.tool.blocks_data:
                 file_path, b_index, b_type, text_to_hash = block_info
                 try:
                     # 标准化文本内容
-                    normalized_text = ' '.join(text_to_hash.split())
+                    # 1. 按行分割
+                    lines = text_to_hash.split('\n')
+                    # 2. 处理每一行，保留代码块的结构
+                    normalized_lines = []
+                    in_code_block = False
+                    code_block_lines = []
+                    
+                    for line in lines:
+                        # 检测代码块开始
+                        if line.strip().startswith('```'):
+                            if not in_code_block:
+                                # 开始新的代码块
+                                in_code_block = True
+                                code_block_lines = [line]
+                            else:
+                                # 结束当前代码块
+                                in_code_block = False
+                                code_block_lines.append(line)
+                                # 将整个代码块作为一个单元添加
+                                normalized_lines.append('\n'.join(code_block_lines))
+                                code_block_lines = []
+                            continue
+                        
+                        if in_code_block:
+                            # 在代码块内，收集所有行
+                            code_block_lines.append(line)
+                        else:
+                            # 非代码块内容，按原有逻辑处理
+                            if line.strip():
+                                normalized_lines.append(line)
+                            elif normalized_lines and normalized_lines[-1].strip():
+                                normalized_lines.append(line)
+                    
+                    # 3. 合并处理后的行，保留换行符
+                    normalized_text = '\n'.join(normalized_lines)
+                    
+                    # 4. 移除开头和结尾的连续空行
+                    normalized_text = normalized_text.strip('\n')
+                    
+                    # 5. 组合块类型和标准化文本
+                    combined_text = f"{b_type}:{normalized_text}"
 
                     # 计算MD5哈希
-                    content_with_type = f"{b_type}::{normalized_text}"
-                    hash_object = hashlib.md5(content_with_type.encode('utf-8'))
+                    hash_object = hashlib.md5(combined_text.encode('utf-8'))
                     hex_dig = hash_object.hexdigest()
 
                     # 更新哈希映射
                     hash_map[hex_dig].append(block_info)
-                    calculated_hashes += 1
 
                     # 创建决策键映射
                     try:
                         abs_path_str = str(Path(file_path).resolve())
                         key = create_decision_key(abs_path_str, b_index, b_type)
-                        display_id = f"b{calculated_hashes}"
+                        display_id = f"b{block_id}"  # 使用简单的递增ID
                         self.md5_id_to_key[display_id] = key
+                        block_id += 1
                     except Exception as e:
                         logger.warning(f"创建决策键失败: {e}")
                         continue
@@ -115,8 +161,15 @@ class MD5Analyzer:
                 if len(b) > 1
             }
 
-            logger.info(f"计算了 {calculated_hashes} 个MD5哈希")
+            # 更新md5_duplicates列表
+            self.md5_duplicates = []
+            for blocks in self.duplicate_blocks.values():
+                self.md5_duplicates.extend(blocks)
+
+            logger.info(f"计算了 {block_id-1} 个MD5哈希")
             logger.info(f"找到 {len(self.duplicate_blocks)} 组重复内容")
+
+            return len(self.duplicate_blocks) > 0
 
         except Exception as e:
             handle_error(e, "查找MD5重复内容")
@@ -194,10 +247,19 @@ class MD5Analyzer:
             # 显示重复内容
             for i, (hash_value, blocks) in enumerate(self.duplicate_blocks.items(), 1):
                 print(f"\n重复组 #{i}:")
-                for j, block in enumerate(blocks, 1):
-                    file_path, b_index, b_type, _ = block
-                    display_id = f"b{list(self.md5_id_to_key.keys()).index(f'b{i}_{j}') + 1}"
-                    print(f"  {j}. [{display_id}] {file_path.name}#{b_index} ({b_type})")
+                for block in blocks:
+                    file_path, b_index, b_type, text = block
+                    # 查找该块对应的ID
+                    block_key = create_decision_key(str(Path(file_path).resolve()), b_index, b_type)
+                    display_id = next(
+                        (bid for bid, key in self.md5_id_to_key.items() if key == block_key),
+                        "未知ID"
+                    )
+                    decision = self.tool.block_decisions.get(block_key, 'undecided')
+                    print(f"  [{display_id}] {file_path.name}#{b_index} ({b_type}) - {decision}")
+                    # 显示内容预览
+                    preview = text[:100] + "..." if len(text) > 100 else text
+                    print(f"      {preview}")
 
             return True
 

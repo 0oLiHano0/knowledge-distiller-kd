@@ -159,4 +159,21 @@ python -m pytest tests/test_semantic_analyzer.py -v
 
 - 项目维护者：[Your Name]
 - 邮箱：[your.email@example.com]
-- 项目主页：[GitHub Repository URL] 
+- 项目主页：[GitHub Repository URL]
+
+## 当前功能
+- Markdown文件重复内容检测
+- MD5和语义相似度分析
+- 交互式重复内容处理
+- 决策保存和应用
+
+## 下一步开发目标
+
+### 文档预处理模块重构
+为了支持更多文档格式（如Word、PDF等）和提高代码的可维护性，我们将重构文档预处理模块。详细设计请参考 [docs/document_processor_design.md](docs/document_processor_design.md)。
+
+主要目标：
+1. 模块化文档处理逻辑
+2. 支持多种文档格式
+3. 提高代码可维护性
+4. 优化处理性能 
