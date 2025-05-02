@@ -9,6 +9,7 @@ import os
 import sys
 import json
 import logging
+from collections import defaultdict
 import collections
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple, Union, Any, DefaultDict

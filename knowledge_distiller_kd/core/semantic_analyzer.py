@@ -20,6 +20,7 @@ import time
 import re
 import hashlib
 from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Union, Any, DefaultDict, Set, TYPE_CHECKING
 from typing import Dict, List, Optional, Tuple, Union, Any, DefaultDict, Set
 import numpy as np
 
@@ -31,8 +32,11 @@ try:
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
     st_util = None # 定义以避免 NameError
-    SentenceTransformer = None # 定义以避免 NameError
-
+# ==================== 修改：使用 TYPE_CHECKING ====================
+# 仅在类型检查时导入 SentenceTransformer，以帮助 Pylance/Pyright
+if TYPE_CHECKING:
+    from sentence_transformers import SentenceTransformer
+# ==============================================================
 from knowledge_distiller_kd.core.error_handler import (
     KDError, FileOperationError, ModelError, AnalysisError, UserInputError, # 添加 UserInputError
     handle_error, safe_file_operation, validate_file_path
@@ -532,4 +536,3 @@ class SemanticAnalyzer:
 
         logger.info("Finished interactive review of semantic duplicates.")
         print("\n--- 语义相似项处理完成 ---")
-        
