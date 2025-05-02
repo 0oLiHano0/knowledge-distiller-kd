@@ -9,11 +9,6 @@
 4. 处理语义重复内容
 """
 
-# [DEPENDENCIES]
-# 1. Python Standard Library: collections, numpy, time, re, hashlib
-# 2. 需要安装：sentence-transformers, numpy
-# 3. 同项目模块: constants, utils, error_handler, document_processor
-
 import logging
 import collections
 import time
@@ -21,7 +16,6 @@ import re
 import hashlib
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union, Any, DefaultDict, Set, TYPE_CHECKING
-from typing import Dict, List, Optional, Tuple, Union, Any, DefaultDict, Set
 import numpy as np
 
 # 尝试导入sentence-transformers
@@ -32,20 +26,20 @@ try:
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
     st_util = None # 定义以避免 NameError
-# ==================== 修改：使用 TYPE_CHECKING ====================
-# 仅在类型检查时导入 SentenceTransformer，以帮助 Pylance/Pyright
+    # 如果库不可用，定义一个假的 SentenceTransformer 以避免 NameError
+    class SentenceTransformer: pass # type: ignore
+
 if TYPE_CHECKING:
-    from sentence_transformers import SentenceTransformer
-# ==============================================================
+    from sentence_transformers import SentenceTransformer # type: ignore
+
 from knowledge_distiller_kd.core.error_handler import (
-    KDError, FileOperationError, ModelError, AnalysisError, UserInputError, # 添加 UserInputError
+    KDError, FileOperationError, ModelError, AnalysisError, UserInputError,
     handle_error, safe_file_operation, validate_file_path
 )
 from knowledge_distiller_kd.core.utils import (
     setup_logger,
     create_decision_key,
     parse_decision_key,
-    # extract_text_from_children, # 已移到 ContentBlock
     display_block_preview,
     get_markdown_parser,
     sort_blocks_key,
@@ -60,24 +54,6 @@ logger = logger # 使用 utils 中配置好的 logger
 class SemanticAnalyzer:
     """
     语义分析器类，用于查找和处理语义重复内容。
-
-    该类负责：
-    1. 加载和管理语义模型
-    2. 计算文本的语义向量
-    3. 查找语义相似的内容块
-    4. 生成语义重复的报告
-    5. 管理语义重复的决策
-
-    Attributes:
-        tool: KDToolCLI 实例的引用
-        model: SentenceTransformer 模型实例
-        model_name: 使用的模型名称
-        model_version: 模型维度信息
-        similarity_threshold: 相似度阈值
-        semantic_duplicates: 存储语义相似对 [(block1, block2, score), ...]
-        semantic_id_to_key: 存储交互时显示的语义 ID 到决策键的映射 {display_id: decision_key}
-        vector_cache: 存储文本哈希到向量的缓存 {text_hash: np.ndarray}
-        _model_loaded: 标志模型是否已成功加载
     """
 
     def __init__(self, tool, similarity_threshold: float = constants.DEFAULT_SIMILARITY_THRESHOLD) -> None:
@@ -98,7 +74,6 @@ class SemanticAnalyzer:
         self.vector_cache: Dict[str, np.ndarray] = {} # 文本Hash -> 向量
         self._model_loaded: bool = False # 模型加载状态标志
 
-        # 初始化时检查库可用性，但不在此处加载模型
         if not SENTENCE_TRANSFORMERS_AVAILABLE and not self.tool.skip_semantic:
             logger.error("`sentence-transformers` library not found.")
             logger.error("Please install it: pip install sentence-transformers")
@@ -108,9 +83,7 @@ class SemanticAnalyzer:
     def load_semantic_model(self) -> None:
         """
         加载 Sentence Transformer 模型。
-        由 KDToolCLI 在需要时调用。
         """
-        # 如果设置了跳过，或者模型已加载，或者库不可用，则直接返回
         if self.tool.skip_semantic:
             logger.info("Semantic analysis is skipped by configuration. Model loading skipped.")
             return
@@ -119,7 +92,7 @@ class SemanticAnalyzer:
             return
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
             logger.warning("Cannot load semantic model: `sentence-transformers` is not installed.")
-            self.tool.skip_semantic = True # 确保跳过状态一致
+            self.tool.skip_semantic = True
             return
 
         try:
@@ -127,20 +100,17 @@ class SemanticAnalyzer:
             logger.info(f"Loading semantic model: {model_name_to_load} ... (This may take some time)")
             start_time = time.time()
 
-            # 使用 SentenceTransformer 加载模型
-            self.model = SentenceTransformer(model_name_to_load)
+            self.model = SentenceTransformer(model_name_to_load) # type: ignore
 
-            # 获取模型维度信息
             if hasattr(self.model, 'get_sentence_embedding_dimension'):
                  self.model_version = self.model.get_sentence_embedding_dimension()
             elif hasattr(self.model, 'encode'):
-                 # 尝试编码一个虚拟句子来获取维度
                  try:
                       dummy_embedding = self.model.encode("test")
                       self.model_version = len(dummy_embedding)
                  except Exception:
                       logger.warning("Could not determine model embedding dimension.")
-                      self.model_version = None # 未知维度
+                      self.model_version = None
             else:
                  self.model_version = None
 
@@ -159,7 +129,7 @@ class SemanticAnalyzer:
             logger.warning("Semantic deduplication feature will be unavailable.")
             self.model = None
             self._model_loaded = False
-            self.tool.skip_semantic = True # 加载失败，强制跳过
+            self.tool.skip_semantic = True
 
     def _compute_vectors(self, texts: List[str], batch_size: int = constants.DEFAULT_BATCH_SIZE) -> List[np.ndarray]:
         """
@@ -175,15 +145,15 @@ class SemanticAnalyzer:
         if not texts or self.model is None:
             return []
 
-        all_vectors = [None] * len(texts) # 初始化结果列表
-        texts_to_compute_indices = [] # 需要计算的文本的索引
-        texts_to_compute = []         # 需要计算的文本内容
-        hashes_to_compute = []        # 需要计算的文本的哈希
+        all_vectors: List[Optional[np.ndarray]] = [None] * len(texts) # 初始化结果列表
+        texts_to_compute_indices: List[int] = [] # 需要计算的文本的索引
+        texts_to_compute: List[str] = []         # 需要计算的文本内容
+        hashes_to_compute: List[str] = []        # 需要计算的文本的哈希
 
         # 检查缓存
         for i, text in enumerate(texts):
             if not text: # 跳过空文本
-                 all_vectors[i] = np.array([]) # 或者使用适合下游处理的空表示
+                 all_vectors[i] = np.array([])
                  continue
             text_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
             if text_hash in self.vector_cache:
@@ -196,21 +166,28 @@ class SemanticAnalyzer:
         # 批量计算未缓存的向量
         if texts_to_compute:
             logger.info(f"Computing vectors for {len(texts_to_compute)} new texts (batch size: {batch_size})...")
-            computed_vectors = []
+            computed_vectors_list: List[np.ndarray] = []
             try:
-                computed_vectors = self.model.encode(
+                # Ensure model.encode returns a list or ndarray
+                encode_result = self.model.encode(
                     texts_to_compute,
                     batch_size=batch_size,
-                    show_progress_bar=True # 显示进度条
+                    show_progress_bar=True
                 )
+                if isinstance(encode_result, np.ndarray):
+                    computed_vectors_list = [vec for vec in encode_result]
+                elif isinstance(encode_result, list):
+                    computed_vectors_list = encode_result
+                else:
+                     raise TypeError(f"Unexpected return type from model.encode: {type(encode_result)}")
+
             except Exception as e:
                  logger.error(f"Error during batch vector encoding: {e}", exc_info=True)
-                 # 可以选择如何处理错误，例如为失败的向量填充 None 或空数组
-                 computed_vectors = [np.array([])] * len(texts_to_compute) # 示例：填充空数组
+                 computed_vectors_list = [np.array([])] * len(texts_to_compute)
 
             # 填充结果并更新缓存
-            if len(computed_vectors) == len(texts_to_compute):
-                 for original_index, computed_vector, text_hash in zip(texts_to_compute_indices, computed_vectors, hashes_to_compute):
+            if len(computed_vectors_list) == len(texts_to_compute):
+                 for original_index, computed_vector, text_hash in zip(texts_to_compute_indices, computed_vectors_list, hashes_to_compute):
                      all_vectors[original_index] = computed_vector
                      self.vector_cache[text_hash] = computed_vector
             else:
@@ -218,23 +195,23 @@ class SemanticAnalyzer:
                  for original_index in texts_to_compute_indices:
                       all_vectors[original_index] = np.array([])
 
-
         # 确保所有条目都被处理（即使是空或错误）
-        for i in range(len(all_vectors)):
-             if all_vectors[i] is None:
-                  all_vectors[i] = np.array([]) # 确保返回列表不含 None
+        final_vectors: List[np.ndarray] = []
+        for vec_opt in all_vectors:
+            if vec_opt is None:
+                final_vectors.append(np.array([]))
+            else:
+                final_vectors.append(vec_opt)
 
-        # 过滤掉空数组（如果下游无法处理）？或者由下游处理
-        # return [v for v in all_vectors if v.size > 0]
-        return all_vectors
+        return final_vectors
 
 
     def find_semantic_duplicates(self) -> None:
         """
         使用 Sentence Transformer 模型查找语义相似的块。
-        优化：跳过对 MD5 精确重复块（非保留块）的向量计算和比较。
+        优化：跳过标题块和已被 MD5 标记为删除的块。
         """
-        logger.info("Starting semantic similarity analysis (Optimized)...")
+        logger.info("Starting semantic similarity analysis (Optimized, skipping titles)...")
         if self.tool.skip_semantic:
             logger.warning("Semantic analysis skipped as requested or due to previous errors.")
             self.semantic_duplicates = []
@@ -251,130 +228,133 @@ class SemanticAnalyzer:
         start_time = time.time()
         self.semantic_duplicates.clear() # 清空旧结果
 
-        # --- 优化步骤 1: 识别需要分析的唯一块 (非MD5删除块) ---
-        blocks_to_analyze = [] # 存储需要计算向量的 ContentBlock 对象
-        block_keys_analyzed = set() # 跟踪已处理的块键，避免因排序问题重复添加
+        # --- 优化步骤 1: 识别需要分析的块 (非标题, 非MD5删除块) ---
+        blocks_to_analyze: List[ContentBlock] = [] # 存储需要计算向量的 ContentBlock 对象
+        block_keys_analyzed: Set[str] = set() # 跟踪已处理的块键，避免重复添加
+        skipped_titles = 0
+        skipped_deleted = 0
 
-        # 确保 MD5 分析已运行并自动决策
-        if not self.tool.md5_analyzer or not self.tool.md5_analyzer.md5_duplicates:
-             logger.info("MD5 analysis did not find duplicates or was not run. Analyzing all blocks for semantics.")
-             # 如果没有 MD5 重复，理论上所有块都是唯一的，都需要分析
-             blocks_to_analyze = self.tool.blocks_data # 复制列表或直接使用
-             # 需要确保这些块的key也被记录，以防万一
-             for block in blocks_to_analyze:
-                  try:
-                      key = create_decision_key(block.file_path, block.block_id, block.block_type)
-                      block_keys_analyzed.add(key)
-                  except Exception: pass # 忽略无法创建键的块
-        else:
-             logger.info("MD5 analysis found duplicates. Selecting non-deleted blocks for semantic analysis.")
-             # 选择未被 MD5 标记为 'delete' 的块进行语义分析
-             for block in self.tool.blocks_data:
-                  try:
-                      key = create_decision_key(block.file_path, block.block_id, block.block_type)
-                      decision = self.tool.block_decisions.get(key, constants.DECISION_UNDECIDED)
+        logger.info("Filtering blocks for semantic analysis (excluding titles and MD5 deletes)...")
+        for block in self.tool.blocks_data:
+            # ==================== 修改：跳过标题块 ====================
+            if block.block_type == constants.BLOCK_TYPE_TITLE:
+                skipped_titles += 1
+                continue
+            # ========================================================
 
-                      if decision != constants.DECISION_DELETE and key not in block_keys_analyzed:
-                           # 只添加未被删除且未被处理的块
-                           blocks_to_analyze.append(block)
-                           block_keys_analyzed.add(key)
-                      # else:
-                           # logger.debug(f"Skipping block {key} (decision: {decision}) for semantic analysis.")
-                  except Exception as e:
-                       logger.warning(f"Error processing block {getattr(block, 'block_id', 'N/A')} for semantic pre-filtering: {e}")
-                       continue # 跳过有问题的块
+            try:
+                key = create_decision_key(block.file_path, block.block_id, block.block_type)
+                decision = self.tool.block_decisions.get(key, constants.DECISION_UNDECIDED)
+
+                if decision == constants.DECISION_DELETE:
+                    skipped_deleted += 1
+                    continue # 跳过已被 MD5 删除的块
+
+                # 检查是否已处理过这个key（以防万一）
+                if key in block_keys_analyzed:
+                    continue
+
+                # 添加到待分析列表
+                blocks_to_analyze.append(block)
+                block_keys_analyzed.add(key)
+
+            except Exception as e:
+                 logger.warning(f"Error processing block {getattr(block, 'block_id', 'N/A')} for semantic pre-filtering: {e}")
+                 continue # 跳过有问题的块
+
+        logger.info(f"Semantic pre-filtering complete. Skipped titles: {skipped_titles}, Skipped MD5 deletes: {skipped_deleted}.")
 
         unique_block_count = len(blocks_to_analyze)
         if unique_block_count < 2:
-            logger.info("Not enough unique blocks (<2) after MD5 filtering for semantic comparison.")
+            logger.info(f"Not enough unique blocks (<2) after filtering for semantic comparison.")
             return
 
         # --- 优化步骤 2: 计算选中块的向量 ---
-        logger.info(f"Computing vectors for {unique_block_count} unique blocks...")
-        # 提取 analysis_text 用于计算向量
+        logger.info(f"Computing vectors for {unique_block_count} unique blocks (excluding titles)...")
         texts_to_encode = [block.analysis_text for block in blocks_to_analyze]
         block_vectors = self._compute_vectors(texts_to_encode)
 
-        # 过滤掉计算失败的向量（例如空数组）及其对应的块
+        # 过滤掉计算失败的向量
         valid_indices = [i for i, vec in enumerate(block_vectors) if vec is not None and vec.size > 0]
-        if len(valid_indices) < len(blocks_to_analyze):
-             logger.warning(f"Vector computation failed for {len(blocks_to_analyze) - len(valid_indices)} blocks. Proceeding with valid vectors.")
+        if len(valid_indices) < unique_block_count:
+             logger.warning(f"Vector computation failed for {unique_block_count - len(valid_indices)} blocks. Proceeding with valid vectors.")
              if len(valid_indices) < 2:
                   logger.error("Not enough valid vectors (<2) for comparison.")
                   return
-             # 更新 blocks_to_analyze 和 block_vectors 以只包含有效的条目
              blocks_to_analyze = [blocks_to_analyze[i] for i in valid_indices]
              block_vectors = [block_vectors[i] for i in valid_indices]
-             unique_block_count = len(blocks_to_analyze) # 更新计数
+             unique_block_count = len(blocks_to_analyze)
 
 
         # --- 优化步骤 3: 查找语义相似对 ---
         logger.info(f"Finding semantically similar pairs among {unique_block_count} blocks using threshold {self.similarity_threshold}...")
         try:
-            # 使用 sentence_transformers.util 进行高效计算
-            # 需要确保 block_vectors 是 numpy 数组或 tensor 列表
-            embeddings = np.array(block_vectors) # 转换为 numpy 数组
-            # 计算所有对之间的余弦相似度
+            if not block_vectors: # 如果过滤后没有向量了
+                 logger.info("No valid vectors remaining for similarity calculation.")
+                 return
+
+            embeddings = np.array(block_vectors)
+            if embeddings.ndim == 1: # 处理只有一个有效向量的情况
+                 logger.info("Only one valid vector remaining, cannot compute similarity matrix.")
+                 return
+            if embeddings.size == 0: # 处理空数组的情况
+                logger.info("Embeddings array is empty, cannot compute similarity matrix.")
+                return
+
+            # 添加检查，确保 st_util 存在
+            if st_util is None:
+                logger.error("Sentence Transformers util (st_util) is not available. Cannot calculate similarity.")
+                return
+
             similarity_matrix = st_util.cos_sim(embeddings, embeddings)
 
-            # 遍历上三角矩阵（不包括对角线）查找相似对
             found_pairs = 0
             for i in range(unique_block_count):
                 for j in range(i + 1, unique_block_count):
-                    similarity_score = similarity_matrix[i][j].item() # 获取标量值
+                    similarity_score = similarity_matrix[i][j].item()
 
                     if similarity_score >= self.similarity_threshold:
                         block1 = blocks_to_analyze[i]
                         block2 = blocks_to_analyze[j]
                         self.semantic_duplicates.append((block1, block2, similarity_score))
                         found_pairs += 1
-                        # logger.debug(f"Found similar pair: {block1.block_id} & {block2.block_id}, score: {similarity_score:.4f}")
 
             logger.info(f"Similarity calculation complete. Found {found_pairs} pairs above threshold.")
 
         except Exception as e:
              logger.error(f"Error during similarity calculation: {e}", exc_info=True)
              handle_error(e, "计算语义相似度")
-             # 出错则不继续，保留已找到的（可能为空）
              return
 
-        # 按相似度降序排序结果
         self.semantic_duplicates.sort(key=lambda x: x[2], reverse=True)
 
         end_time = time.time()
-        logger.info(f"Semantic analysis complete. Found {len(self.semantic_duplicates)} similar pairs. Time taken: {end_time - start_time:.2f} seconds")
+        logger.info(f"Semantic analysis complete. Found {len(self.semantic_duplicates)} similar pairs (titles excluded). Time taken: {end_time - start_time:.2f} seconds")
 
 
     def _display_semantic_duplicates_list(self) -> bool:
         """
         在控制台显示所有语义相似对，并为每个块分配唯一的显示 ID。
         """
-        print("\n--- 语义相似内容块列表 ---")
+        print("\n--- 语义相似内容块列表 (已排除标题) ---")
         if self.tool.skip_semantic:
             print("[*] 语义分析已被跳过。")
             return False
         if not self.semantic_duplicates:
-            print(f"[*] 未找到相似度 > {self.similarity_threshold:.2f} 的语义相似项。")
+            print(f"[*] 未找到相似度 > {self.similarity_threshold:.2f} 的语义相似项 (已排除标题)。")
             return False
 
-        self.semantic_id_to_key.clear() # 清空旧的映射
+        self.semantic_id_to_key.clear()
         print("\n对号 | 相似度 | 显示ID | 文件名 (类型 #块ID)         | 当前决策  | 内容预览 (原始文本)")
         print("-----|---------|--------|-----------------------------|-----------|----------------------")
         pair_num = 0
         total_pairs = len(self.semantic_duplicates)
 
-        # 遍历找到的语义相似对 (已按分数降序排列)
         for pair_idx, (block1, block2, score) in enumerate(self.semantic_duplicates):
             pair_num += 1
-            # 显示进度
-            # if pair_num % 10 == 0:
-            #     print(f"\n[*] 正在显示第 {pair_num}/{total_pairs} 对...")
-
-            # 为每对中的两个块创建显示 ID，例如 s1-1, s1-2
             display_id1 = f"s{pair_num}-1"
             display_id2 = f"s{pair_num}-2"
 
-            # 创建决策键
             try:
                 key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
                 key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
@@ -382,33 +362,26 @@ class SemanticAnalyzer:
                  logger.warning(f"无法为相似对 {pair_num} 中的块创建决策键: {e}. 跳过此对的显示。")
                  continue
 
-            # 存储显示 ID 到决策键的映射
             self.semantic_id_to_key[display_id1] = key1
             self.semantic_id_to_key[display_id2] = key2
 
-            # 获取当前决策状态
             current_decision1 = self.tool.block_decisions.get(key1, constants.DECISION_UNDECIDED)
             current_decision2 = self.tool.block_decisions.get(key2, constants.DECISION_UNDECIDED)
 
-            # 生成内容预览 (使用原始文本)
             preview1 = display_block_preview(block1.original_text)
             preview2 = display_block_preview(block2.original_text)
 
-            # 获取文件名字符串
             file_name1 = Path(block1.file_path).name
             file_name2 = Path(block2.file_path).name
 
-            # 格式化块信息
             info_str1 = f"{file_name1} ({block1.block_type} #{block1.block_id})"
             info_str2 = f"{file_name2} ({block2.block_type} #{block2.block_id})"
 
-            # 打印第一块的信息
             print(f" {pair_num:<4}| {score:.4f}  | {display_id1:<6} | {info_str1:<27} | {current_decision1:<9} | {preview1}")
-            # 打印第二块的信息
             print(f"     |         | {display_id2:<6} | {info_str2:<27} | {current_decision2:<9} | {preview2}")
             print("-----|---------|--------|-----------------------------|-----------|----------------------")
 
-        print(f"\n[*] 共显示 {pair_num}/{total_pairs} 对语义相似块。")
+        print(f"\n[*] 共显示 {pair_num}/{total_pairs} 对语义相似块 (已排除标题)。")
         return True
 
 
@@ -418,9 +391,8 @@ class SemanticAnalyzer:
         """
         logger.info("Starting interactive review of semantic duplicates...")
 
-        # 初始显示列表
         if not self._display_semantic_duplicates_list():
-            logger.info("No semantic duplicates to review.")
+            logger.info("No semantic duplicates to review (titles excluded).")
             print("\n--- 语义相似项处理完成 ---")
             return
 
@@ -440,7 +412,7 @@ class SemanticAnalyzer:
             action = input("请输入操作: ").lower().strip()
             logger.debug(f"User input for semantic review: '{action}'")
 
-            redisplay_list = False # 默认操作后不自动刷新列表，除非是查询类或无效输入
+            redisplay_list = False
 
             if action == 'q':
                 logger.info("Quitting interactive semantic review.")
@@ -451,11 +423,11 @@ class SemanticAnalyzer:
                     print(" [*] 决策已保存。")
                 else:
                     print(" [!] 保存决策时遇到问题。")
-                continue # 保存后继续显示选项
+                continue
 
             parts = action.split()
             if not parts:
-                continue # 忽略空输入
+                continue
 
             command = parts[0]
             ids_input = parts[1:]
@@ -498,7 +470,7 @@ class SemanticAnalyzer:
                             if id1 in self.semantic_id_to_key and id2 in self.semantic_id_to_key:
                                 key1 = self.semantic_id_to_key[id1]
                                 key2 = self.semantic_id_to_key[id2]
-                                decision1, decision2 = constants.DECISION_UNDECIDED, constants.DECISION_UNDECIDED # 默认
+                                decision1, decision2 = constants.DECISION_UNDECIDED, constants.DECISION_UNDECIDED
 
                                 if command == 'k1d2': decision1, decision2 = constants.DECISION_KEEP, constants.DECISION_DELETE
                                 elif command == 'k2d1': decision1, decision2 = constants.DECISION_DELETE, constants.DECISION_KEEP
@@ -524,15 +496,18 @@ class SemanticAnalyzer:
 
             if processed_count > 0:
                  print(f"[*] 共处理了 {processed_count} 个块的决策。")
-                 redisplay_list = True # 成功处理后刷新列表
+                 redisplay_list = True
 
             if error_occurred:
                  print("[!] 处理过程中发生错误，部分操作可能未完成。")
-                 # 不刷新列表可能更好，让用户看到错误信息
 
-            # 如果需要且没有错误，重新显示列表
             if redisplay_list and not error_occurred:
-                self._display_semantic_duplicates_list()
+                # 重新显示列表以反映更改
+                if not self._display_semantic_duplicates_list():
+                     # 如果重新显示时发现没有更多项了，就退出循环
+                     logger.info("No more semantic duplicates to review after update.")
+                     break
 
         logger.info("Finished interactive review of semantic duplicates.")
         print("\n--- 语义相似项处理完成 ---")
+
