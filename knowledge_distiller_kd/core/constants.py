@@ -1,90 +1,87 @@
+# knowledge_distiller_kd/core/constants.py
 """
-常量模块，定义了项目中使用的所有常量。
-
-此模块包含：
-1. 文件路径常量
-2. 配置常量
-3. 错误代码常量
-4. 其他常量
+定义项目中使用的常量。
 """
 
-from typing import Final
+import logging
+from pathlib import Path
+import os # 添加 os 模块导入以使用 os.path.join
 
-# 文件路径常量
-DEFAULT_INPUT_DIR: Final[str] = "input"
-DEFAULT_OUTPUT_DIR: Final[str] = "output"
-DEFAULT_DECISION_FILE: Final[str] = "decisions/decisions.json"
-DEFAULT_LOG_FILE: Final[str] = "logs/kd_tool.log"
+# --- 日志相关 ---
+# ==================== 新增：定义 Logger 名称 ====================
+LOGGER_NAME = "kd_tool" # 定义日志记录器的名称
+# ============================================================
+DEFAULT_LOG_DIR = "logs"
+DEFAULT_LOG_FILE = f"{LOGGER_NAME}.log" # 使用定义的名称
+LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
+LOG_LEVEL_MAP = {
+    "DEBUG": logging.DEBUG,
+    "INFO": logging.INFO,
+    "WARNING": logging.WARNING,
+    "ERROR": logging.ERROR,
+    "CRITICAL": logging.CRITICAL,
+}
+DEFAULT_LOG_LEVEL = "INFO"
 
-# 配置常量
-DEFAULT_SEMANTIC_MODEL: Final[str] = "paraphrase-multilingual-MiniLM-L12-v2"
-DEFAULT_SIMILARITY_THRESHOLD: Final[float] = 0.8
-DEFAULT_BATCH_SIZE: Final[int] = 32
-DEFAULT_ENCODING: Final[str] = "utf-8"
+# --- 文件处理相关 ---
+DEFAULT_ENCODING = "utf-8"
+SUPPORTED_EXTENSIONS = {".md", ".markdown"} # 明确支持的扩展名
+# ==================== 添加：默认输出目录 ====================
+DEFAULT_OUTPUT_DIR = "output" # 添加默认输出目录常量
+# ============================================================
+DEFAULT_OUTPUT_SUFFIX = "_deduped"
+PREVIEW_MAX_LEN = 80 # 预览文本的最大长度
 
-# 错误代码常量
-ERROR_CODE_INIT_FAILED: Final[str] = "INIT_FAILED"
-ERROR_CODE_FILE_NOT_FOUND: Final[str] = "FILE_NOT_FOUND"
-ERROR_CODE_PERMISSION_DENIED: Final[str] = "PERMISSION_DENIED"
-ERROR_CODE_INVALID_PATH: Final[str] = "INVALID_PATH"
-ERROR_CODE_READ_FILE_FAILED: Final[str] = "READ_FILE_FAILED"
-ERROR_CODE_WRITE_FILE_FAILED: Final[str] = "WRITE_FILE_FAILED"
-ERROR_CODE_PARSE_FILE_FAILED: Final[str] = "PARSE_FILE_FAILED"
-ERROR_CODE_LOAD_MODEL_FAILED: Final[str] = "LOAD_MODEL_FAILED"
-ERROR_CODE_ANALYZE_FAILED: Final[str] = "ANALYZE_FAILED"
-ERROR_CODE_SAVE_DECISIONS_FAILED: Final[str] = "SAVE_DECISIONS_FAILED"
-ERROR_CODE_LOAD_DECISIONS_FAILED: Final[str] = "LOAD_DECISIONS_FAILED"
-ERROR_CODE_APPLY_DECISIONS_FAILED: Final[str] = "APPLY_DECISIONS_FAILED"
+# --- 决策相关 ---
+DECISION_KEEP = "keep"
+DECISION_DELETE = "delete"
+DECISION_UNDECIDED = "undecided"
+DEFAULT_DECISION_DIR = "decisions"
+DEFAULT_DECISION_FILE = os.path.join(DEFAULT_DECISION_DIR, "decisions.json") # 使用 os.path.join
+DECISION_KEY_SEPARATOR = "::" # 定义决策键分隔符
 
-# 其他常量
-DECISION_KEEP: Final[str] = "keep"
-DECISION_DELETE: Final[str] = "delete"
-DECISION_UNDECIDED: Final[str] = "undecided"
-DECISION_KEY_SEPARATOR: Final[str] = "::"
-DEFAULT_OUTPUT_SUFFIX: Final[str] = "_deduped"
+# --- 分析相关 ---
+# MD5
+MD5_HASH_ALGORITHM = "md5"
 
-BLOCK_TYPE_PARAGRAPH: Final[str] = "paragraph"
-BLOCK_TYPE_HEADING: Final[str] = "heading"
-BLOCK_TYPE_LIST: Final[str] = "list"
-BLOCK_TYPE_CODE: Final[str] = "code"
-BLOCK_TYPE_QUOTE: Final[str] = "quote"
-BLOCK_TYPE_TABLE: Final[str] = "table"
-BLOCK_TYPE_HTML: Final[str] = "html"
-BLOCK_TYPE_LINK: Final[str] = "link"
-BLOCK_TYPE_IMAGE: Final[str] = "image"
-BLOCK_TYPE_THEMATIC_BREAK: Final[str] = "thematic_break"
-BLOCK_TYPE_UNKNOWN: Final[str] = "unknown"
+# Semantic
+DEFAULT_SEMANTIC_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
+DEFAULT_SIMILARITY_THRESHOLD = 0.80 # 默认相似度阈值
+DEFAULT_BATCH_SIZE = 32 # 语义模型编码批处理大小
+VECTOR_CACHE_FILE = "cache/vector_cache.pkl" # 向量缓存文件路径 (如果使用持久化缓存)
+CACHE_DIR = "cache" # 缓存目录
 
-# 日志级别常量
-LOG_LEVEL_DEBUG: Final[str] = "DEBUG"
-LOG_LEVEL_INFO: Final[str] = "INFO"
-LOG_LEVEL_WARNING: Final[str] = "WARNING"
-LOG_LEVEL_ERROR: Final[str] = "ERROR"
-LOG_LEVEL_CRITICAL: Final[str] = "CRITICAL"
+# --- 错误代码 ---
+# (保持不变，如果需要可以添加更多)
+ERROR_CODES = {
+    "FILE_NOT_FOUND": 1001,
+    "FILE_PROCESSING_ERROR": 1002,
+    "INVALID_DIRECTORY": 1003,
+    "DIRECTORY_PROCESSING_ERROR": 1004,
+    "CONFIGURATION_ERROR": 2001,
+    "MODEL_LOADING_ERROR": 3001,
+    "VECTOR_COMPUTATION_ERROR": 3002,
+    "SIMILARITY_CALCULATION_ERROR": 3003,
+    "ANALYSIS_ERROR": 4001, # 通用分析错误
+    "USER_INPUT_ERROR": 5001,
+    "UNEXPECTED_ERROR": 9999,
+}
 
-# 文件扩展名常量
-MARKDOWN_EXTENSIONS: Final[tuple] = (".md", ".markdown", ".mdown", ".mkdn", ".mkd")
 
-# 进度显示常量
-PROGRESS_BAR_WIDTH: Final[int] = 50
-PROGRESS_BAR_CHAR: Final[str] = "="
-PROGRESS_BAR_HEAD: Final[str] = ">"
-PROGRESS_BAR_EMPTY: Final[str] = "-"
+# --- 块类型 ---
+# (这些可以与 document_processor.ContentBlock.ELEMENT_TYPE_MAP 保持一致或独立定义)
+BLOCK_TYPE_TITLE = "Title"
+BLOCK_TYPE_TEXT = "NarrativeText" # 或 Text
+BLOCK_TYPE_LIST_ITEM = "ListItem"
+BLOCK_TYPE_CODE = "CodeSnippet"
+BLOCK_TYPE_TABLE = "Table"
+# ... 其他可能的类型
 
-# 缓存常量
-CACHE_DIR: Final[str] = ".cache"
-VECTOR_CACHE_FILE: Final[str] = "vector_cache.pkl"
-MODEL_CACHE_DIR: Final[str] = "models"
+# --- 版本信息 ---
+VERSION = "1.0.0" # 假设的版本号
 
-# 时间格式常量
-DATETIME_FORMAT: Final[str] = "%Y-%m-%d %H:%M:%S"
-DATE_FORMAT: Final[str] = "%Y-%m-%d"
-TIME_FORMAT: Final[str] = "%H:%M:%S"
-
-# 语言常量
-DEFAULT_LANGUAGE: Final[str] = "zh"
-SUPPORTED_LANGUAGES: Final[tuple] = ("zh", "en")
-
-# 版本常量
-VERSION: Final[str] = "1.0.0"
-
+# --- 缓存相关 ---
+# (如果需要更复杂的缓存策略)
+# CACHE_MAX_SIZE = 10000 # 示例：缓存最大条目数
+# CACHE_TTL = 3600 # 示例：缓存过期时间（秒）

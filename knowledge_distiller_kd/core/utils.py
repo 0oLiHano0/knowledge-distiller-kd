@@ -1,321 +1,255 @@
+# knowledge_distiller_kd/core/utils.py
 """
-工具函数模块。
+通用工具函数模块。
 
-此模块提供项目中使用的通用工具函数。
+提供日志设置、键管理、文本预览等辅助功能。
 """
-
-# [DEPENDENCIES]
-# 1. Python Standard Library: logging, re, pathlib
-# 2. 需要安装：mistune # 用于 Markdown 解析
-# 3. 同项目模块: constants (使用绝对导入)
 
 import logging
-import re
-import json
+import sys # 添加导入 sys 用于 StreamHandler
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple, Union, Any, Callable
-import mistune # 确保已安装
+# ==================== 修改：从 typing 导入 Union ====================
+from typing import Optional, Tuple, TYPE_CHECKING, Union, Any, TypeAlias
+# ============================================================
+import re
 from knowledge_distiller_kd.core import constants
-from knowledge_distiller_kd.core.error_handler import (
-    FileOperationError,
-    handle_error,
-    safe_file_operation
-)
 
-# --- 配置日志记录 ---
-def setup_logger(log_level: int = logging.INFO) -> logging.Logger:
+# 导入 mistune 用于 get_markdown_parser
+try:
+    import mistune
+    MISTUNE_AVAILABLE = True
+except ImportError:
+    mistune = None # 保持为 None
+    MISTUNE_AVAILABLE = False
+
+# 导入 ContentBlock 用于类型提示 (如果需要)
+if TYPE_CHECKING:
+    from knowledge_distiller_kd.core.document_processor import ContentBlock
+    # 在 TYPE_CHECKING 中导入 mistune
+    # 这样类型检查器知道 mistune.Markdown，但运行时不会出错
+    if MISTUNE_AVAILABLE:
+        import mistune
+
+
+# 全局 logger 实例
+logger = logging.getLogger(constants.LOGGER_NAME) # 使用常量定义的名字
+
+def setup_logger(level: int = logging.INFO) -> logging.Logger:
     """
-    配置并返回一个 logger 实例。
+    配置日志记录器。
 
     Args:
-        log_level (int): 日志级别，默认为 logging.INFO
+        level: 日志记录级别 (例如 logging.INFO, logging.DEBUG)
 
     Returns:
-        logging.Logger: 配置好的 logger 实例
+        logging.Logger: 配置好的日志记录器实例
     """
-    logger = logging.getLogger('KDToolLogger')
-    # 如果 logger 已经有 handlers，假设它已经被配置过，直接返回
-    if logger.handlers:
-        # 如果需要根据新的 log_level 调整现有 handler 的级别
-        for handler in logger.handlers:
-            handler.setLevel(log_level)
-        logger.setLevel(log_level)
-        return logger
+    # 检查是否已经有 handlers，避免重复添加
+    # (如果 logger 是首次获取，hasHandlers() 可能为 False)
+    # 更可靠的方式是移除所有现有的 handlers
+    if logger.hasHandlers():
+        for handler in logger.handlers[:]:
+            try:
+                # 尝试关闭 handler，忽略可能的错误
+                handler.close()
+            except Exception:
+                pass # 忽略关闭错误
+            logger.removeHandler(handler)
 
-    logger.setLevel(log_level) # 设置 logger 的级别
+    logger.setLevel(level)
+    log_format = logging.Formatter(constants.LOG_FORMAT, datefmt=constants.LOG_DATE_FORMAT)
 
-    # 创建一个控制台处理器 (handler)
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level) # 设置 handler 的级别
+    # --- 文件 Handler ---
+    try:
+        log_dir = Path(constants.DEFAULT_LOG_DIR)
+        log_dir.mkdir(parents=True, exist_ok=True) # 确保目录存在
+        log_file = log_dir / constants.DEFAULT_LOG_FILE
+        file_handler = logging.FileHandler(log_file, encoding=constants.DEFAULT_ENCODING)
+        file_handler.setFormatter(log_format)
+        logger.addHandler(file_handler)
+    except Exception as e:
+        # 在无法设置文件日志时，打印警告到 stderr
+        print(f"警告：无法配置日志文件处理器 '{constants.DEFAULT_LOG_FILE}': {e}", file=sys.stderr)
 
-    # 创建日志格式
-    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-    console_handler.setFormatter(formatter)
+    # --- Stream Handler (控制台输出) ---
+    # 总是尝试添加 StreamHandler，这样 pytest caplog 才能捕获
+    try:
+        stream_handler = logging.StreamHandler(sys.stdout) # 输出到标准输出
+        stream_handler.setFormatter(log_format)
+        # 可以设置不同的级别，例如控制台只显示 INFO
+        # stream_handler.setLevel(logging.INFO)
+        logger.addHandler(stream_handler)
+    except Exception as e:
+         # 在无法设置流日志时，打印警告到 stderr
+         print(f"警告：无法配置日志流处理器: {e}", file=sys.stderr)
 
-    # 将处理器添加到 logger
-    logger.addHandler(console_handler)
-
-    # 防止日志消息传播到根 logger (如果根 logger 有自己的 handler)
-    logger.propagate = False
-
+    logger.propagate = False # 防止日志向上传播到根 logger
+    # 避免在测试中重复打印初始化信息
+    # logger.debug(f"Logger '{constants.LOGGER_NAME}' setup complete with level {logging.getLevelName(level)}.")
     return logger
 
-# 在模块加载时获取 logger 实例
-logger = setup_logger()
-
-# --- 辅助函数 ---
-
-def create_decision_key(file_path: Union[str, Path], block_index: Union[int, str], block_type: str) -> str:
+def create_decision_key(file_path: Union[str, Path], block_id: str, block_type: str) -> str:
     """
-    为内容块创建唯一的决策键。
+    根据文件路径、块ID和块类型创建唯一的决策键。
 
     Args:
-        file_path (Union[str, Path]): 文件路径
-        block_index (Union[int, str]): 块的索引
-        block_type (str): 块的类型
+        file_path: 文件路径 (字符串或Path对象)
+        block_id: 内容块的唯一ID
+        block_type: 内容块的类型
 
     Returns:
-        str: 格式为 "file_path::block_index::block_type" 的唯一键
-
-    Raises:
-        Exception: 当路径解析失败时
+        str: 生成的决策键 (格式: "文件路径::块ID::块类型")
     """
-    # 确保 file_path 是字符串形式，并且是绝对路径以保证唯一性
-    try:
-        file_path_str = str(Path(file_path).resolve())
-    except Exception: # 处理可能的路径错误
-        file_path_str = str(file_path) # 回退到原始字符串
-
-    # 确保 block_index 是字符串
-    index_str = str(block_index)
-    type_str = str(block_type)
+    # 确保 file_path 是字符串
+    file_path_str = str(file_path)
+    # 确保 block_id 是字符串
+    block_id_str = str(block_id)
+    # 确保 block_type 是字符串
+    block_type_str = str(block_type)
 
     # 使用常量中定义的分隔符
-    key = f"{file_path_str}{constants.DECISION_KEY_SEPARATOR}{index_str}{constants.DECISION_KEY_SEPARATOR}{type_str}"
-    return key
+    separator = constants.DECISION_KEY_SEPARATOR
+    return f"{file_path_str}{separator}{block_id_str}{separator}{block_type_str}"
 
-def parse_decision_key(key: str) -> Tuple[Optional[str], Optional[Union[int, str]], Optional[str]]:
+def parse_decision_key(key: Optional[str]) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     """
-    从决策键解析出文件路径、块索引和块类型。
+    解析决策键，提取文件路径、块ID和块类型。
 
     Args:
-        key (str): 决策键字符串
+        key: 要解析的决策键字符串
 
     Returns:
-        Tuple[Optional[str], Optional[Union[int, str]], Optional[str]]: 
-            (文件路径, 块索引, 块类型) 的元组，解析失败时返回 (None, None, None)
-
-    Example:
-        >>> parse_decision_key("/path/to/file::1::paragraph")
-        ("/path/to/file", 1, "paragraph")
+        Tuple[Optional[str], Optional[str], Optional[str]]: 包含文件路径、块ID和块类型的元组。
+                                                        如果解析失败，返回 (None, None, None)。
     """
-    try:
-        parts = key.split(constants.DECISION_KEY_SEPARATOR)
-        if len(parts) < 3:
-            logger.error(f"决策键格式不正确，部分太少: {key}")
-            return None, None, None
-
-        # 类型是最后一部分
-        type_str = parts[-1]
-        # 索引是倒数第二部分
-        index_str = parts[-2]
-        # 文件路径是前面所有部分的组合 (以防路径本身包含分隔符)
-        path_str = constants.DECISION_KEY_SEPARATOR.join(parts[:-2])
-
-        # 尝试将索引转换为整数，如果失败则保持为字符串
-        try:
-            index_val = int(index_str)
-        except ValueError:
-            index_val = index_str # 保持原样，例如 "1_0"
-
-        return path_str, index_val, type_str
-
-    except Exception as e:
-        logger.error(f"无法解析决策键: {key} - {e}", exc_info=True)
+    if not key:
         return None, None, None
 
-def extract_text_from_children(children: Optional[List[Dict[str, Any]]]) -> str:
+    separator = constants.DECISION_KEY_SEPARATOR
+    # 使用 rsplit 从右侧分割两次，确保即使文件路径包含分隔符也能正确处理
+    parts = key.rsplit(separator, 2)
+
+    if len(parts) == 3:
+        file_path, block_id, block_type = parts
+        # 做一些基本的健全性检查，例如块类型不能为空
+        if not file_path or not block_id or not block_type:
+             logger.warning(f"解析决策键时遇到空部分: '{key}' -> {parts}")
+             # 根据需要决定是否返回 None 或空字符串
+             # return None, None, None
+        return file_path, block_id, block_type
+    else:
+        # 如果分割结果不是3部分，说明格式无效
+        logger.warning(f"无法解析无效的决策键格式: '{key}'")
+        return None, None, None
+
+
+def extract_text_from_children(element: Any) -> str:
     """
-    从 mistune 令牌子项中递归提取文本内容。
-
-    Args:
-        children (Optional[List[Dict[str, Any]]]): mistune 解析出的子令牌列表
-
-    Returns:
-        str: 提取出的纯文本内容
-
-    Note:
-        处理以下类型的令牌：
-        - text: 纯文本
-        - codespan: 代码片段
-        - link/image: 链接和图片的文本描述
-        - emphasis/strong/strikethrough: 强调文本
-        - softbreak/linebreak: 换行符
-        - inline_html: 内联 HTML（当前忽略）
+    递归地从元素的子元素中提取文本内容。
+    (注意：此函数可能不再需要，因为 ContentBlock 直接使用 element.text)
     """
     text = ""
-    if children is None:
-        return ""
-    for child in children:
-        child_type = child.get('type')
-        if child_type == 'text':
-            text += child.get('raw', '')
-        elif child_type == 'codespan':
-            # 保留代码片段的原始标记
-            text += child.get('raw', '')
-        elif child_type in ['link', 'image']:
-             # 对于链接和图片，提取其文本描述部分
-             text += extract_text_from_children(child.get('children', []))
-        elif child_type in ['emphasis', 'strong', 'strikethrough']:
-            # 对于强调、加粗、删除线，提取其内部文本
-            text += extract_text_from_children(child.get('children', []))
-        elif child_type == 'softbreak' or child_type == 'linebreak':
-             # 将换行符转换为空格，以模拟阅读时的连续性
-             text += ' '
-        elif child_type == 'inline_html':
-             # 通常忽略内联 HTML 标签本身，但可以根据需要提取内容
-             pass # 或者提取 child.get('raw', '')
+    # 检查 element 是否可迭代且非字符串 (避免迭代字符串)
+    if hasattr(element, 'children') and isinstance(element.children, (list, tuple)):
+        for child in element.children:
+            if hasattr(child, 'text') and isinstance(child.text, str):
+                text += child.text + " "
+            else:
+                # 递归处理更深层次的子元素 (如果结构允许)
+                text += extract_text_from_children(child) + " "
+    elif hasattr(element, 'text') and isinstance(element.text, str):
+        text = element.text
+    return text.strip()
 
-    # 移除多余的空格并将多个空格合并为一个
-    text = ' '.join(text.split())
-    return text
-
-def display_block_preview(text: str, max_len: int = 80) -> str:
+def display_block_preview(text: Optional[str], max_len: int = constants.PREVIEW_MAX_LEN) -> str:
     """
-    生成用于控制台显示的块内容预览。
+    生成用于在命令行显示的块内容预览。
 
     Args:
-        text (str): 原始文本内容
-        max_len (int): 预览文本的最大长度，默认为80
+        text: 要预览的文本内容
+        max_len: 预览的最大长度 (指文本部分，不含后缀)
 
     Returns:
-        str: 处理后的预览文本，如果超过最大长度会添加省略号
+        str: 生成的预览字符串，包含长度信息
     """
-    if not text:
-        return "[空内容]"
+    if text is None:
+        text = "" # 处理 None 输入
 
-    # 替换换行符为空格，并移除首尾空格
-    preview = text.replace('\n', ' ').strip()
-    
-    # 如果预览文本过长，进行截断
-    if len(preview) > max_len:
-        return preview[:max_len-3] + "..."
-    
-    # 如果文本太短，添加长度信息
-    if len(preview) < 20:
-        return f"{preview} [长度: {len(text)}字符]"
-    
-    return preview
+    # 计算原始长度
+    original_length = len(text)
+    # 清理文本以便单行显示和长度计算（移除换行符等）
+    cleaned_text = text.replace('\n', ' ').replace('\r', '').strip()
 
-def get_markdown_parser() -> mistune.Markdown:
+    preview_text = cleaned_text
+    suffix = f" [长度: {original_length}字符]"
+
+    # 只有当实际清理后的文本长度超过限制时才截断
+    if len(cleaned_text) > max_len:
+        # 截断文本，留出 "..." 的位置 (3个字符)
+        trunc_len = max(0, max_len - 3) # 确保截断长度不为负
+        preview_text = cleaned_text[:trunc_len] + "..."
+
+    # 最终返回预览文本 + 长度后缀
+    return preview_text + suffix
+
+
+# 仅当 mistune 可用时定义实际函数体
+if MISTUNE_AVAILABLE and mistune:
+    def get_markdown_parser() -> 'mistune.Markdown': # 使用字符串避免运行时错误
+        """
+        获取配置好的Markdown解析器实例。
+        (注意：随着使用 unstructured，此函数的重要性可能降低)
+        """
+        # 可以根据需要启用 mistune 的插件
+        # 例如：启用表格、脚注、删除线等
+        # plugins = ['table', 'footnotes', 'strikethrough', 'url']
+        # return mistune.create_markdown(plugins=plugins)
+        return mistune.create_markdown() # 默认配置
+else:
+    def get_markdown_parser() -> None:
+        """
+        如果 mistune 不可用，返回 None。
+        """
+        # 不再打印警告，避免重复输出
+        # logger.warning("Mistune library not found, cannot provide Markdown parser.")
+        return None
+
+# ==================== 修改：使用 Union[int, str] 代替 Any ====================
+SortKey: TypeAlias = Tuple[str, Union[int, str]]
+# =======================================================================
+
+# 这个函数可能需要更新以处理 ContentBlock 对象
+def sort_blocks_key(block: Union[Tuple[str, int, str, str], 'ContentBlock']) -> SortKey: # 使用 TypeAlias
     """
-    创建并返回一个配置好的 mistune Markdown 解析器实例。
-
-    Returns:
-        mistune.Markdown: 配置好的 Markdown 解析器实例
-
-    Note:
-        启用了以下 Markdown 插件：
-        - strikethrough: 删除线
-        - footnotes: 脚注
-        - table: 表格
-        - list: 列表（默认启用）
-    """
-    # 创建一个新的解析器实例
-    renderer = mistune.HTMLRenderer()
-    markdown = mistune.Markdown(renderer)
-    return markdown
-
-def sort_blocks_key(block_info: Tuple[Union[str, Path], Union[int, str], str, str]) -> Tuple[str, Union[int, float], Union[int, str]]:
-    """
-    为块信息提供排序键，确保块按原始文件中的顺序排列。
+    为内容块列表提供排序键（按文件名和块索引/ID）。
 
     Args:
-        block_info (Tuple[Union[str, Path], Union[int, str], str, str]): 
-            包含 (文件路径, 索引, 类型, 内容) 的块信息元组
+        block: 内容块对象或元组
 
     Returns:
-        Tuple[str, Union[int, float], Union[int, str]]: 
-            用于排序的键，格式为 (文件路径, 主索引, 子索引)
-
-    Note:
-        处理以下索引格式：
-        - 普通整数索引
-        - 列表项的 '主_子' 格式索引
-        - 其他无法解析的索引格式（会被放在排序末尾）
+        SortKey: 用于排序的元组 (文件名, 块ID或索引)
     """
-    file_path, index_val, block_type, _ = block_info
-    # 使用文件路径的字符串形式进行排序的第一级比较
-    file_path_str = str(file_path)
-
-    if isinstance(index_val, str) and '_' in index_val:
+    if isinstance(block, tuple) and len(block) >= 2:
+        # 处理旧的元组格式 (file_path, block_index, ...)
+        file_path = str(block[0])
         try:
-            # 尝试按数字分割和排序
-            main_idx, sub_idx = map(int, index_val.split('_'))
-            return (file_path_str, main_idx, sub_idx)
-        except ValueError:
-             # 如果分割或转换失败，使用字符串排序作为后备
-             # 将无法解析的放在后面 (使用 float('inf'))
-             return (file_path_str, float('inf'), index_val)
-    try:
-        # 对于普通整数索引
-        return (file_path_str, int(index_val), 0)
-    except ValueError:
-         # 如果索引不是整数也不是 '主_子' 格式，使用字符串排序
-         # 将无法解析的放在后面
-         return (file_path_str, float('inf'), index_val)
+            # 尝试将第二个元素转为整数作为索引
+            block_index: Union[int, str] = int(block[1]) # 类型明确为 int
+        except (ValueError, TypeError):
+            # 如果转换失败，使用默认值或记录警告
+            logger.debug(f"无法将块元组的第二个元素 '{block[1]}' 转换为整数索引，使用 0 代替。")
+            block_index = 0 # 类型为 int
+        return (file_path, block_index)
+    elif hasattr(block, 'file_path') and hasattr(block, 'block_id'):
+        # 处理 ContentBlock 对象
+        file_path = str(getattr(block, 'file_path', ''))
+        # 直接使用字符串 block_id 进行排序，因为 block_id 通常是哈希值
+        block_sort_key: str = str(getattr(block, 'block_id', '')) # 类型明确为 str
+        return (file_path, block_sort_key)
+    else:
+        # 对于未知类型，返回默认值以避免排序错误
+        logger.warning(f"无法识别的块类型用于排序: {type(block)}")
+        return ("", "") # 类型为 (str, str)
 
-def read_file_content(file_path: Path) -> str:
-    """
-    读取文件内容。
-
-    Args:
-        file_path: 文件路径
-
-    Returns:
-        文件内容字符串
-
-    Raises:
-        FileOperationError: 如果文件读取失败
-    """
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
-    except Exception as e:
-        raise FileOperationError(f"读取文件 {file_path} 失败: {str(e)}")
-
-def save_decisions(decisions: Dict[str, str], file_path: Path) -> None:
-    """
-    保存决策到文件。
-
-    Args:
-        decisions: 决策字典
-        file_path: 保存路径
-
-    Raises:
-        FileOperationError: 如果保存失败
-    """
-    try:
-        with open(file_path, 'w', encoding='utf-8') as f:
-            json.dump(decisions, f, ensure_ascii=False, indent=2)
-    except Exception as e:
-        raise FileOperationError(f"保存决策到文件 {file_path} 失败: {str(e)}")
-
-def load_decisions(file_path: Path) -> Dict[str, str]:
-    """
-    从文件加载决策。
-
-    Args:
-        file_path: 决策文件路径
-
-    Returns:
-        决策字典
-
-    Raises:
-        FileOperationError: 如果加载失败
-    """
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception as e:
-        raise FileOperationError(f"从文件 {file_path} 加载决策失败: {str(e)}")
+# 注意：不在 utils.py 中直接调用 setup_logger()
+# 应由主程序入口 (如 kd_tool_CLI.py 的 main 函数) 调用一次。
