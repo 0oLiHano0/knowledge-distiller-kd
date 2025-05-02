@@ -191,11 +191,20 @@ def display_block_preview(text: str, max_len: int = 80) -> str:
     Returns:
         str: 处理后的预览文本，如果超过最大长度会添加省略号
     """
+    if not text:
+        return "[空内容]"
+
     # 替换换行符为空格，并移除首尾空格
     preview = text.replace('\n', ' ').strip()
+    
     # 如果预览文本过长，进行截断
     if len(preview) > max_len:
         return preview[:max_len-3] + "..."
+    
+    # 如果文本太短，添加长度信息
+    if len(preview) < 20:
+        return f"{preview} [长度: {len(text)}字符]"
+    
     return preview
 
 def get_markdown_parser() -> mistune.Markdown:
