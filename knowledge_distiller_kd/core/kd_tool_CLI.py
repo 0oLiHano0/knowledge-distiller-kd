@@ -27,7 +27,6 @@ from knowledge_distiller_kd.core.utils import (
     setup_logger,
     create_decision_key,
     parse_decision_key,
-    # extract_text_from_children, # 可能不再需要，因为处理移到 ContentBlock
     display_block_preview,
     get_markdown_parser,
     sort_blocks_key,
@@ -41,12 +40,15 @@ from knowledge_distiller_kd.core.document_processor import (
     process_directory,
     DocumentProcessingError
 )
+# ==================== 添加导入 ====================
+from knowledge_distiller_kd.core.block_merger import merge_code_blocks
+# =================================================
 from knowledge_distiller_kd.core import constants
 
 # [DEPENDENCIES] - 保持更新
 # 1. Python Standard Library: sys, os, json, logging, collections, pathlib, argparse, traceback
 # 2. 需要安装：unstructured, sentence-transformers, torch, numpy, PyYAML, colorama, markdown (mistune 可能不再直接需要，但unstructured可能依赖)
-# 3. 同项目模块: constants, error_handler, utils, md5_analyzer, semantic_analyzer, document_processor
+# 3. 同项目模块: constants, error_handler, utils, md5_analyzer, semantic_analyzer, document_processor, block_merger
 
 # 开发环境默认路径 (如果需要，可以根据实际情况调整或移除)
 DEV_DEFAULT_INPUT_DIR = "input"
@@ -84,10 +86,6 @@ class KDToolCLI:
             self.decision_file: Path = Path(decision_file or constants.DEFAULT_DECISION_FILE).resolve()
             self.output_dir: Path = Path(output_dir or constants.DEFAULT_OUTPUT_DIR).resolve()
 
-            # 确保目录存在 (推迟到实际使用时创建，避免空目录)
-            # self.decision_file.parent.mkdir(parents=True, exist_ok=True) # 在保存时创建
-            # self.output_dir.mkdir(parents=True, exist_ok=True) # 在应用决策时创建
-
             # 配置参数
             self.skip_semantic: bool = skip_semantic
             # 确保阈值在有效范围 [0.0, 1.0]
@@ -99,10 +97,10 @@ class KDToolCLI:
             self._decisions_loaded: bool = False
             self._analysis_completed: bool = False # 添加分析完成状态
 
-            # 初始化分析器实例 (在 _reset_state 中进行)
-            self.md5_analyzer: Optional[MD5Analyzer] = None
-            self.semantic_analyzer: Optional[SemanticAnalyzer] = None
-            self._reset_state() # 在初始化时就重置一次状态并创建分析器
+            # 初始化分析器实例
+            self.md5_analyzer: MD5Analyzer = MD5Analyzer(self)
+            self.semantic_analyzer: SemanticAnalyzer = SemanticAnalyzer(self, self.similarity_threshold)
+            # self._reset_state() # 不再在 init 中调用 reset
 
             logger.info("知识蒸馏工具初始化完成")
             logger.debug(f"  输入目录: {self.input_dir}")
@@ -125,11 +123,16 @@ class KDToolCLI:
         self.block_decisions.clear()
         self._decisions_loaded = False
         self._analysis_completed = False # 重置分析状态
-        # 创建（或重新创建）分析器实例
-        self.md5_analyzer = MD5Analyzer(self)
-        # 确保传递正确的阈值
-        self.semantic_analyzer = SemanticAnalyzer(self, self.similarity_threshold)
-        logger.debug("Analyzers re-initialized.")
+        # 分析器实例在 __init__ 中创建，这里不需要重新创建
+        # 清理分析器内部状态（如果需要）
+        if self.md5_analyzer:
+            self.md5_analyzer.md5_duplicates.clear()
+        if self.semantic_analyzer:
+            self.semantic_analyzer.semantic_duplicates.clear()
+            self.semantic_analyzer.semantic_id_to_key.clear()
+            # 考虑是否需要清除 vector_cache？通常不需要，除非输入文件变化很大
+            # self.semantic_analyzer.vector_cache.clear()
+        logger.debug("Internal data structures cleared.")
 
 
     def set_input_dir(self, input_dir: Union[str, Path]) -> bool:
@@ -164,7 +167,6 @@ class KDToolCLI:
             print(f"[错误] 设置输入目录时发生意外错误: {e}")
             return False
 
-    # ==================== 新增方法：加载语义模型 ====================
     def _load_semantic_model(self) -> bool:
         """
         尝试加载语义模型。
@@ -182,8 +184,6 @@ class KDToolCLI:
             # 检查加载是否成功 (load_semantic_model 失败时会设置 skip_semantic=True)
             if self.semantic_analyzer.model is None and not self.skip_semantic:
                 logger.warning("Semantic model loading seems to have failed (model is None).")
-                # 根据 load_semantic_model 的逻辑，它失败时会设置 self.skip_semantic = True
-                # 所以理论上这里不需要返回 False，但可以加日志
             return True
         except Exception as e:
             handle_error(e, "加载语义模型")
@@ -193,11 +193,10 @@ class KDToolCLI:
             if self.semantic_analyzer:
                  self.semantic_analyzer.tool.skip_semantic = True # 确保分析器内部状态也同步
             return False
-    # =============================================================
 
     def run_analysis(self) -> bool:
         """
-        执行完整的分析流程：读取 -> 解析 -> 初始化决策 -> MD5 -> [加载模型] -> 语义。
+        执行完整的分析流程：读取 -> 解析 -> [合并代码块] -> 初始化决策 -> MD5 -> [加载模型] -> 语义。
 
         Returns:
             bool: 如果分析成功完成返回 True，否则返回 False
@@ -222,12 +221,13 @@ class KDToolCLI:
         # 定义分析步骤
         steps = [
             ("处理文档", self._process_documents),
+            # ==================== 添加合并步骤 ====================
+            ("合并代码块", self._merge_code_blocks_step),
+            # =====================================================
             ("初始化决策", self._initialize_decisions),
             ("MD5 去重", self.md5_analyzer.find_md5_duplicates),
-            # ==================== 修改点：添加加载模型步骤 ====================
             ("加载语义模型", self._load_semantic_model),
-            # ==============================================================
-            ("语义去重", self.semantic_analyzer.find_semantic_duplicates) # 使用实例方法
+            ("语义去重", self.semantic_analyzer.find_semantic_duplicates)
         ]
 
         analysis_successful = True
@@ -244,9 +244,7 @@ class KDToolCLI:
             try:
                 # 执行步骤
                 result = step_func()
-                # 对于 find_... 和 load_... 方法，它们内部处理错误并可能返回 False 或 None
-                # 但 run_analysis 应该继续，除非是关键步骤失败
-                if result is False and step_name in ["处理文档", "初始化决策"]: # 关键步骤失败则中止
+                if result is False and step_name in ["处理文档", "合并代码块", "初始化决策"]: # 关键步骤失败则中止
                     logger.error(f"Analysis stopped: Critical step '{step_name}' failed.")
                     print(f"[错误] 关键步骤 '{step_name}' 失败，分析中止。")
                     analysis_successful = False
@@ -294,10 +292,11 @@ class KDToolCLI:
 
             # 清空旧数据并填充新数据
             self.blocks_data.clear()
+            total_blocks = 0
             for file_path, blocks in results.items():
                 self.blocks_data.extend(blocks)
+                total_blocks += len(blocks) # 累加块数
 
-            total_blocks = len(self.blocks_data)
             if total_blocks > 0:
                  logger.info(f"成功处理 {len(results)} 个文件，共提取 {total_blocks} 个内容块。")
                  print(f"\n[*] 文档处理完成: 成功处理 {len(results)} 个文件，提取 {total_blocks} 个块。")
@@ -316,21 +315,45 @@ class KDToolCLI:
             print(f"[错误] 处理文档时发生意外错误: {e}")
             return False
 
+    # ==================== 新增：调用合并函数的步骤 ====================
+    def _merge_code_blocks_step(self) -> bool:
+        """
+        调用代码块合并逻辑。
+        """
+        if not self.blocks_data:
+            logger.info("No blocks found, skipping code block merging.")
+            print("[*] 没有内容块，跳过代码块合并。")
+            return True # 没有块也算成功
+
+        try:
+            logger.info(f"Starting code block merging for {len(self.blocks_data)} blocks...")
+            original_block_count = len(self.blocks_data)
+            self.blocks_data = merge_code_blocks(self.blocks_data)
+            merged_block_count = len(self.blocks_data)
+            logger.info(f"Code block merging complete. Block count changed from {original_block_count} to {merged_block_count}.")
+            print(f"[*] 代码块合并完成，块数量从 {original_block_count} 变为 {merged_block_count}。")
+            return True
+        except Exception as e:
+            handle_error(e, "合并代码块")
+            print(f"[错误] 合并代码块时发生意外错误: {e}")
+            return False
+    # =============================================================
+
     def _initialize_decisions(self) -> bool:
         """
-        初始化所有内容块的决策状态。
+        初始化所有内容块的决策状态。现在基于合并后的 blocks_data。
 
         Returns:
             bool: 总是返回 True，除非发生严重错误。初始化零个决策也算成功。
         """
         if not self.blocks_data:
-             logger.info("No blocks found, skipping decision initialization.")
-             print("[*] 没有内容块，跳过决策初始化。")
+             logger.info("No blocks found after potential merging, skipping decision initialization.")
+             print("[*] 没有内容块（可能合并后），跳过决策初始化。")
              self.block_decisions.clear()
              return True
 
-        logger.info(f"Initializing decisions for {len(self.blocks_data)} blocks...")
-        print(f"\n[*] 正在初始化 {len(self.blocks_data)} 个块的决策...")
+        logger.info(f"Initializing decisions for {len(self.blocks_data)} blocks (post-merge)...")
+        print(f"\n[*] 正在初始化 {len(self.blocks_data)} 个块（合并后）的决策...")
 
         self.block_decisions.clear()
         initialized_count = 0
@@ -338,18 +361,24 @@ class KDToolCLI:
 
         for i, block in enumerate(self.blocks_data):
             try:
+                # 确保 block 是 ContentBlock 实例
+                if not isinstance(block, ContentBlock):
+                     logger.warning(f"Skipping non-ContentBlock item at index {i} during decision init: {type(block)}")
+                     error_count += 1
+                     continue
+
                 key = create_decision_key(block.file_path, block.block_id, block.block_type)
                 self.block_decisions[key] = constants.DECISION_UNDECIDED
                 initialized_count += 1
-                # if (i + 1) % 100 == 0: # 减少打印频率
-                #      logger.debug(f"Initializing decisions progress: {i+1}/{len(self.blocks_data)}")
             except Exception as e:
                 error_count += 1
-                logger.error(f"无法为块创建决策键: {block.file_path} # {block.block_id} - {e}", exc_info=False) # 不打印完整堆栈
+                # 提供更多上下文信息
+                file_info = getattr(block, 'file_path', 'N/A')
+                id_info = getattr(block, 'block_id', 'N/A')
+                logger.error(f"无法为块创建决策键: {file_info} # {id_info} - {e}", exc_info=False) # 不打印完整堆栈
 
         logger.info(f"成功初始化 {initialized_count} 个块的决策。{error_count} 个块失败。")
         print(f"[*] 决策初始化完成: {initialized_count} 个成功，{error_count} 个失败。")
-        # 即使有错误，也认为此步骤逻辑上完成了它能做的
         return True
 
     def load_decisions(self) -> bool:
@@ -380,8 +409,7 @@ class KDToolCLI:
                     print(f"[错误] 无法解析决策文件 '{self.decision_file.name}': {e}")
                     return False
 
-            # 加载前可以不清空 self.block_decisions，而是进行合并/更新
-            # 这里选择清空以完全反映文件状态
+            # 加载前清空内存中的决策
             self.block_decisions.clear()
             logger.info(f"成功读取 {len(decisions_from_file)} 条决策记录，现在应用...")
 
@@ -396,35 +424,26 @@ class KDToolCLI:
                 block_type = record.get('type')
                 decision = record.get('decision')
 
+                # 验证记录完整性
                 if not all([file_str, block_id, block_type, decision]):
                     logger.warning(f"跳过不完整的决策记录: {record}")
                     error_count += 1
                     continue
-
+                # 验证决策值
                 if decision not in [constants.DECISION_KEEP, constants.DECISION_DELETE, constants.DECISION_UNDECIDED]:
                      logger.warning(f"跳过包含无效决策值的记录 ('{decision}'): {record}")
                      error_count += 1
                      continue
 
                 try:
-                    # 尝试将文件路径解析为绝对路径以匹配内部表示
-                    # 注意：这假设决策文件中的路径是相对于某个基准或已经是绝对路径
-                    # 更健壮的方式可能是在保存时就存绝对路径，或提供基准路径选项
-                    abs_file_path = Path(file_str)
-                    if not abs_file_path.is_absolute():
-                         # 如果不是绝对路径，尝试相对于 input_dir 解析？
-                         # 或者假设它是相对于决策文件所在目录？
-                         # 暂时假设它是可直接使用的路径字符串，create_decision_key会处理
-                         logger.debug(f"Decision record file path '{file_str}' is not absolute. Using as is.")
-                         pass # create_decision_key 会尝试 resolve
-
-                    key = create_decision_key(str(file_str), block_id, block_type)
+                    # 直接使用文件中的路径字符串创建 key
+                    key = create_decision_key(str(file_str), str(block_id), str(block_type))
                     self.block_decisions[key] = decision
                     loaded_count += 1
                 except Exception as e:
-                    logger.error(f"处理决策记录时出错 {record}: {e}")
-                    error_count += 1
-                    continue
+                     logger.error(f"处理决策记录时出错 {record}: {e}")
+                     error_count += 1
+                     continue
 
             logger.info(f"决策加载完成: 成功应用 {loaded_count} 条决策，{error_count} 条记录处理失败。")
             print(f"[*] 决策加载完成: 应用 {loaded_count} 条，失败 {error_count} 条。")
@@ -440,15 +459,15 @@ class KDToolCLI:
             print(f"[错误] 加载决策时发生意外错误: {e}")
             return False
 
-    # 稍微修改 save_decisions 以便处理可能的 Path 对象
     def save_decisions(self) -> bool:
         """
         将当前内存中的决策保存到文件。
+        如果设置了 input_dir，尝试保存相对路径。
         """
         if not self.block_decisions:
              logger.warning("没有决策可保存。")
              print("[!] 没有决策可保存。")
-             return False # 或者返回 True 表示“无需保存”？返回 False 表示未执行保存。
+             return False
 
         logger.info(f"开始保存 {len(self.block_decisions)} 条决策到文件: {self.decision_file}")
         decisions_to_save = []
@@ -463,11 +482,30 @@ class KDToolCLI:
                     error_count += 1
                     continue
 
-                # 考虑是否将绝对路径转为相对路径保存（相对于 input_dir）
-                # 暂时保存绝对路径字符串
+                # --- 尝试保存相对路径 ---
+                path_to_save = file_path_str # 默认为原始路径 (可能是绝对或相对)
+                if self.input_dir:
+                    try:
+                        abs_path = Path(file_path_str)
+                        # 只有当文件路径确实在 input_dir 下时才计算相对路径
+                        if abs_path.is_absolute() and abs_path.is_relative_to(self.input_dir):
+                            path_to_save = str(abs_path.relative_to(self.input_dir))
+                            logger.debug(f"Saving relative path for {abs_path}: {path_to_save}")
+                        elif not abs_path.is_absolute():
+                             # 如果已经是相对路径，假设它是相对于 input_dir 的
+                             logger.debug(f"Assuming relative path {file_path_str} is relative to input_dir.")
+                             path_to_save = file_path_str # 保持不变
+                        else:
+                             logger.warning(f"File path {file_path_str} is absolute but not inside input_dir {self.input_dir}. Saving absolute path.")
+                    except ValueError: # 处理 is_relative_to 可能的错误
+                         logger.warning(f"Could not determine if {file_path_str} is relative to {self.input_dir}. Saving original path.")
+                    except Exception as path_e:
+                         logger.error(f"Error processing path {file_path_str} for relative saving: {path_e}. Saving original path.")
+                # -------------------------
+
                 record = {
-                    'file': file_path_str, # 保存字符串
-                    'block_id': str(block_id), # 确保 block_id 是字符串
+                    'file': path_to_save, # 保存处理后的路径字符串
+                    'block_id': str(block_id),
                     'type': block_type,
                     'decision': decision
                 }
@@ -498,8 +536,7 @@ class KDToolCLI:
             print(f"[错误] 保存决策时发生意外错误: {e}")
             return False
 
-    # 应用决策（保持不变，它处理 ContentBlock）
-    @safe_file_operation
+    @safe_file_operation # 假设这个装饰器还适用
     def apply_decisions(self) -> bool:
         """
         应用决策，生成去重后的文件。
@@ -516,14 +553,18 @@ class KDToolCLI:
             print("[警告] 没有可处理的内容块。")
             return True  # 没有块也算成功应用（没啥可做的）
 
-        logger.info(f"开始应用 {len(self.block_decisions)} 条决策到 {len(set(b.file_path for b in self.blocks_data))} 个文件的内容块...")
+        # --- 获取需要处理的文件路径集合 (基于 blocks_data) ---
+        # 使用集合确保唯一性
+        files_to_process_paths = {block.file_path for block in self.blocks_data}
+        logger.info(f"开始应用 {len(self.block_decisions)} 条决策到 {len(files_to_process_paths)} 个文件的内容块...")
         print(f"[*] 正在应用决策以生成输出文件...")
 
-        # 按文件路径分组块数据
-        # 使用原始 ContentBlock 对象的 file_path (应该是绝对路径)
+        # 按文件路径对块进行分组 (使用绝对路径作为键以匹配 blocks_data)
         files_blocks: DefaultDict[str, List[ContentBlock]] = defaultdict(list)
         for block in self.blocks_data:
-            files_blocks[block.file_path].append(block)
+            # 确保使用一致的路径表示（例如绝对路径字符串）
+            abs_file_path_str = str(Path(block.file_path).resolve())
+            files_blocks[abs_file_path_str].append(block)
 
         # 确保输出目录存在
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -533,53 +574,73 @@ class KDToolCLI:
         error_files = []
         total_files_to_process = len(files_blocks)
 
-        for i, (file_path_str, blocks_in_file) in enumerate(files_blocks.items()):
-            original_path = Path(file_path_str)
+        for i, (abs_file_path_str, blocks_in_file) in enumerate(files_blocks.items()):
+            original_path = Path(abs_file_path_str)
             logger.debug(f"Processing file {i+1}/{total_files_to_process}: {original_path.name}")
-            # 构建输出文件名
+
+            # --- 确定输出路径 ---
             output_name = original_path.stem + constants.DEFAULT_OUTPUT_SUFFIX + original_path.suffix
-            output_path = self.output_dir / output_name
+            # 如果原始文件路径是相对 input_dir 的，则输出也相对 output_dir
+            output_sub_dir = self.output_dir
+            if self.input_dir and original_path.is_relative_to(self.input_dir):
+                relative_dir = original_path.parent.relative_to(self.input_dir)
+                output_sub_dir = self.output_dir / relative_dir
+                output_sub_dir.mkdir(parents=True, exist_ok=True) # 确保子目录存在
 
-            kept_blocks_count = 0
+            output_path = output_sub_dir / output_name
+
+            kept_blocks_content = [] # 存储要写入的内容
             try:
-                with open(output_path, 'w', encoding=constants.DEFAULT_ENCODING) as f_out:
-                     # 按原始顺序（假设 blocks_in_file 保持了顺序）写入保留的块
-                     # 为了更保险，可以先按 block_id 排序（如果 ID 是有序的）
-                     # blocks_in_file.sort(key=lambda b: b.block_id) # 取决于 block_id 格式
+                 # 遍历文件中的块 (假设 blocks_in_file 保持了大致顺序)
+                 # 如果需要严格按原始顺序，可能需要在 ContentBlock 中存储原始行号或索引
+                 for block in blocks_in_file:
+                     try:
+                         # --- 获取决策时，需要处理相对路径和绝对路径 ---
+                         # 尝试用绝对路径获取决策
+                         key_abs = create_decision_key(abs_file_path_str, block.block_id, block.block_type)
+                         decision = self.block_decisions.get(key_abs)
 
-                     for block in blocks_in_file:
-                         try:
-                             key = create_decision_key(block.file_path, block.block_id, block.block_type)
-                             decision = self.block_decisions.get(key, constants.DECISION_UNDECIDED) # 默认保留未决策的
+                         # 如果绝对路径找不到，且设置了 input_dir，尝试用相对路径获取
+                         if decision is None and self.input_dir and original_path.is_relative_to(self.input_dir):
+                             relative_path_str = str(original_path.relative_to(self.input_dir))
+                             key_rel = create_decision_key(relative_path_str, block.block_id, block.block_type)
+                             decision = self.block_decisions.get(key_rel)
 
-                             if decision != constants.DECISION_DELETE:
-                                 f_out.write(block.original_text)
-                                 # 添加适当的分隔符，例如两个换行符
-                                 f_out.write('\n\n')
-                                 kept_blocks_count += 1
-                         except Exception as e_inner:
-                              logger.error(f"处理块 {block.block_id} (文件 {original_path.name}) 时出错: {e_inner}")
-                              # 选择跳过这个块或停止整个文件处理
-                              continue # 跳过这个块
+                         # 如果还是找不到，默认为 undecided (保留)
+                         if decision is None:
+                             decision = constants.DECISION_UNDECIDED
+                             logger.debug(f"No decision found for block {block.block_id} in {original_path.name}, defaulting to {decision}.")
 
-                logger.info(f"成功写入 {kept_blocks_count} 个块到输出文件: {output_path.name}")
-                processed_files_count += 1
+                         if decision != constants.DECISION_DELETE:
+                             kept_blocks_content.append(block.original_text) # 保留原始文本
+                     except Exception as e_inner:
+                          logger.error(f"处理块 {block.block_id} (文件 {original_path.name}) 时出错: {e_inner}")
+                          continue # 跳过这个块
+
+                 # 将保留的内容写入文件，用两个换行符分隔
+                 if kept_blocks_content:
+                     with open(output_path, 'w', encoding=constants.DEFAULT_ENCODING) as f_out:
+                         f_out.write('\n\n'.join(kept_blocks_content))
+                     logger.info(f"成功写入 {len(kept_blocks_content)} 个块到输出文件: {output_path}")
+                     processed_files_count += 1
+                 else:
+                      logger.info(f"文件 {original_path.name} 没有需要保留的内容，未生成输出文件。")
+
 
             except Exception as e:
                 logger.error(f"写入输出文件 {output_path} 时失败: {e}", exc_info=True)
                 error_files.append(original_path.name)
-                # 可以在这里删除可能已部分写入的文件
-                # if output_path.exists(): output_path.unlink()
 
-        logger.info(f"决策应用完成: 成功处理 {processed_files_count}/{total_files_to_process} 个文件。")
+        logger.info(f"决策应用完成: 成功处理或跳过 {total_files_to_process} 个原始文件。生成了 {processed_files_count} 个输出文件。")
         print(f"\n[*] 决策应用完成: 成功生成 {processed_files_count} 个输出文件到 '{self.output_dir}'。")
         if error_files:
              print(f"[警告] 以下原始文件的输出处理失败: {', '.join(error_files)}")
 
-        return processed_files_count > 0
+        # 返回 True 如果至少处理了一个文件（即使没有生成输出）
+        return total_files_to_process > 0
 
 
-    # --- 菜单显示方法 ---
+    # --- 菜单显示方法 (保持不变) ---
     def display_main_menu(self) -> None:
         """显示主菜单"""
         print("\n" + "=" * 60)
@@ -620,9 +681,15 @@ class KDToolCLI:
         print("\n分析结果统计:")
         print(f"  MD5 精确重复: {len(md5_groups)} 组")
         if not self.skip_semantic:
-             print(f"  语义相似重复: {len(sem_groups)} 对")
+             # 显示语义相似对的数量
+             print(f"  语义相似重复: {len(sem_groups)} 对 (阈值: {self.similarity_threshold:.2f})")
         else:
              print("  语义分析已跳过")
+        # 显示总块数和已决策数量
+        total_blocks = len(self.blocks_data)
+        decided_count = sum(1 for d in self.block_decisions.values() if d != constants.DECISION_UNDECIDED)
+        print(f"  总内容块数: {total_blocks}")
+        print(f"  已决策块数: {decided_count}")
         print("\n请选择:")
         print("  1. 查看/处理 MD5 重复项")
         if not self.skip_semantic:
@@ -647,9 +714,17 @@ class KDToolCLI:
              choice = input("请输入选项: ").strip().lower()
 
              if choice == '1':
-                  self.md5_analyzer.review_md5_duplicates_interactive()
+                  # 确保 md5_analyzer 存在
+                  if self.md5_analyzer:
+                       self.md5_analyzer.review_md5_duplicates_interactive()
+                  else:
+                       print("[错误] MD5 分析器不可用。")
              elif choice == '2' and not self.skip_semantic:
-                  self.semantic_analyzer.review_semantic_duplicates_interactive()
+                  # 确保 semantic_analyzer 存在
+                  if self.semantic_analyzer:
+                       self.semantic_analyzer.review_semantic_duplicates_interactive()
+                  else:
+                       print("[错误] 语义分析器不可用。")
              elif choice == 'b':
                   break
              else:
@@ -678,6 +753,9 @@ class KDToolCLI:
                 if self.semantic_analyzer:
                      self.semantic_analyzer.tool.skip_semantic = self.skip_semantic # 同步到分析器
                 print(f"[*] 语义分析已 {'跳过' if self.skip_semantic else '启用'}.")
+                # 状态改变后可能需要重新运行分析才能生效
+                self._analysis_completed = False
+                print("[*] 分析状态已重置，请重新运行分析以应用更改。")
             elif choice == '2':
                 try:
                     new_threshold_str = input(f"请输入新的相似度阈值 (0.0 到 1.0 之间，当前: {self.similarity_threshold:.2f}): ")
@@ -687,6 +765,9 @@ class KDToolCLI:
                          if self.semantic_analyzer:
                               self.semantic_analyzer.similarity_threshold = new_threshold # 同步到分析器
                          print(f"[*] 相似度阈值已更新为: {self.similarity_threshold:.2f}")
+                         # 阈值改变需要重新运行分析
+                         self._analysis_completed = False
+                         print("[*] 分析状态已重置，请重新运行分析以应用更改。")
                     else:
                          print("[错误] 阈值必须在 0.0 到 1.0 之间。")
                 except ValueError:
@@ -695,8 +776,9 @@ class KDToolCLI:
                  new_path_str = input(f"请输入新的决策文件路径 (当前: {self.decision_file}): ").strip()
                  if new_path_str:
                      try:
+                         # 验证路径是否有效（但不要求必须存在）
                          new_path = Path(new_path_str).resolve()
-                         # 不在此处创建目录，仅更新路径
+                         # 可以在这里检查父目录是否可写，但暂时简化
                          self.decision_file = new_path
                          print(f"[*] 决策文件路径已更新为: {self.decision_file}")
                      except Exception as e:
@@ -707,8 +789,9 @@ class KDToolCLI:
                  new_path_str = input(f"请输入新的输出目录路径 (当前: {self.output_dir}): ").strip()
                  if new_path_str:
                      try:
+                         # 验证路径是否有效（但不要求必须存在）
                          new_path = Path(new_path_str).resolve()
-                         # 不在此处创建目录，仅更新路径
+                         # 可以在这里检查父目录是否可写，但暂时简化
                          self.output_dir = new_path
                          print(f"[*] 输出目录路径已更新为: {self.output_dir}")
                      except Exception as e:
@@ -724,6 +807,7 @@ class KDToolCLI:
     def run_interactive(self) -> None:
         """运行交互式命令行界面"""
         logger.info("Starting interactive mode...")
+        print("欢迎使用知识蒸馏工具交互模式！")
         while True:
             self.display_main_menu()
             choice = input("请输入选项编号: ").strip().lower()
@@ -731,20 +815,22 @@ class KDToolCLI:
             if choice == '1':
                  input_dir_str = input("请输入输入目录路径: ").strip()
                  if input_dir_str:
-                      self.set_input_dir(input_dir_str)
+                      if self.set_input_dir(input_dir_str):
+                           print(f"[*] 输入目录已设置为: {self.input_dir}")
+                      # else: set_input_dir 内部会打印错误
                  else:
                       print("[!] 输入为空，目录未更改。")
             elif choice == '2': # 运行完整分析
                  if not self.input_dir: print("[错误] 请先设置输入目录。"); continue
-                 # 保存当前 skip_semantic 状态
-                 original_skip_semantic = self.skip_semantic
-                 self.skip_semantic = False # 确保运行语义分析
+                 # 确保语义分析状态正确
+                 current_skip_semantic = self.skip_semantic
+                 self.skip_semantic = False # 尝试运行完整分析
                  if self.semantic_analyzer: self.semantic_analyzer.tool.skip_semantic = False
                  print("\n[*] 开始运行完整分析 (MD5 + 语义)...")
                  self.run_analysis()
-                 # 恢复原始 skip_semantic 状态？或者让用户在配置中管理
-                 # self.skip_semantic = original_skip_semantic
-                 # if self.semantic_analyzer: self.semantic_analyzer.tool.skip_semantic = original_skip_semantic
+                 # 恢复之前的跳过状态？或者让用户通过配置管理
+                 # self.skip_semantic = current_skip_semantic
+                 # if self.semantic_analyzer: self.semantic_analyzer.tool.skip_semantic = current_skip_semantic
 
             elif choice == '3': # 仅运行 MD5
                  if not self.input_dir: print("[错误] 请先设置输入目录。"); continue
@@ -753,7 +839,8 @@ class KDToolCLI:
                  if self.semantic_analyzer: self.semantic_analyzer.tool.skip_semantic = True
                  print("\n[*] 开始仅运行 MD5 分析...")
                  self.run_analysis()
-                 self.skip_semantic = original_skip_semantic # 恢复
+                 # 恢复之前的状态
+                 self.skip_semantic = original_skip_semantic
                  if self.semantic_analyzer: self.semantic_analyzer.tool.skip_semantic = original_skip_semantic
 
             elif choice == '4': # 加载决策
@@ -832,10 +919,9 @@ class KDToolCLI:
             choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
             help="设置日志记录级别 (默认: INFO)"
         )
-        # 添加一个非交互模式标志？或者根据 input-dir 是否提供来判断
         parser.add_argument(
              "--non-interactive", action="store_true",
-             help="运行分析后直接退出，不进入菜单 (需要提供 -i)。" # 可能需要更多选项来控制决策应用等
+             help="运行分析后直接退出，不进入菜单 (需要提供 -i)。"
         )
 
 
@@ -853,11 +939,8 @@ def main() -> None:
     args = KDToolCLI.parse_args()
 
     # 设置日志级别
-    log_level_map = {
-        "DEBUG": logging.DEBUG, "INFO": logging.INFO, "WARNING": logging.WARNING,
-        "ERROR": logging.ERROR, "CRITICAL": logging.CRITICAL
-    }
-    setup_logger(log_level_map.get(args.log_level.upper(), logging.INFO))
+    log_level = constants.LOG_LEVEL_MAP.get(args.log_level.upper(), logging.INFO)
+    setup_logger(log_level) # 使用 setup_logger 设置
     logger.info("KD Tool started.")
     logger.debug(f"Parsed arguments: {args}")
 
@@ -879,12 +962,11 @@ def main() -> None:
              analysis_success = tool.run_analysis()
 
              if analysis_success and not args.non_interactive:
-                 # 分析成功且不是非交互模式，进入分析后菜单 (需要实现)
-                 # tool.handle_post_analysis_menu_or_similar() # 需要添加这个方法或调整
-                 print("[*] 分析完成。请在交互模式下查看结果或应用决策。") # 简化处理
-                 print("[*] （未来可以添加分析后直接保存/应用决策的命令行选项）")
-                 # 暂时直接退出，或者可以调用交互查看
+                 # 分析成功且不是非交互模式，进入查看菜单
+                 print("\n[*] 分析完成。进入重复块查看菜单...")
                  tool.handle_duplicates_view() # 让用户至少能查看一下
+                 print("\n[*] 查看完成。程序退出。")
+                 sys.exit(0)
 
              elif not analysis_success:
                   logger.error("Analysis failed when run from command line.")
@@ -894,15 +976,14 @@ def main() -> None:
                   # 分析成功且是 --non-interactive 模式
                   logger.info("Non-interactive mode: Analysis complete, exiting.")
                   print("[*] 非交互模式：分析完成，程序退出。")
-                  # 这里可以添加自动保存/应用决策的逻辑（如果需要）
-                  # tool.save_decisions()
-                  # tool.apply_decisions()
+                  # 可以在这里添加自动保存/应用决策的逻辑
+                  # if tool.save_decisions():
+                  #    tool.apply_decisions()
                   sys.exit(0)
 
         else:
              # 没有提供输入目录，进入完全交互模式
              logger.info("No input directory provided, entering full interactive mode.")
-             print("欢迎使用知识蒸馏工具交互模式！")
              tool.run_interactive()
 
     except ConfigurationError as e:
@@ -927,4 +1008,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-    
