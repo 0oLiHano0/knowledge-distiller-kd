@@ -1,16 +1,23 @@
-# knowledge_distiller_kd/core/block_merger.py
+# knowledge_distiller_kd/processing/block_merger.py <--- 新路径
 """
 Provides functionality to merge fragmented content blocks, especially code blocks.
 """
 
+# --- 标准库导入 ---
 import re
 import logging
 from typing import List
-from knowledge_distiller_kd.core.document_processor import ContentBlock
-from knowledge_distiller_kd.core import constants
-# Import necessary Element types if needed for creating new ContentBlocks
+
+# --- 项目内部模块导入 (修改为相对导入) ---
+from .document_processor import ContentBlock # ContentBlock 现在在同级目录
+
+from ..core import constants # 使用 ..core 从 processing 上一级找到 core
+
+# --- 第三方库导入 ---
+# 导入必要的 Element 类型如果需要创建新的 ContentBlocks
 from unstructured.documents.elements import CodeSnippet
 
+# --- 函数定义开始 ---
 logger = logging.getLogger(constants.LOGGER_NAME)
 
 def merge_code_blocks(blocks: List[ContentBlock]) -> List[ContentBlock]:

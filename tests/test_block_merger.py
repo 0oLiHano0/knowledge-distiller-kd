@@ -8,12 +8,11 @@ from typing import List, Type
 
 # Import necessary classes from the core modules
 # Assuming ContentBlock and Element types are needed for creating test data
-from knowledge_distiller_kd.core.document_processor import ContentBlock
+from knowledge_distiller_kd.processing.document_processor import ContentBlock
 from unstructured.documents.elements import Element, NarrativeText, Text, CodeSnippet, Title
 
 # Import the function to be tested
-from knowledge_distiller_kd.core.block_merger import merge_code_blocks
-
+from knowledge_distiller_kd.processing.block_merger import merge_code_blocks
 
 # Helper fixture to create ContentBlock instances easily in tests
 @pytest.fixture

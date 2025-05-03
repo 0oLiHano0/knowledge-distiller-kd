@@ -1,1048 +1,1217 @@
-2025-05-02 11:51:07 - INFO - KD Tool started.
-2025-05-02 11:51:07 - INFO - 知识蒸馏工具初始化完成
-2025-05-02 11:51:07 - INFO - Using input directory: input
-2025-05-02 11:51:07 - INFO - 设置输入目录: input
-2025-05-02 11:51:07 - INFO - --- Starting analysis for folder: /Users/hansen/Projects/knowledge-distiller-kd/input ---
-2025-05-02 11:51:07 - INFO - Resetting internal state for new analysis...
-2025-05-02 11:51:07 - INFO - Internal state reset.
-2025-05-02 11:51:07 - INFO - Step: 处理文档...
-欢迎使用知识蒸馏 KD Tool (命令行交互版 V2.3 - Argparse)
-=====================================================
-
-[*] 开始分析文件夹: /Users/hansen/Projects/knowledge-distiller-kd/input
-
-[*] 正在执行: 处理文档...
-
---- Inspecting elements for file-01.md ---
-
-[Element 0]
-  ID        : 05d9522f312718a187363f5c5686ff50
-  Type      : Title
-  Text      : '项目概述...'
-  Metadata:
-    parent_id       : None
-    category        : None
-    category_depth  : 0
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 1]
-  ID        : b1da7081131e1ea99114b89e5fa1ea5f
-  Type      : Text
-  Text      : '本文档介绍了一个新的项目，该项目的目标是开发一个基于人工智能的自动化系统。...'
-  Metadata:
-    parent_id       : 05d9522f312718a187363f5c5686ff50
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 2]
-  ID        : a45411a6a869189c309ac5ec66207a30
-  Type      : Title
-  Text      : '项目背景...'
-  Metadata:
-    parent_id       : 05d9522f312718a187363f5c5686ff50
-    category        : None
-    category_depth  : 1
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 3]
-  ID        : decd8312891a9265793e3071fdcd44c7
-  Type      : Text
-  Text      : '人工智能（AI）是当前科技发展的热点领域之一。随着计算能力的提升和算法的改进，AI 技术在多个行业中得到了广泛应用。...'
-  Metadata:
-    parent_id       : a45411a6a869189c309ac5ec66207a30
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 4]
-  ID        : bdd75038015b5d843a4e491d4f264470
-  Type      : Text
-  Text      : '引用： “人工智能的应用不仅仅局限于理论研究，而是正在深刻影响我们的日常生活。” — AI 专家...'
-  Metadata:
-    parent_id       : a45411a6a869189c309ac5ec66207a30
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 5]
-  ID        : 54f25b1d6ef73e6822436a2a1f3b6e2a
-  Type      : Title
-  Text      : '技术栈...'
-  Metadata:
-    parent_id       : 05d9522f312718a187363f5c5686ff50
-    category        : None
-    category_depth  : 1
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 6]
-  ID        : 13b4cf08934c8ffd6f931dd8e0437cbf
-  Type      : Text
-  Text      : '该项目使用以下技术栈：...'
-  Metadata:
-    parent_id       : 54f25b1d6ef73e6822436a2a1f3b6e2a
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 7]
-  ID        : 6ba6c11bbf2e5ab4fe4147bf31b075e5
-  Type      : ListItem
-  Text      : 'Python 3.x...'
-  Metadata:
-    parent_id       : 54f25b1d6ef73e6822436a2a1f3b6e2a
-    category        : None
-    category_depth  : 1
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 8]
-  ID        : 44d852e92ad5960b026f2702d43ba7cc
-  Type      : ListItem
-  Text      : 'TensorFlow 或 PyTorch...'
-  Metadata:
-    parent_id       : 54f25b1d6ef73e6822436a2a1f3b6e2a
-    category        : None
-    category_depth  : 1
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 9]
-  ID        : 58dbc8ba6eb2cc03b4087e874bd55033
-  Type      : ListItem
-  Text      : 'Docker 容器化部署...'
-  Metadata:
-    parent_id       : 54f25b1d6ef73e6822436a2a1f3b6e2a
-    category        : None
-    category_depth  : 1
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 10]
-  ID        : 5b3b79eedd601f3a762723c4ad399f92
-  Type      : Title
-  Text      : '系统架构...'
-  Metadata:
-    parent_id       : 54f25b1d6ef73e6822436a2a1f3b6e2a
-    category        : None
-    category_depth  : 2
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 11]
-  ID        : 26ffe207512834e4595d4555300e57ff
-  Type      : NarrativeText
-  Text      : 'text 1. 用户请求 -> 2. 处理模块 -> 3. 数据处理 -> 4. 响应输出...'
-  Metadata:
-    parent_id       : 5b3b79eedd601f3a762723c4ad399f92
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 12]
-  ID        : bbe0d323ce4df3cbdaf6c0b0cbe99108
-  Type      : Title
-  Text      : '复杂列表示例...'
-  Metadata:
-    parent_id       : 54f25b1d6ef73e6822436a2a1f3b6e2a
-    category        : None
-    category_depth  : 2
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 13]
-  ID        : 1f1a3f7a2fa0f4ddc8f996b81fbe8d3a
-  Type      : Text
-  Text      : '目标一：...'
-  Metadata:
-    parent_id       : bbe0d323ce4df3cbdaf6c0b0cbe99108
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 14]
-  ID        : c56619d9e6da995e42797ede2481d268
-  Type      : Text
-  Text      : '任务一：数据采集...'
-  Metadata:
-    parent_id       : bbe0d323ce4df3cbdaf6c0b0cbe99108
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 15]
-  ID        : 4e3082dfedb2efc8f5b58f85e69cb985
-  Type      : Text
-  Text      : '任务二：数据清洗...'
-  Metadata:
-    parent_id       : bbe0d323ce4df3cbdaf6c0b0cbe99108
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 16]
-  ID        : e68424653e841c99fe30509fd734de3b
-  Type      : Text
-  Text      : '目标二：...'
-  Metadata:
-    parent_id       : bbe0d323ce4df3cbdaf6c0b0cbe99108
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 17]
-  ID        : 00ef0b84fc99ba2be6ff9d303d31f70b
-  Type      : Text
-  Text      : '任务一：模型训练...'
-  Metadata:
-    parent_id       : bbe0d323ce4df3cbdaf6c0b0cbe99108
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 18]
-  ID        : ad60bd13e988a316c7df6a8788cc2f62
-  Type      : Text
-  Text      : '任务二：模型评估...'
-  Metadata:
-    parent_id       : bbe0d323ce4df3cbdaf6c0b0cbe99108
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 19]
-  ID        : 805fc4215221e30b6f3bb3ad6172f7b5
-  Type      : Title
-  Text      : '代码块示例...'
-  Metadata:
-    parent_id       : 54f25b1d6ef73e6822436a2a1f3b6e2a
-    category        : None
-    category_depth  : 2
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 20]
-  ID        : 510ece0e08ff011e85f17e8296676cbc
-  Type      : NarrativeText
-  Text      : '```python import tensorflow as tf...'
-  Metadata:
-    parent_id       : 805fc4215221e30b6f3bb3ad6172f7b5
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 21]
-  ID        : 297324bfd9b9d0c820653c74f5c9e5fe
-  Type      : NarrativeText
-  Text      : 'def build_model(input_shape): model = tf.keras.Sequential([ tf.keras.layers.Dense(64, activation='re...'
-  Metadata:
-    parent_id       : 805fc4215221e30b6f3bb3ad6172f7b5
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 22]
-  ID        : a9ac2fe0febb0a3ddb246dc1304cec2e
-  Type      : Text
-  Text      : '```...'
-  Metadata:
-    parent_id       : 805fc4215221e30b6f3bb3ad6172f7b5
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 23]
-  ID        : 662eaffc094cb7aeee9899f4cd287ee9
-  Type      : Title
-  Text      : '结束语...'
-  Metadata:
-    parent_id       : 05d9522f312718a187363f5c5686ff50
-    category        : None
-    category_depth  : 1
-    filename        : file-01.md
-    filetype        : text/markdown
-
-[Element 24]
-  ID        : 648493fa6d3964922a608fafbbf7274b
-  Type      : Text
-  Text      : '通过本项目的实现，我们预计能够在多个行业中实现AI的广泛应用，包括医疗、金融等领域。...'
-  Metadata:
-    parent_id       : 662eaffc094cb7aeee9899f4cd287ee9
-    category        : None
-    category_depth  : None
-    filename        : file-01.md
-    filetype        : text/markdown
-
---- End inspection for file-01.md ---
-
---- Inspecting elements for file-02.md ---
-
-[Element 0]
-  ID        : 053a37bf6810c4eee14cd8f16ab19364
-  Type      : Title
-  Text      : '项目概述...'
-  Metadata:
-    parent_id       : None
-    category        : None
-    category_depth  : 0
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 1]
-  ID        : 1f50c8949c16d308e64c43a9b02d6f71
-  Type      : Text
-  Text      : '本文档介绍了一个新的项目，该项目的目标是开发一个基于人工智能的自动化系统。...'
-  Metadata:
-    parent_id       : 053a37bf6810c4eee14cd8f16ab19364
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 2]
-  ID        : 8bab6c79b1f27c64fd30f1f2b413fde2
-  Type      : Title
-  Text      : '项目背景...'
-  Metadata:
-    parent_id       : 053a37bf6810c4eee14cd8f16ab19364
-    category        : None
-    category_depth  : 1
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 3]
-  ID        : 8a3b26a0a97dbc7f58c1e2021ec08e64
-  Type      : Text
-  Text      : '人工智能（AI）是当前科技发展的热点领域之一。随着计算能力的提升和算法的改进，AI 技术在多个行业中得到了广泛应用。...'
-  Metadata:
-    parent_id       : 8bab6c79b1f27c64fd30f1f2b413fde2
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 4]
-  ID        : 7e50d1b44bdac660dbafb45ef89a902d
-  Type      : Text
-  Text      : '引用： “人工智能的应用不仅仅局限于理论研究，而是正在深刻影响我们的日常生活。” — AI 专家...'
-  Metadata:
-    parent_id       : 8bab6c79b1f27c64fd30f1f2b413fde2
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 5]
-  ID        : 386dc804788e365e6cdb7e8e62b1880a
-  Type      : Title
-  Text      : '技术栈...'
-  Metadata:
-    parent_id       : 053a37bf6810c4eee14cd8f16ab19364
-    category        : None
-    category_depth  : 1
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 6]
-  ID        : d7515110bc2d795ecb151fc34561dff9
-  Type      : Text
-  Text      : '该项目使用以下主要技术：...'
-  Metadata:
-    parent_id       : 386dc804788e365e6cdb7e8e62b1880a
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 7]
-  ID        : 9aeac873571cd20e7bc34acb550c7385
-  Type      : ListItem
-  Text      : 'Python 语言...'
-  Metadata:
-    parent_id       : 386dc804788e365e6cdb7e8e62b1880a
-    category        : None
-    category_depth  : 1
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 8]
-  ID        : 891d460860cca733fdff894d951ddfd1
-  Type      : ListItem
-  Text      : 'TensorFlow 或 PyTorch 深度学习框架...'
-  Metadata:
-    parent_id       : 386dc804788e365e6cdb7e8e62b1880a
-    category        : None
-    category_depth  : 1
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 9]
-  ID        : baf84ce325472085b8b16f8d027d8758
-  Type      : ListItem
-  Text      : 'Docker 容器化...'
-  Metadata:
-    parent_id       : 386dc804788e365e6cdb7e8e62b1880a
-    category        : None
-    category_depth  : 1
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 10]
-  ID        : 43a4fef08b98701075338f7b276e3042
-  Type      : Title
-  Text      : '系统架构...'
-  Metadata:
-    parent_id       : 386dc804788e365e6cdb7e8e62b1880a
-    category        : None
-    category_depth  : 2
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 11]
-  ID        : 91db691eadadd422e114e775ae9d4e67
-  Type      : NarrativeText
-  Text      : 'text 1. 请求接收 -> 2. 数据预处理 -> 3. 模型推理 -> 4. 结果输出...'
-  Metadata:
-    parent_id       : 43a4fef08b98701075338f7b276e3042
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 12]
-  ID        : 821a6b86106115bc86f63c98336a1f3b
-  Type      : Title
-  Text      : '复杂列表示例...'
-  Metadata:
-    parent_id       : 386dc804788e365e6cdb7e8e62b1880a
-    category        : None
-    category_depth  : 2
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 13]
-  ID        : d7f0e2261412141b13561278ae3ad35c
-  Type      : Text
-  Text      : '目标一：...'
-  Metadata:
-    parent_id       : 821a6b86106115bc86f63c98336a1f3b
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 14]
-  ID        : 17dc26b9ad58f3ecf9bdd4b7c9a47965
-  Type      : Text
-  Text      : '子任务：采集数据...'
-  Metadata:
-    parent_id       : 821a6b86106115bc86f63c98336a1f3b
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 15]
-  ID        : 43abb0f6c891e96feca3ecff47776f83
-  Type      : Text
-  Text      : '子任务：清洗数据...'
-  Metadata:
-    parent_id       : 821a6b86106115bc86f63c98336a1f3b
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 16]
-  ID        : 50258a6e13477157808ab546090e8323
-  Type      : Text
-  Text      : '目标二：...'
-  Metadata:
-    parent_id       : 821a6b86106115bc86f63c98336a1f3b
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 17]
-  ID        : f7fee270eaa110268ecef3124812ddd0
-  Type      : Text
-  Text      : '子任务：训练模型...'
-  Metadata:
-    parent_id       : 821a6b86106115bc86f63c98336a1f3b
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 18]
-  ID        : fade3589950f8324e876fb3200b50117
-  Type      : Text
-  Text      : '子任务：评估模型...'
-  Metadata:
-    parent_id       : 821a6b86106115bc86f63c98336a1f3b
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 19]
-  ID        : 055d5179afeb4ec8632752e3f4139067
-  Type      : Title
-  Text      : '代码块示例...'
-  Metadata:
-    parent_id       : 386dc804788e365e6cdb7e8e62b1880a
-    category        : None
-    category_depth  : 2
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 20]
-  ID        : 59bc448cfc9ff2781ba94b8da5f519e4
-  Type      : NarrativeText
-  Text      : '```python import tensorflow as tf...'
-  Metadata:
-    parent_id       : 055d5179afeb4ec8632752e3f4139067
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 21]
-  ID        : 900ef20b707668ec907b9b49eae5cc66
-  Type      : NarrativeText
-  Text      : 'def create_model(input_shape): model = tf.keras.Sequential([ tf.keras.layers.Dense(128, activation='...'
-  Metadata:
-    parent_id       : 055d5179afeb4ec8632752e3f4139067
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 22]
-  ID        : 330f1a9b503457d0d6b691ed58776a7b
-  Type      : Text
-  Text      : '```...'
-  Metadata:
-    parent_id       : 055d5179afeb4ec8632752e3f4139067
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 23]
-  ID        : b03ba27eba5c408702b529fbe53bb208
-  Type      : Title
-  Text      : '结束语...'
-  Metadata:
-    parent_id       : 053a37bf6810c4eee14cd8f16ab19364
-    category        : None2025-05-02 11:51:07 - INFO - 成功处理 3 个文件，共提取 67 个内容块
-2025-05-02 11:51:07 - INFO - Step completed: 处理文档
-2025-05-02 11:51:07 - INFO - Step: 初始化决策...
-2025-05-02 11:51:07 - INFO - Initializing block decisions...
-
-    category_depth  : 1
-    filename        : file-02.md
-    filetype        : text/markdown
-
-[Element 24]
-  ID        : ca6975d366125df8cec6086456ed45fc
-  Type      : Text
-  Text      : '该项目的成功实施将为多个领域提供解决方案，特别是在高效医疗和智能金融领域。...'
-  Metadata:
-    parent_id       : b03ba27eba5c408702b529fbe53bb208
-    category        : None
-    category_depth  : None
-    filename        : file-02.md
-    filetype        : text/markdown
-
---- End inspection for file-02.md ---
-
---- Inspecting elements for test.md ---
-
-[Element 0]
-  ID        : 5b19e1394d20fc3d4fdbd9198eace0f5
-  Type      : Title
-  Text      : '测试文档...'
-  Metadata:
-    parent_id       : None
-    category        : None
-    category_depth  : 0
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 1]
-  ID        : 1aa5546a0571d78435944973f751bee6
-  Type      : Text
-  Text      : '这是一个测试文档，用于测试知识蒸馏工具。...'
-  Metadata:
-    parent_id       : 5b19e1394d20fc3d4fdbd9198eace0f5
-    category        : None
-    category_depth  : None
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 2]
-  ID        : 58182dff6234f329fbc4d1a9a3b314d9
-  Type      : Title
-  Text      : '第一部分...'
-  Metadata:
-    parent_id       : 5b19e1394d20fc3d4fdbd9198eace0f5
-    category        : None
-    category_depth  : 1
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 3]
-  ID        : c777d49fefcdd225fcfdae2e25dc84aa
-  Type      : Text
-  Text      : '这是第一部分的内容。这里包含了一些文本内容，用于测试文本处理功能。...'
-  Metadata:
-    parent_id       : 58182dff6234f329fbc4d1a9a3b314d9
-    category        : None
-    category_depth  : None
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 4]
-  ID        : 43629d9eb19d78e10652d4702363a077
-  Type      : Title
-  Text      : '列表测试...'
-  Metadata:
-    parent_id       : 58182dff6234f329fbc4d1a9a3b314d9
-    category        : None
-    category_depth  : 2
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 5]
-  ID        : c204fd5957d195cd78c865bcd3cc0ad0
-  Type      : ListItem
-  Text      : '第一项...'
-  Metadata:
-    parent_id       : 43629d9eb19d78e10652d4702363a077
-    category        : None
-    category_depth  : 1
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 6]
-  ID        : f41243e7330e0006ad51c9e1f0a31a30
-  Type      : ListItem
-  Text      : '第二项...'
-  Metadata:
-    parent_id       : 43629d9eb19d78e10652d4702363a077
-    category        : None
-    category_depth  : 1
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 7]
-  ID        : 612d9295333955b6f1a1edf1fa017adc
-  Type      : ListItem
-  Text      : '第三项...'
-  Metadata:
-    parent_id       : 43629d9eb19d78e10652d4702363a077
-    category        : None
-    category_depth  : 1
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 8]
-  ID        : 2f9cc9731e5cd728a04c350d9d53ef48
-  Type      : Title
-  Text      : '代码测试...'
-  Metadata:
-    parent_id       : 5b19e1394d20fc3d4fdbd9198eace0f5
-    category        : None
-    category_depth  : 1
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 9]
-  ID        : 1fef23d26dec196d1ea6e235f9810e8f
-  Type      : Text
-  Text      : 'python def hello_world(): print("Hello, World!")...'
-  Metadata:
-    parent_id       : 2f9cc9731e5cd728a04c350d9d53ef48
-    category        : None
-    category_depth  : None
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 10]
-  ID        : a95f2a6bad85ac93ba3025b45e276155
-  Type      : Title
-  Text      : '表格测试...'
-  Metadata:
-    parent_id       : 5b19e1394d20fc3d4fdbd9198eace0f5
-    category        : None
-    category_depth  : 1
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 11]
-  ID        : c73d5dc8c08e42f992f30ddad812d610
-  Type      : Table
-  Text      : '列1 列2 列3 A1 B1 C1 A2 B2 C2...'
-  Metadata:
-    parent_id       : a95f2a6bad85ac93ba3025b45e276155
-    category        : None
-    category_depth  : None
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 12]
-  ID        : 6092cf09e9342c7676cf6907dc905324
-  Type      : Title
-  Text      : '重复内容测试...'
-  Metadata:
-    parent_id       : 5b19e1394d20fc3d4fdbd9198eace0f5
-    category        : None
-    category_depth  : 1
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 13]
-  ID        : bfd6da4332891d483ae7dcfc5ba73b26
-  Type      : Text
-  Text      : '这是一段重复的内容。...'
-  Metadata:
-    parent_id       : 6092cf09e9342c7676cf6907dc905324
-    category        : None
-    category_depth  : None
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 14]
-  ID        : a85ad119618e8f3652777be3c73bf34a
-  Type      : Text
-  Text      : '这是一段重复的内容。...'
-  Metadata:
-    parent_id       : 6092cf09e9342c7676cf6907dc905324
-    category        : None
-    category_depth  : None
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 15]
-  ID        : 8ea72664cd0a06cd877400698145a0c0
-  Type      : Title
-  Text      : '结束...'
-  Metadata:
-    parent_id       : 5b19e1394d20fc3d4fdbd9198eace0f5
-    category        : None
-    category_depth  : 1
-    filename        : test.md
-    filetype        : text/markdown
-
-[Element 16]
-  ID        : 292059fe0cabdf659c9f47892469743c
-  Type      : Text
-  Text      : '测试文档到此结束。...'
-  Metadata:
-    parent_id       : 8ea72664cd0a06cd877400698145a0c0
-    category        : None
-    category_depth  : None
-    filename        : test.md
-    filetype        : text/markdown
-
---- End inspection for test.md ---
-
-[*] 文档处理完成: 成功处理 3 个文件
-[*] 共提取 67 个内容块
-[*] 处理文档完成。
-
-[*] 正在执行: 初始化决策...
-
-[*] 正在初始化块决策...
-[*] 正在初始化决策 (1/67): file-01.md#05d9522f312718a187363f5c5686ff50
-[*] 正在初始化决策 (2/67): file-01.md#b1da7081131e1ea99114b89e5fa1ea5f
-[*] 正在初始化决策 (3/67): file-01.md#a45411a6a869189c309ac5ec66207a30
-[*] 正在初始化决策 (4/67): file-01.md#decd8312891a9265793e3071fdcd44c7
-[*] 正在初始化决策 (5/67): file-01.md#bdd75038015b5d843a4e491d4f264470
-[*] 正在初始化决策 (6/67): file-01.md#54f25b1d6ef73e6822436a2a1f3b6e2a
-[*] 正在初始化决策 (7/67): file-01.md#13b4cf08934c8ffd6f931dd8e0437cbf
-[*] 正在初始化决策 (8/67): file-01.md#6ba6c11bbf2e5ab4fe4147bf31b075e5
-[*] 正在初始化决策 (9/67): file-01.md#44d852e92ad5960b026f2702d43ba7cc
-[*] 正在初始化决策 (10/67): file-01.md#58dbc8ba6eb2cc03b4087e874bd55033
-[*] 正在初始化决策 (11/67): file-01.md#5b3b79eedd601f3a762723c4ad399f92
-[*] 正在初始化决策 (12/67): file-01.md#26ffe207512834e4595d4555300e57ff
-[*] 正在初始化决策 (13/67): file-01.md#bbe0d323ce4df3cbdaf6c0b0cbe99108
-[*] 正在初始化决策 (14/67): file-01.md#1f1a3f7a2fa0f4ddc8f996b81fbe8d3a
-[*] 正在初始化决策 (15/67): file-01.md#c56619d9e6da995e42797ede2481d268
-[*] 正在初始化决策 (16/67): file-01.md#4e3082dfedb2efc8f5b58f85e69cb985
-[*] 正在初始化决策 (17/67): file-01.md#e68424653e841c99fe30509fd734de3b
-[*] 正在初始化决策 (18/67): file-01.md#00ef0b84fc99ba2be6ff9d303d31f70b
-[*] 正在初始化决策 (19/67): file-01.md#ad60bd13e988a316c7df6a8788cc2f62
-[*] 正在初始化决策 (20/67): file-01.md#805fc4215221e30b6f3bb3ad6172f7b5
-[*] 正在初始化决策 (21/67): file-01.md#510ece0e08ff011e85f17e8296676cbc
-[*] 正在初始化决策 (22/67): file-01.md#297324bfd9b9d0c820653c74f5c9e5fe
-[*] 正在初始化决策 (23/67): file-01.md#a9ac2fe0febb0a3ddb246dc1304cec2e
-[*] 正在初始化决策 (24/67): file-01.md#662eaffc094cb7aeee9899f4cd287ee9
-[*] 正在初始化决策 (25/67): file-01.md#648493fa6d3964922a608fafbbf7274b
-[*] 正在初始化决策 (26/67): file-02.md#053a37bf6810c4eee14cd8f16ab19364
-[*] 正在初始化决策 (27/67): file-02.md#1f50c8949c16d308e64c43a9b02d6f71
-[*] 正在初始化决策 (28/67): file-02.md#8bab6c79b1f27c64fd30f1f2b413fde22025-05-02 11:51:07 - INFO - Initialized decisions for 67 blocks.
-2025-05-02 11:51:07 - INFO - Step completed: 初始化决策
-2025-05-02 11:51:07 - INFO - Step: MD5 去重...
-2025-05-02 11:51:07 - INFO - 开始MD5重复检测，共有67个内容块
-2025-05-02 11:51:07 - INFO - 当前决策数量: 67
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (1/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (2/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (3/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (4/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (5/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (6/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (7/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (8/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (9/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (10/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (11/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (12/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (13/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (14/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (15/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (16/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (17/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (18/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (19/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (20/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (21/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (22/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (23/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (24/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (25/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (26/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (27/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (28/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (29/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (30/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (31/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (32/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (33/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (34/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (35/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (36/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (37/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (38/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (39/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (40/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (41/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (42/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (43/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (44/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (45/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (46/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (47/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (48/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (49/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (50/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (51/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (52/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (53/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (54/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (55/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (56/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (57/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (58/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (59/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (60/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (61/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (62/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (63/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (64/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (65/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (66/67)
-2025-05-02 11:51:07 - INFO - 正在计算哈希值 (67/67)
-2025-05-02 11:51:07 - INFO - 哈希组数量: 52
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 6ee6fe97154bcf6d2b8d61b487d8e8a0
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#05d9522f312718a187363f5c5686ff50 (Title)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#053a37bf6810c4eee14cd8f16ab19364 (Title)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::05d9522f312718a187363f5c5686ff50::Title
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::053a37bf6810c4eee14cd8f16ab19364::Title
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 6b109bbb457ab2c139b14ca73293f833
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#b1da7081131e1ea99114b89e5fa1ea5f (NarrativeText)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#1f50c8949c16d308e64c43a9b02d6f71 (NarrativeText)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::b1da7081131e1ea99114b89e5fa1ea5f::NarrativeText
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::1f50c8949c16d308e64c43a9b02d6f71::NarrativeText
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 887b8dd3b7fc51c9f2f8b6f6ea8ca9c9
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#a45411a6a869189c309ac5ec66207a30 (Title)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#8bab6c79b1f27c64fd30f1f2b413fde2 (Title)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::a45411a6a869189c309ac5ec66207a30::Title
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::8bab6c79b1f27c64fd30f1f2b413fde2::Title
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: b3757effb4cffd9356cc52633a94ff70
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#decd8312891a9265793e3071fdcd44c7 (NarrativeText)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#8a3b26a0a97dbc7f58c1e2021ec08e64 (NarrativeText)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::decd8312891a9265793e3071fdcd44c7::NarrativeText
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::8a3b26a0a97dbc7f58c1e2021ec08e64::NarrativeText
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 122f383b0f996210ae1713fe8c59657a
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#bdd75038015b5d843a4e491d4f264470 (NarrativeText)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#7e50d1b44bdac660dbafb45ef89a902d (NarrativeText)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::bdd75038015b5d843a4e491d4f264470::NarrativeText
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::7e50d1b44bdac660dbafb45ef89a902d::NarrativeText
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 98d7b44b4b76d5982309f562add8067c
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#54f25b1d6ef73e6822436a2a1f3b6e2a (Title)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#386dc804788e365e6cdb7e8e62b1880a (Title)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::54f25b1d6ef73e6822436a2a1f3b6e2a::Title
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::386dc804788e365e6cdb7e8e62b1880a::Title
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 5d4d81134adbcb3c59c3a8648c9cb286
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#5b3b79eedd601f3a762723c4ad399f92 (Title)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#43a4fef08b98701075338f7b276e3042 (Title)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::5b3b79eedd601f3a762723c4ad399f92::Title
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::43a4fef08b98701075338f7b276e3042::Title
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 2630fc0b8fbacda0dfa5244eda762c39
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#bbe0d323ce4df3cbdaf6c0b0cbe99108 (Title)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#821a6b86106115bc86f63c98336a1f3b (Title)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::bbe0d323ce4df3cbdaf6c0b0cbe99108::Title
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::821a6b86106115bc86f63c98336a1f3b::Title
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: a097222d70e5d6b3415e2236a8592f7b
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#1f1a3f7a2fa0f4ddc8f996b81fbe8d3a (NarrativeText)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#d7f0e2261412141b13561278ae3ad35c (NarrativeText)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::1f1a3f7a2fa0f4ddc8f996b81fbe8d3a::NarrativeText
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::d7f0e2261412141b13561278ae3ad35c::NarrativeText
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 44096a5d9e956168cbb7affd0d5d048d
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#e68424653e841c99fe30509fd734de3b (NarrativeText)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#50258a6e13477157808ab546090e8323 (NarrativeText)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::e68424653e841c99fe30509fd734de3b::NarrativeText
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::50258a6e13477157808ab546090e8323::NarrativeText
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: f3134b2e8878951775104fea540248cc
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#805fc4215221e30b6f3bb3ad6172f7b5 (Title)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#055d5179afeb4ec8632752e3f4139067 (Title)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::805fc4215221e30b6f3bb3ad6172f7b5::Title
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::055d5179afeb4ec8632752e3f4139067::Title
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: 2c94cd78b021d0393bfd45f2ff7da0a5
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#510ece0e08ff011e85f17e8296676cbc (CodeSnippet)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#59bc448cfc9ff2781ba94b8da5f519e4 (CodeSnippet)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::510ece0e08ff011e85f17e8296676cbc::CodeSnippet
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::59bc448cfc9ff2781ba94b8da5f519e4::CodeSnippet
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: f48156c7eb2c05c01f23afb841bdb030
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#a9ac2fe0febb0a3ddb246dc1304cec2e (CodeSnippet)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#330f1a9b503457d0d6b691ed58776a7b (CodeSnippet)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::a9ac2fe0febb0a3ddb246dc1304cec2e::CodeSnippet
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::330f1a9b503457d0d6b691ed58776a7b::CodeSnippet
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: fb31edb1c5de08d8a471f813cf679d57
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md#662eaffc094cb7aeee9899f4cd287ee9 (Title)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md#b03ba27eba5c408702b529fbe53bb208 (Title)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md::662eaffc094cb7aeee9899f4cd287ee9::Title
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md::b03ba27eba5c408702b529fbe53bb208::Title
-2025-05-02 11:51:07 - INFO - 找到重复组，哈希值: fd0d031b97b283248ef356fbf41f49ba
-2025-05-02 11:51:07 - INFO - 重复块数量: 2
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/test.md#bfd6da4332891d483ae7dcfc5ba73b26 (NarrativeText)
-2025-05-02 11:51:07 - INFO - 重复块: /Users/hansen/Projects/knowledge-distiller-kd/input/test.md#a85ad119618e8f3652777be3c73bf34a (NarrativeText)
-2025-05-02 11:51:07 - INFO - 保留块: /Users/hansen/Projects/knowledge-distiller-kd/input/test.md::a85ad119618e8f3652777be3c73bf34a::NarrativeText
-2025-05-02 11:51:07 - INFO - 删除块: /Users/hansen/Projects/knowledge-distiller-kd/input/test.md::bfd6da4332891d483ae7dcfc5ba73b26::NarrativeText
-2025-05-02 11:51:07 - INFO - 找到 15 组重复内容
-2025-05-02 11:51:07 - INFO - Step completed: MD5 去重
-2025-05-02 11:51:07 - INFO - Step: 语义去重...
-2025-05-02 11:51:07 - INFO - Starting semantic similarity analysis (Optimized)...
-2025-05-02 11:51:07 - ERROR - Semantic model not loaded, cannot perform semantic analysis.
-2025-05-02 11:51:07 - INFO - Step completed: 语义去重
-2025-05-02 11:51:07 - INFO - Analysis completed successfully.
-2025-05-02 11:51:07 - INFO - Analysis completed. Entering post-analysis menu.
-
-[*] 正在初始化决策 (29/67): file-02.md#8a3b26a0a97dbc7f58c1e2021ec08e64
-[*] 正在初始化决策 (30/67): file-02.md#7e50d1b44bdac660dbafb45ef89a902d
-[*] 正在初始化决策 (31/67): file-02.md#386dc804788e365e6cdb7e8e62b1880a
-[*] 正在初始化决策 (32/67): file-02.md#d7515110bc2d795ecb151fc34561dff9
-[*] 正在初始化决策 (33/67): file-02.md#9aeac873571cd20e7bc34acb550c7385
-[*] 正在初始化决策 (34/67): file-02.md#891d460860cca733fdff894d951ddfd1
-[*] 正在初始化决策 (35/67): file-02.md#baf84ce325472085b8b16f8d027d8758
-[*] 正在初始化决策 (36/67): file-02.md#43a4fef08b98701075338f7b276e3042
-[*] 正在初始化决策 (37/67): file-02.md#91db691eadadd422e114e775ae9d4e67
-[*] 正在初始化决策 (38/67): file-02.md#821a6b86106115bc86f63c98336a1f3b
-[*] 正在初始化决策 (39/67): file-02.md#d7f0e2261412141b13561278ae3ad35c
-[*] 正在初始化决策 (40/67): file-02.md#17dc26b9ad58f3ecf9bdd4b7c9a47965
-[*] 正在初始化决策 (41/67): file-02.md#43abb0f6c891e96feca3ecff47776f83
-[*] 正在初始化决策 (42/67): file-02.md#50258a6e13477157808ab546090e8323
-[*] 正在初始化决策 (43/67): file-02.md#f7fee270eaa110268ecef3124812ddd0
-[*] 正在初始化决策 (44/67): file-02.md#fade3589950f8324e876fb3200b50117
-[*] 正在初始化决策 (45/67): file-02.md#055d5179afeb4ec8632752e3f4139067
-[*] 正在初始化决策 (46/67): file-02.md#59bc448cfc9ff2781ba94b8da5f519e4
-[*] 正在初始化决策 (47/67): file-02.md#900ef20b707668ec907b9b49eae5cc66
-[*] 正在初始化决策 (48/67): file-02.md#330f1a9b503457d0d6b691ed58776a7b
-[*] 正在初始化决策 (49/67): file-02.md#b03ba27eba5c408702b529fbe53bb208
-[*] 正在初始化决策 (50/67): file-02.md#ca6975d366125df8cec6086456ed45fc
-[*] 正在初始化决策 (51/67): test.md#5b19e1394d20fc3d4fdbd9198eace0f5
-[*] 正在初始化决策 (52/67): test.md#1aa5546a0571d78435944973f751bee6
-[*] 正在初始化决策 (53/67): test.md#58182dff6234f329fbc4d1a9a3b314d9
-[*] 正在初始化决策 (54/67): test.md#c777d49fefcdd225fcfdae2e25dc84aa
-[*] 正在初始化决策 (55/67): test.md#43629d9eb19d78e10652d4702363a077
-[*] 正在初始化决策 (56/67): test.md#c204fd5957d195cd78c865bcd3cc0ad0
-[*] 正在初始化决策 (57/67): test.md#f41243e7330e0006ad51c9e1f0a31a30
-[*] 正在初始化决策 (58/67): test.md#612d9295333955b6f1a1edf1fa017adc
-[*] 正在初始化决策 (59/67): test.md#2f9cc9731e5cd728a04c350d9d53ef48
-[*] 正在初始化决策 (60/67): test.md#1fef23d26dec196d1ea6e235f9810e8f
-[*] 正在初始化决策 (61/67): test.md#a95f2a6bad85ac93ba3025b45e276155
-[*] 正在初始化决策 (62/67): test.md#c73d5dc8c08e42f992f30ddad812d610
-[*] 正在初始化决策 (63/67): test.md#6092cf09e9342c7676cf6907dc905324
-[*] 正在初始化决策 (64/67): test.md#bfd6da4332891d483ae7dcfc5ba73b26
-[*] 正在初始化决策 (65/67): test.md#a85ad119618e8f3652777be3c73bf34a
-[*] 正在初始化决策 (66/67): test.md#8ea72664cd0a06cd877400698145a0c0
-[*] 正在初始化决策 (67/67): test.md#292059fe0cabdf659c9f47892469743c
-
-[*] 决策初始化完成: 成功初始化 67/67 个块的决策。
-[*] 初始化决策完成。
-
-[*] 正在执行: MD5 去重...
-[*] MD5 去重完成。
-
-[*] 正在执行: 语义去重...
-[*] 语义去重完成。
-
-[*] 分析完成。
-
-==================================================
-                       分析完成                       
-==================================================
-
-分析结果:
-  总文件数: 67
-  已决策块数: 30
-  未决策块数: 37
-
-当前配置:
-  输入目录: /Users/hansen/Projects/knowledge-distiller-kd/input
-  决策文件: /Users/hansen/Projects/knowledge-distiller-kd/decisions/decisions.json
-  输出目录: /Users/hansen/Projects/knowledge-distiller-kd/output
-
-请选择操作:
-  1. 查看重复块
-  2. 保存当前决策
-  3. 应用当前决策
-  4. 返回主菜单
-
---------------------------------------------------
-
-请输入选项编号: 2025-05-02 11:51:14 - INFO - KD Tool finished.
+
+--- Raw Elements from unstructured for: file-01.md ---
+
+[Raw Element 0]
+{
+  "type": "Title",
+  "element_id": "05d9522f312718a187363f5c5686ff50",
+  "text": "项目概述",
+  "metadata": {
+    "category_depth": 0,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01"
+  }
+}
+
+[Raw Element 1]
+{
+  "type": "UncategorizedText",
+  "element_id": "b1da7081131e1ea99114b89e5fa1ea5f",
+  "text": "本文档介绍了一个新的项目，该项目的目标是开发一个基于人工智能的自动化系统。",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "05d9522f312718a187363f5c5686ff50"
+  }
+}
+
+[Raw Element 2]
+{
+  "type": "Title",
+  "element_id": "a45411a6a869189c309ac5ec66207a30",
+  "text": "项目背景",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "05d9522f312718a187363f5c5686ff50"
+  }
+}
+
+[Raw Element 3]
+{
+  "type": "UncategorizedText",
+  "element_id": "decd8312891a9265793e3071fdcd44c7",
+  "text": "人工智能（AI）是当前科技发展的热点领域之一。随着计算能力的提升和算法的改进，AI 技术在多个行业中得到了广泛应用。",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "a45411a6a869189c309ac5ec66207a30"
+  }
+}
+
+[Raw Element 4]
+{
+  "type": "UncategorizedText",
+  "element_id": "bdd75038015b5d843a4e491d4f264470",
+  "text": "引用： “人工智能的应用不仅仅局限于理论研究，而是正在深刻影响我们的日常生活。” — AI 专家",
+  "metadata": {
+    "emphasized_text_contents": [
+      "引用："
+    ],
+    "emphasized_text_tags": [
+      "b"
+    ],
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "a45411a6a869189c309ac5ec66207a30"
+  }
+}
+
+[Raw Element 5]
+{
+  "type": "Title",
+  "element_id": "54f25b1d6ef73e6822436a2a1f3b6e2a",
+  "text": "技术栈",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "05d9522f312718a187363f5c5686ff50"
+  }
+}
+
+[Raw Element 6]
+{
+  "type": "UncategorizedText",
+  "element_id": "13b4cf08934c8ffd6f931dd8e0437cbf",
+  "text": "该项目使用以下技术栈：",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "54f25b1d6ef73e6822436a2a1f3b6e2a"
+  }
+}
+
+[Raw Element 7]
+{
+  "type": "ListItem",
+  "element_id": "6ba6c11bbf2e5ab4fe4147bf31b075e5",
+  "text": "Python 3.x",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "54f25b1d6ef73e6822436a2a1f3b6e2a"
+  }
+}
+
+[Raw Element 8]
+{
+  "type": "ListItem",
+  "element_id": "44d852e92ad5960b026f2702d43ba7cc",
+  "text": "TensorFlow 或 PyTorch",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "54f25b1d6ef73e6822436a2a1f3b6e2a"
+  }
+}
+
+[Raw Element 9]
+{
+  "type": "ListItem",
+  "element_id": "58dbc8ba6eb2cc03b4087e874bd55033",
+  "text": "Docker 容器化部署",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "54f25b1d6ef73e6822436a2a1f3b6e2a"
+  }
+}
+
+[Raw Element 10]
+{
+  "type": "Title",
+  "element_id": "5b3b79eedd601f3a762723c4ad399f92",
+  "text": "系统架构",
+  "metadata": {
+    "category_depth": 2,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "54f25b1d6ef73e6822436a2a1f3b6e2a"
+  }
+}
+
+[Raw Element 11]
+{
+  "type": "NarrativeText",
+  "element_id": "26ffe207512834e4595d4555300e57ff",
+  "text": "text 1. 用户请求 -> 2. 处理模块 -> 3. 数据处理 -> 4. 响应输出",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "5b3b79eedd601f3a762723c4ad399f92"
+  }
+}
+
+[Raw Element 12]
+{
+  "type": "Title",
+  "element_id": "bbe0d323ce4df3cbdaf6c0b0cbe99108",
+  "text": "复杂列表示例",
+  "metadata": {
+    "category_depth": 2,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "54f25b1d6ef73e6822436a2a1f3b6e2a"
+  }
+}
+
+[Raw Element 13]
+{
+  "type": "UncategorizedText",
+  "element_id": "1f1a3f7a2fa0f4ddc8f996b81fbe8d3a",
+  "text": "目标一：",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "bbe0d323ce4df3cbdaf6c0b0cbe99108"
+  }
+}
+
+[Raw Element 14]
+{
+  "type": "UncategorizedText",
+  "element_id": "c56619d9e6da995e42797ede2481d268",
+  "text": "任务一：数据采集",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "bbe0d323ce4df3cbdaf6c0b0cbe99108"
+  }
+}
+
+[Raw Element 15]
+{
+  "type": "UncategorizedText",
+  "element_id": "4e3082dfedb2efc8f5b58f85e69cb985",
+  "text": "任务二：数据清洗",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "bbe0d323ce4df3cbdaf6c0b0cbe99108"
+  }
+}
+
+[Raw Element 16]
+{
+  "type": "UncategorizedText",
+  "element_id": "e68424653e841c99fe30509fd734de3b",
+  "text": "目标二：",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "bbe0d323ce4df3cbdaf6c0b0cbe99108"
+  }
+}
+
+[Raw Element 17]
+{
+  "type": "UncategorizedText",
+  "element_id": "00ef0b84fc99ba2be6ff9d303d31f70b",
+  "text": "任务一：模型训练",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "bbe0d323ce4df3cbdaf6c0b0cbe99108"
+  }
+}
+
+[Raw Element 18]
+{
+  "type": "UncategorizedText",
+  "element_id": "ad60bd13e988a316c7df6a8788cc2f62",
+  "text": "任务二：模型评估",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "bbe0d323ce4df3cbdaf6c0b0cbe99108"
+  }
+}
+
+[Raw Element 19]
+{
+  "type": "Title",
+  "element_id": "805fc4215221e30b6f3bb3ad6172f7b5",
+  "text": "代码块示例",
+  "metadata": {
+    "category_depth": 2,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "54f25b1d6ef73e6822436a2a1f3b6e2a"
+  }
+}
+
+[Raw Element 20]
+{
+  "type": "NarrativeText",
+  "element_id": "510ece0e08ff011e85f17e8296676cbc",
+  "text": "```python import tensorflow as tf",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "805fc4215221e30b6f3bb3ad6172f7b5"
+  }
+}
+
+[Raw Element 21]
+{
+  "type": "NarrativeText",
+  "element_id": "297324bfd9b9d0c820653c74f5c9e5fe",
+  "text": "def build_model(input_shape): model = tf.keras.Sequential([ tf.keras.layers.Dense(64, activation='relu', input_shape=input_shape), tf.keras.layers.Dense(10, activation='softmax') ]) return model",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "805fc4215221e30b6f3bb3ad6172f7b5"
+  }
+}
+
+[Raw Element 22]
+{
+  "type": "UncategorizedText",
+  "element_id": "a9ac2fe0febb0a3ddb246dc1304cec2e",
+  "text": "```",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "805fc4215221e30b6f3bb3ad6172f7b5"
+  }
+}
+
+[Raw Element 23]
+{
+  "type": "Title",
+  "element_id": "662eaffc094cb7aeee9899f4cd287ee9",
+  "text": "结束语",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "05d9522f312718a187363f5c5686ff50"
+  }
+}
+
+[Raw Element 24]
+{
+  "type": "UncategorizedText",
+  "element_id": "648493fa6d3964922a608fafbbf7274b",
+  "text": "通过本项目的实现，我们预计能够在多个行业中实现AI的广泛应用，包括医疗、金融等领域。",
+  "metadata": {
+    "languages": [
+      "nor",
+      "eng"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-01.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:01",
+    "parent_id": "662eaffc094cb7aeee9899f4cd287ee9"
+  }
+}
+--- End Raw Elements for: file-01.md ---
+2025-05-02 20:35:20 - kd_tool - INFO - Successfully processed 25 blocks from /Users/hansen/Projects/knowledge-distiller-kd/input/file-01.md
+2025-05-02 20:35:20 - kd_tool - INFO - Processing file: /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md
+
+--- Raw Elements from unstructured for: file-02.md ---
+
+[Raw Element 0]
+{
+  "type": "Title",
+  "element_id": "053a37bf6810c4eee14cd8f16ab19364",
+  "text": "项目概述",
+  "metadata": {
+    "category_depth": 0,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07"
+  }
+}
+
+[Raw Element 1]
+{
+  "type": "UncategorizedText",
+  "element_id": "1f50c8949c16d308e64c43a9b02d6f71",
+  "text": "本文档介绍了一个新的项目，该项目的目标是开发一个基于人工智能的自动化系统。",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "053a37bf6810c4eee14cd8f16ab19364"
+  }
+}
+
+[Raw Element 2]
+{
+  "type": "Title",
+  "element_id": "8bab6c79b1f27c64fd30f1f2b413fde2",
+  "text": "项目背景",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "053a37bf6810c4eee14cd8f16ab19364"
+  }
+}
+
+[Raw Element 3]
+{
+  "type": "UncategorizedText",
+  "element_id": "8a3b26a0a97dbc7f58c1e2021ec08e64",
+  "text": "人工智能（AI）是当前科技发展的热点领域之一。随着计算能力的提升和算法的改进，AI 技术在多个行业中得到了广泛应用。",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "8bab6c79b1f27c64fd30f1f2b413fde2"
+  }
+}
+
+[Raw Element 4]
+{
+  "type": "UncategorizedText",
+  "element_id": "7e50d1b44bdac660dbafb45ef89a902d",
+  "text": "引用： “人工智能的应用不仅仅局限于理论研究，而是正在深刻影响我们的日常生活。” — AI 专家",
+  "metadata": {
+    "emphasized_text_contents": [
+      "引用："
+    ],
+    "emphasized_text_tags": [
+      "b"
+    ],
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "8bab6c79b1f27c64fd30f1f2b413fde2"
+  }
+}
+
+[Raw Element 5]
+{
+  "type": "Title",
+  "element_id": "386dc804788e365e6cdb7e8e62b1880a",
+  "text": "技术栈",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "053a37bf6810c4eee14cd8f16ab19364"
+  }
+}
+
+[Raw Element 6]
+{
+  "type": "UncategorizedText",
+  "element_id": "d7515110bc2d795ecb151fc34561dff9",
+  "text": "该项目使用以下主要技术：",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "386dc804788e365e6cdb7e8e62b1880a"
+  }
+}
+
+[Raw Element 7]
+{
+  "type": "ListItem",
+  "element_id": "9aeac873571cd20e7bc34acb550c7385",
+  "text": "Python 语言",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "386dc804788e365e6cdb7e8e62b1880a"
+  }
+}
+
+[Raw Element 8]
+{
+  "type": "ListItem",
+  "element_id": "891d460860cca733fdff894d951ddfd1",
+  "text": "TensorFlow 或 PyTorch 深度学习框架",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "386dc804788e365e6cdb7e8e62b1880a"
+  }
+}
+
+[Raw Element 9]
+{
+  "type": "ListItem",
+  "element_id": "baf84ce325472085b8b16f8d027d8758",
+  "text": "Docker 容器化",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "386dc804788e365e6cdb7e8e62b1880a"
+  }
+}
+
+[Raw Element 10]
+{
+  "type": "Title",
+  "element_id": "43a4fef08b98701075338f7b276e3042",
+  "text": "系统架构",
+  "metadata": {
+    "category_depth": 2,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "386dc804788e365e6cdb7e8e62b1880a"
+  }
+}
+
+[Raw Element 11]
+{
+  "type": "NarrativeText",
+  "element_id": "91db691eadadd422e114e775ae9d4e67",
+  "text": "text 1. 请求接收 -> 2. 数据预处理 -> 3. 模型推理 -> 4. 结果输出",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "43a4fef08b98701075338f7b276e3042"
+  }
+}
+
+[Raw Element 12]
+{
+  "type": "Title",
+  "element_id": "821a6b86106115bc86f63c98336a1f3b",
+  "text": "复杂列表示例",
+  "metadata": {
+    "category_depth": 2,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "386dc804788e365e6cdb7e8e62b1880a"
+  }
+}
+
+[Raw Element 13]
+{
+  "type": "UncategorizedText",
+  "element_id": "d7f0e2261412141b13561278ae3ad35c",
+  "text": "目标一：",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "821a6b86106115bc86f63c98336a1f3b"
+  }
+}
+
+[Raw Element 14]
+{
+  "type": "UncategorizedText",
+  "element_id": "17dc26b9ad58f3ecf9bdd4b7c9a47965",
+  "text": "子任务：采集数据",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "821a6b86106115bc86f63c98336a1f3b"
+  }
+}
+
+[Raw Element 15]
+{
+  "type": "UncategorizedText",
+  "element_id": "43abb0f6c891e96feca3ecff47776f83",
+  "text": "子任务：清洗数据",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "821a6b86106115bc86f63c98336a1f3b"
+  }
+}
+
+[Raw Element 16]
+{
+  "type": "UncategorizedText",
+  "element_id": "50258a6e13477157808ab546090e8323",
+  "text": "目标二：",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "821a6b86106115bc86f63c98336a1f3b"
+  }
+}
+
+[Raw Element 17]
+{
+  "type": "UncategorizedText",
+  "element_id": "f7fee270eaa110268ecef3124812ddd0",
+  "text": "子任务：训练模型",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "821a6b86106115bc86f63c98336a1f3b"
+  }
+}
+
+[Raw Element 18]
+{
+  "type": "UncategorizedText",
+  "element_id": "fade3589950f8324e876fb3200b50117",
+  "text": "子任务：评估模型",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "821a6b86106115bc86f63c98336a1f3b"
+  }
+}
+
+[Raw Element 19]
+{
+  "type": "Title",
+  "element_id": "055d5179afeb4ec8632752e3f4139067",
+  "text": "代码块示例",
+  "metadata": {
+    "category_depth": 2,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "386dc804788e365e6cdb7e8e62b1880a"
+  }
+}
+
+[Raw Element 20]
+{
+  "type": "NarrativeText",
+  "element_id": "59bc448cfc9ff2781ba94b8da5f519e4",
+  "text": "```python import tensorflow as tf",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "055d5179afeb4ec8632752e3f4139067"
+  }
+}
+
+[Raw Element 21]
+{
+  "type": "NarrativeText",
+  "element_id": "900ef20b707668ec907b9b49eae5cc66",
+  "text": "def create_model(input_shape): model = tf.keras.Sequential([ tf.keras.layers.Dense(128, activation='relu', input_shape=input_shape), tf.keras.layers.Dense(10, activation='softmax') ]) return model",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "055d5179afeb4ec8632752e3f4139067"
+  }
+}
+
+[Raw Element 22]
+{
+  "type": "UncategorizedText",
+  "element_id": "330f1a9b503457d0d6b691ed58776a7b",
+  "text": "```",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "055d5179afeb4ec8632752e3f4139067"
+  }
+}
+
+[Raw Element 23]
+{
+  "type": "Title",
+  "element_id": "b03ba27eba5c408702b529fbe53bb208",
+  "text": "结束语",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "053a37bf6810c4eee14cd8f16ab19364"
+  }
+}
+
+[Raw Element 24]
+{
+  "type": "UncategorizedText",
+  "element_id": "ca6975d366125df8cec6086456ed45fc",
+  "text": "该项目的成功实施将为多个领域提供解决方案，特别是在高效医疗和智能金融领域。",
+  "metadata": {
+    "languages": [
+      "nor"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "file-02.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-04-22T09:03:07",
+    "parent_id": "b03ba27eba5c408702b529fbe53bb208"
+  }
+}
+--- End Raw Elements for: file-02.md ---
+2025-05-02 20:35:20 - kd_tool - INFO - Successfully processed 25 blocks from /Users/hansen/Projects/knowledge-distiller-kd/input/file-02.md
+2025-05-02 20:35:20 - kd_tool - INFO - Processing file: /Users/hansen/Projects/knowledge-distiller-kd/input/test.md
+
+--- Raw Elements from unstructured for: test.md ---
+
+[Raw Element 0]
+{
+  "type": "Title",
+  "element_id": "5b19e1394d20fc3d4fdbd9198eace0f5",
+  "text": "测试文档",
+  "metadata": {
+    "category_depth": 0,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54"
+  }
+}
+
+[Raw Element 1]
+{
+  "type": "UncategorizedText",
+  "element_id": "1aa5546a0571d78435944973f751bee6",
+  "text": "这是一个测试文档，用于测试知识蒸馏工具。",
+  "metadata": {
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "5b19e1394d20fc3d4fdbd9198eace0f5"
+  }
+}
+
+[Raw Element 2]
+{
+  "type": "Title",
+  "element_id": "58182dff6234f329fbc4d1a9a3b314d9",
+  "text": "第一部分",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "5b19e1394d20fc3d4fdbd9198eace0f5"
+  }
+}
+
+[Raw Element 3]
+{
+  "type": "UncategorizedText",
+  "element_id": "c777d49fefcdd225fcfdae2e25dc84aa",
+  "text": "这是第一部分的内容。这里包含了一些文本内容，用于测试文本处理功能。",
+  "metadata": {
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "58182dff6234f329fbc4d1a9a3b314d9"
+  }
+}
+
+[Raw Element 4]
+{
+  "type": "Title",
+  "element_id": "43629d9eb19d78e10652d4702363a077",
+  "text": "列表测试",
+  "metadata": {
+    "category_depth": 2,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "58182dff6234f329fbc4d1a9a3b314d9"
+  }
+}
+
+[Raw Element 5]
+{
+  "type": "ListItem",
+  "element_id": "c204fd5957d195cd78c865bcd3cc0ad0",
+  "text": "第一项",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "43629d9eb19d78e10652d4702363a077"
+  }
+}
+
+[Raw Element 6]
+{
+  "type": "ListItem",
+  "element_id": "f41243e7330e0006ad51c9e1f0a31a30",
+  "text": "第二项",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "43629d9eb19d78e10652d4702363a077"
+  }
+}
+
+[Raw Element 7]
+{
+  "type": "ListItem",
+  "element_id": "612d9295333955b6f1a1edf1fa017adc",
+  "text": "第三项",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "43629d9eb19d78e10652d4702363a077"
+  }
+}
+
+[Raw Element 8]
+{
+  "type": "Title",
+  "element_id": "2f9cc9731e5cd728a04c350d9d53ef48",
+  "text": "代码测试",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "5b19e1394d20fc3d4fdbd9198eace0f5"
+  }
+}
+
+[Raw Element 9]
+{
+  "type": "UncategorizedText",
+  "element_id": "1fef23d26dec196d1ea6e235f9810e8f",
+  "text": "python def hello_world(): print(\"Hello, World!\")",
+  "metadata": {
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "2f9cc9731e5cd728a04c350d9d53ef48"
+  }
+}
+
+[Raw Element 10]
+{
+  "type": "Title",
+  "element_id": "a95f2a6bad85ac93ba3025b45e276155",
+  "text": "表格测试",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "5b19e1394d20fc3d4fdbd9198eace0f5"
+  }
+}
+
+[Raw Element 11]
+{
+  "type": "Table",
+  "element_id": "c73d5dc8c08e42f992f30ddad812d610",
+  "text": "列1 列2 列3 A1 B1 C1 A2 B2 C2",
+  "metadata": {
+    "text_as_html": "<table><tr><td>列1</td><td>列2</td><td>列3</td></tr><tr><td>A1</td><td>B1</td><td>C1</td></tr><tr><td>A2</td><td>B2</td><td>C2</td></tr></table>",
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "a95f2a6bad85ac93ba3025b45e276155"
+  }
+}
+
+[Raw Element 12]
+{
+  "type": "Title",
+  "element_id": "6092cf09e9342c7676cf6907dc905324",
+  "text": "重复内容测试",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "5b19e1394d20fc3d4fdbd9198eace0f5"
+  }
+}
+
+[Raw Element 13]
+{
+  "type": "UncategorizedText",
+  "element_id": "bfd6da4332891d483ae7dcfc5ba73b26",
+  "text": "这是一段重复的内容。",
+  "metadata": {
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "6092cf09e9342c7676cf6907dc905324"
+  }
+}
+
+[Raw Element 14]
+{
+  "type": "UncategorizedText",
+  "element_id": "a85ad119618e8f3652777be3c73bf34a",
+  "text": "这是一段重复的内容。",
+  "metadata": {
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "6092cf09e9342c7676cf6907dc905324"
+  }
+}
+
+[Raw Element 15]
+{
+  "type": "Title",
+  "element_id": "8ea72664cd0a06cd877400698145a0c0",
+  "text": "结束",
+  "metadata": {
+    "category_depth": 1,
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "5b19e1394d20fc3d4fdbd9198eace0f5"
+  }
+}
+
+[Raw Element 16]
+{
+  "type": "UncategorizedText",
+  "element_id": "292059fe0cabdf659c9f47892469743c",
+  "text": "测试文档到此结束。",
+  "metadata": {
+    "languages": [
+      "zho"
+    ],
+    "file_directory": "/Users/hansen/Projects/knowledge-distiller-kd/input",
+    "filename": "test.md",
+    "filetype": "text/markdown",
+    "last_modified": "2025-05-02T10:28:54",
+    "parent_id": "8ea72664cd0a06cd877400698145a0c0"
+  }
+}
+--- End Raw Elements for: test.md ---

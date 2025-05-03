@@ -1,236 +1,285 @@
 # tests/test_md5_analyzer.py
 """
-测试 MD5 分析器模块。
+Unit tests for the MD5Analyzer class.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock # 导入 MagicMock
-from typing import List, Tuple, Any, Type # 添加 Type
+from typing import List, Dict, Any
+from pathlib import Path # 导入 Path
 
-# 导入需要测试的类和函数
-from knowledge_distiller_kd.core.md5_analyzer import MD5Analyzer
-from knowledge_distiller_kd.core.document_processor import ContentBlock
+# Corrected imports based on new structure
+from knowledge_distiller_kd.analysis.md5_analyzer import MD5Analyzer
+from knowledge_distiller_kd.processing.document_processor import ContentBlock
 from knowledge_distiller_kd.core import constants
-from knowledge_distiller_kd.core.utils import create_decision_key # 导入 create_decision_key
+from knowledge_distiller_kd.core.utils import create_decision_key
 
-# 导入 unstructured 元素类型用于创建测试数据
-from unstructured.documents.elements import Element, NarrativeText, Title, CodeSnippet
+# Import necessary element types from unstructured
+from unstructured.documents.elements import NarrativeText, Title, CodeSnippet, Text
 
 # --- Fixtures ---
 
 @pytest.fixture
-def mock_kd_tool() -> MagicMock:
-    """创建一个模拟的 KDToolCLI 实例"""
-    tool = MagicMock()
-    tool.blocks_data = [] # 初始化为空列表
-    tool.block_decisions = {} # 初始化为空字典
-    return tool
+def md5_analyzer() -> MD5Analyzer:
+    """Creates a new MD5Analyzer instance for each test."""
+    return MD5Analyzer()
 
 @pytest.fixture
-def md5_analyzer(mock_kd_tool: MagicMock) -> MD5Analyzer:
-    """创建一个 MD5Analyzer 实例，注入模拟的 KDToolCLI"""
-    return MD5Analyzer(mock_kd_tool)
+def create_content_block_md5():
+    """
+    Factory fixture to create ContentBlock instances specifically for MD5 tests.
+    Uses simple text and basic element types. Need to use unique IDs for blocks
+    unless testing identical blocks across files.
+    Resolves file_path to absolute path for consistent key generation.
+    """
+    _block_counter = 0
+    # Use tmp_path fixture provided by pytest for unique absolute paths per test run
+    base_dir = Path(f"test_md5_run_{_block_counter}") # Simple base dir name
 
-# 辅助函数或 fixture 来创建 ContentBlock (使用真实 Element)
-@pytest.fixture
-def mock_element():
-    """提供一个创建真实 Element 的辅助函数"""
-    def _create_element(text: str, element_type: Type[Element] = NarrativeText, element_id: str = "test_id") -> Element:
-        if issubclass(element_type, (NarrativeText, Title, CodeSnippet)):
-            return element_type(text=text, element_id=element_id)
-        else:
-            from unstructured.documents.elements import Text
-            return Text(text=text, element_id=element_id)
-    return _create_element
+    def _create(
+        text: str,
+        file_path: str = "test.md",
+        block_type_cls: type = NarrativeText,
+        element_id: str | None = None
+    ) -> ContentBlock:
+        nonlocal _block_counter
+        if element_id is None:
+            _block_counter += 1
+            element_id = f"md5_test_{_block_counter}"
 
-# --- 测试用例 ---
+        # --- Use absolute path ---
+        abs_file_path = (base_dir / file_path).resolve()
 
-def test_initialization(md5_analyzer: MD5Analyzer, mock_kd_tool: MagicMock) -> None:
-    """测试 MD5Analyzer 初始化"""
-    assert md5_analyzer.kd_tool == mock_kd_tool
-    assert md5_analyzer.md5_duplicates == []
+        # Create a basic unstructured element
+        element = block_type_cls(text=text, element_id=element_id)
+        # Pass the absolute path string to ContentBlock
+        cb = ContentBlock(element, str(abs_file_path))
+        # Ensure original_text and analysis_text are populated for the test
+        cb.original_text = text
+        cb.analysis_text = cb._normalize_text() # Use the actual normalization
+        return cb
+    return _create
 
-def test_find_md5_duplicates_empty_blocks(md5_analyzer: MD5Analyzer) -> None:
-    """测试没有内容块的情况"""
-    md5_analyzer.kd_tool.blocks_data = []
-    result = md5_analyzer.find_md5_duplicates()
-    assert result is True
-    assert len(md5_analyzer.md5_duplicates) == 0
+# Helper function to get absolute key
+def get_abs_key(block: ContentBlock) -> str:
+    # Ensure the path used for the key is absolute
+    abs_path_str = str(Path(block.file_path).resolve())
+    return create_decision_key(abs_path_str, block.block_id, block.block_type)
 
-def test_find_md5_duplicates_single_block(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试只有一个内容块的情况"""
-    element = mock_element("只有一个块")
-    block = ContentBlock(element, "test.md")
-    # 初始化决策
-    key = create_decision_key(block.file_path, block.block_id, block.block_type)
-    md5_analyzer.kd_tool.block_decisions[key] = constants.DECISION_UNDECIDED
-    md5_analyzer.kd_tool.blocks_data = [block]
-    result = md5_analyzer.find_md5_duplicates()
-    assert result is True
-    assert len(md5_analyzer.md5_duplicates) == 0
+# --- Test Cases ---
 
-def test_find_md5_duplicates_identical_blocks(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试两个完全相同的内容块"""
-    element1 = mock_element("相同内容", NarrativeText, "1")
-    element2 = mock_element("相同内容", NarrativeText, "2")
-    block1 = ContentBlock(element1, "file1.md")
-    block2 = ContentBlock(element2, "file2.md")
+def test_initialization(md5_analyzer: MD5Analyzer):
+    """Test if MD5Analyzer initializes without errors."""
+    assert isinstance(md5_analyzer, MD5Analyzer)
 
-    # ==================== 修改：预设决策状态 ====================
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    md5_analyzer.kd_tool.block_decisions = {
-        key1: constants.DECISION_UNDECIDED,
-        key2: constants.DECISION_UNDECIDED
+def test_find_md5_duplicates_empty_blocks(md5_analyzer: MD5Analyzer):
+    """Test with no content blocks."""
+    input_blocks: List[ContentBlock] = []
+    input_decisions: Dict[str, str] = {}
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
+    assert groups == []
+    assert suggestions == {}
+
+def test_find_md5_duplicates_single_block(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test with only one content block."""
+    block1 = create_content_block_md5("Single block content")
+    input_blocks = [block1]
+    key1_abs = get_abs_key(block1)
+    input_decisions = {key1_abs: constants.DECISION_UNDECIDED}
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
+    assert groups == []
+    assert suggestions == {}
+
+def test_find_md5_duplicates_identical_blocks(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test with two identical content blocks."""
+    content = "Identical content"
+    block1 = create_content_block_md5(content, file_path="file1.md", element_id="id1")
+    block2 = create_content_block_md5(content, file_path="file2.md", element_id="id2")
+    input_blocks = [block1, block2]
+    key1_abs = get_abs_key(block1)
+    key2_abs = get_abs_key(block2)
+    input_decisions = {key1_abs: constants.DECISION_UNDECIDED, key2_abs: constants.DECISION_UNDECIDED}
+
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
+
+    assert len(groups) == 1
+    assert set(groups[0]) == {block1, block2}
+    assert len(suggestions) == 2
+    # Assert using absolute keys now
+    assert suggestions[key1_abs] == constants.DECISION_KEEP
+    assert suggestions[key2_abs] == constants.DECISION_DELETE
+
+def test_find_md5_duplicates_different_blocks(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test with two different content blocks."""
+    block1 = create_content_block_md5("Content One", element_id="id1")
+    block2 = create_content_block_md5("Content Two", element_id="id2")
+    input_blocks = [block1, block2]
+    key1_abs = get_abs_key(block1)
+    key2_abs = get_abs_key(block2)
+    input_decisions = {key1_abs: constants.DECISION_UNDECIDED, key2_abs: constants.DECISION_UNDECIDED}
+
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
+
+    assert groups == []
+    assert suggestions == {}
+
+def test_find_md5_duplicates_mixed_blocks(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test with a mix of unique and duplicate blocks."""
+    content_a = "Content A (Duplicate)"
+    content_b = "Content B (Unique)"
+    block1 = create_content_block_md5(content_a, file_path="file1.md", element_id="id1")
+    block2 = create_content_block_md5(content_b, file_path="file2.md", element_id="id2")
+    block3 = create_content_block_md5(content_a, file_path="file3.md", element_id="id3")
+    input_blocks = [block1, block2, block3]
+    key1_abs = get_abs_key(block1)
+    key2_abs = get_abs_key(block2)
+    key3_abs = get_abs_key(block3)
+    input_decisions = {
+        key1_abs: constants.DECISION_UNDECIDED,
+        key2_abs: constants.DECISION_UNDECIDED,
+        key3_abs: constants.DECISION_UNDECIDED,
     }
-    # ============================================================
 
-    md5_analyzer.kd_tool.blocks_data = [block1, block2]
-    md5_analyzer.find_md5_duplicates()
-    assert len(md5_analyzer.md5_duplicates) == 1
-    assert len(md5_analyzer.md5_duplicates[0]) == 2
-    # 验证自动决策
-    assert md5_analyzer.kd_tool.block_decisions.get(key1) == constants.DECISION_KEEP
-    assert md5_analyzer.kd_tool.block_decisions.get(key2) == constants.DECISION_DELETE
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
 
-def test_find_md5_duplicates_different_blocks(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试两个不同内容块"""
-    element1 = mock_element("内容一", NarrativeText, "1")
-    element2 = mock_element("内容二", NarrativeText, "2")
-    block1 = ContentBlock(element1, "test.md")
-    block2 = ContentBlock(element2, "test.md")
-    # 初始化决策
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    md5_analyzer.kd_tool.block_decisions = {
-        key1: constants.DECISION_UNDECIDED,
-        key2: constants.DECISION_UNDECIDED
+    assert len(groups) == 1
+    assert set(groups[0]) == {block1, block3}
+    assert len(suggestions) == 2
+    assert suggestions[key1_abs] == constants.DECISION_KEEP
+    assert suggestions[key3_abs] == constants.DECISION_DELETE
+    assert key2_abs not in suggestions
+
+def test_find_md5_duplicates_identical_titles_skipped(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test that identical Title blocks are skipped by default."""
+    block1 = create_content_block_md5("# Same Title", block_type_cls=Title, element_id="id1")
+    block2 = create_content_block_md5("## Same Title", block_type_cls=Title, element_id="id2")
+    input_blocks = [block1, block2]
+    key1_abs = get_abs_key(block1)
+    key2_abs = get_abs_key(block2)
+    input_decisions = {key1_abs: constants.DECISION_UNDECIDED, key2_abs: constants.DECISION_UNDECIDED}
+
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
+
+    assert groups == []
+    assert suggestions == {}
+
+def test_find_md5_duplicates_empty_content(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test with blocks having empty or whitespace-only content."""
+    # Need unique IDs if file paths are the same in the fixture base dir
+    block1 = create_content_block_md5("", file_path="file1.md", block_type_cls=Text, element_id="id_empty")
+    block2 = create_content_block_md5("   \n\t  ", file_path="file2.md", block_type_cls=Text, element_id="id_space")
+    input_blocks = [block1, block2]
+    key1_abs = get_abs_key(block1)
+    key2_abs = get_abs_key(block2)
+    input_decisions = {key1_abs: constants.DECISION_UNDECIDED, key2_abs: constants.DECISION_UNDECIDED}
+
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
+
+    assert len(groups) == 1
+    assert set(groups[0]) == {block1, block2}
+    assert len(suggestions) == 2
+    # Use absolute keys for assertion
+    assert suggestions[key1_abs] == constants.DECISION_KEEP
+    assert suggestions[key2_abs] == constants.DECISION_DELETE
+
+def test_find_md5_duplicates_normalize_text(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test that normalization (whitespace, markdown) happens before hashing."""
+    block1 = create_content_block_md5("Text   with\n\n extra  space", element_id="id1")
+    block2 = create_content_block_md5("Text with extra space", element_id="id2")
+    input_blocks = [block1, block2]
+    key1_abs = get_abs_key(block1)
+    key2_abs = get_abs_key(block2)
+    input_decisions = {key1_abs: constants.DECISION_UNDECIDED, key2_abs: constants.DECISION_UNDECIDED}
+
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
+
+    assert len(groups) == 1
+    assert set(groups[0]) == {block1, block2}
+    assert len(suggestions) == 2
+    # Use absolute keys for assertion
+    assert suggestions[key1_abs] == constants.DECISION_KEEP
+    assert suggestions[key2_abs] == constants.DECISION_DELETE
+
+def test_find_md5_duplicates_pre_deleted_blocks(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test that blocks already marked as DELETE are ignored in suggestions."""
+    content = "Identical content"
+    block1 = create_content_block_md5(content, file_path="file1.md", element_id="id1")
+    block2 = create_content_block_md5(content, file_path="file2.md", element_id="id2")
+    block3 = create_content_block_md5(content, file_path="file3.md", element_id="id3")
+    input_blocks = [block1, block2, block3]
+    key1_abs = get_abs_key(block1)
+    key2_abs = get_abs_key(block2)
+    key3_abs = get_abs_key(block3)
+    # Mark block2 as already deleted using absolute key
+    input_decisions = {
+        key1_abs: constants.DECISION_UNDECIDED,
+        key2_abs: constants.DECISION_DELETE, # Pre-deleted
+        key3_abs: constants.DECISION_UNDECIDED,
     }
-    md5_analyzer.kd_tool.blocks_data = [block1, block2]
-    md5_analyzer.find_md5_duplicates()
-    assert len(md5_analyzer.md5_duplicates) == 0
 
-def test_find_md5_duplicates_mixed_blocks(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试混合内容块（部分重复）"""
-    element1 = mock_element("重复内容", NarrativeText, "1")
-    element2 = mock_element("不同内容", NarrativeText, "2")
-    element3 = mock_element("重复内容", NarrativeText, "3")
-    block1 = ContentBlock(element1, "a.md")
-    block2 = ContentBlock(element2, "b.md")
-    block3 = ContentBlock(element3, "c.md")
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
 
-    # ==================== 修改：预设决策状态 ====================
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    key3 = create_decision_key(block3.file_path, block3.block_id, block3.block_type)
-    md5_analyzer.kd_tool.block_decisions = {
-        key1: constants.DECISION_UNDECIDED,
-        key2: constants.DECISION_UNDECIDED,
-        key3: constants.DECISION_UNDECIDED
+    assert len(groups) == 1
+    # 修改为:
+    assert set(groups[0]) == {block1, block3}
+    # Suggestions should only be generated for non-deleted blocks in the group
+    # Analyzer should now respect the pre-deleted status using the absolute key
+    assert len(suggestions) == 2 # Expecting suggestions only for key1 and key3
+    assert suggestions[key1_abs] == constants.DECISION_KEEP # block1 is kept
+    assert key2_abs not in suggestions # No suggestion for already deleted block2
+    assert suggestions[key3_abs] == constants.DECISION_DELETE # block3 is suggested for deletion
+
+def test_find_md5_duplicates_multiple_groups(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test finding multiple distinct groups of duplicates."""
+    block_a1 = create_content_block_md5("Content A", file_path="fA1.md", element_id="idA1")
+    block_a2 = create_content_block_md5("Content A", file_path="fA2.md", element_id="idA2")
+    block_b1 = create_content_block_md5("Content B", file_path="fB1.md", element_id="idB1")
+    block_b2 = create_content_block_md5("Content B", file_path="fB2.md", element_id="idB2")
+    block_c = create_content_block_md5("Content C", file_path="fC.md", element_id="idC") # Unique
+    input_blocks = [block_a1, block_b1, block_c, block_a2, block_b2] # Mix order
+    key_a1_abs = get_abs_key(block_a1)
+    key_a2_abs = get_abs_key(block_a2)
+    key_b1_abs = get_abs_key(block_b1)
+    key_b2_abs = get_abs_key(block_b2)
+    key_c_abs = get_abs_key(block_c)
+    input_decisions = {
+        key_a1_abs: constants.DECISION_UNDECIDED, key_a2_abs: constants.DECISION_UNDECIDED,
+        key_b1_abs: constants.DECISION_UNDECIDED, key_b2_abs: constants.DECISION_UNDECIDED,
+        key_c_abs: constants.DECISION_UNDECIDED,
     }
-    # ============================================================
 
-    md5_analyzer.kd_tool.blocks_data = [block1, block2, block3]
-    md5_analyzer.find_md5_duplicates()
-    assert len(md5_analyzer.md5_duplicates) == 1
-    assert len(md5_analyzer.md5_duplicates[0]) == 2
-    duplicate_ids = {b.block_id for b in md5_analyzer.md5_duplicates[0]}
-    assert duplicate_ids == {"1", "3"}
-    # 验证决策
-    assert md5_analyzer.kd_tool.block_decisions.get(key1) == constants.DECISION_KEEP
-    assert md5_analyzer.kd_tool.block_decisions.get(key3) == constants.DECISION_DELETE
-    assert md5_analyzer.kd_tool.block_decisions.get(key2) == constants.DECISION_UNDECIDED # 确认未被修改
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
 
-def test_find_md5_duplicates_different_types(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试相同文本但不同类型的内容块"""
-    element1 = mock_element("相同文本", NarrativeText, "1")
-    element2 = mock_element("相同文本", Title, "2")
-    block1 = ContentBlock(element1, "test.md")
-    block2 = ContentBlock(element2, "test.md")
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    md5_analyzer.kd_tool.block_decisions = {key1: 'undecided', key2: 'undecided'}
-    md5_analyzer.kd_tool.blocks_data = [block1, block2]
-    md5_analyzer.find_md5_duplicates()
-    assert len(md5_analyzer.md5_duplicates) == 0
+    assert len(groups) == 2
+    groups_set = {frozenset(group) for group in groups}
+    assert frozenset([block_a1, block_a2]) in groups_set
+    assert frozenset([block_b1, block_b2]) in groups_set
 
-def test_find_md5_duplicates_empty_content(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试空内容块"""
-    element1 = mock_element("", NarrativeText, "1")
-    element2 = mock_element("", NarrativeText, "2")
-    block1 = ContentBlock(element1, "a.md")
-    block2 = ContentBlock(element2, "b.md")
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    md5_analyzer.kd_tool.block_decisions = {key1: 'undecided', key2: 'undecided'}
-    md5_analyzer.kd_tool.blocks_data = [block1, block2]
-    md5_analyzer.find_md5_duplicates()
-    assert len(md5_analyzer.md5_duplicates) == 1
-    assert len(md5_analyzer.md5_duplicates[0]) == 2
+    assert len(suggestions) == 4
+    # Use absolute keys for assertion
+    assert suggestions[key_a1_abs] == constants.DECISION_KEEP
+    assert suggestions[key_a2_abs] == constants.DECISION_DELETE
+    assert suggestions[key_b1_abs] == constants.DECISION_KEEP
+    assert suggestions[key_b2_abs] == constants.DECISION_DELETE
+    assert key_c_abs not in suggestions
 
-def test_find_md5_duplicates_whitespace(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试仅包含空白字符的内容块"""
-    element1 = mock_element("   \n\t ", NarrativeText, "1")
-    element2 = mock_element(" \t\n  ", NarrativeText, "2")
-    block1 = ContentBlock(element1, "a.md")
-    block2 = ContentBlock(element2, "b.md")
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    md5_analyzer.kd_tool.block_decisions = {key1: 'undecided', key2: 'undecided'}
-    md5_analyzer.kd_tool.blocks_data = [block1, block2]
-    md5_analyzer.find_md5_duplicates()
-    assert len(md5_analyzer.md5_duplicates) == 1
-    assert len(md5_analyzer.md5_duplicates[0]) == 2
+def test_find_md5_duplicates_three_identical(md5_analyzer: MD5Analyzer, create_content_block_md5):
+    """Test a group with three identical blocks."""
+    content = "Identical x3"
+    block1 = create_content_block_md5(content, file_path="f1.md", element_id="id1")
+    block2 = create_content_block_md5(content, file_path="f2.md", element_id="id2")
+    block3 = create_content_block_md5(content, file_path="f3.md", element_id="id3")
+    input_blocks = [block1, block2, block3]
+    key1_abs = get_abs_key(block1)
+    key2_abs = get_abs_key(block2)
+    key3_abs = get_abs_key(block3)
+    input_decisions = {key1_abs: 'undecided', key2_abs: 'undecided', key3_abs: 'undecided'}
 
-def test_find_md5_duplicates_skip_headers(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试标题块的比较（应该基于移除 # 后的文本）。"""
-    element1 = mock_element("# 标题\n\n这是内容", Title, "1")
-    element2 = mock_element("## 另一个标题\n\n这是内容", Title, "2")
-    block1 = ContentBlock(element1, "test.md")
-    block2 = ContentBlock(element2, "test.md")
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    md5_analyzer.kd_tool.block_decisions = {key1: 'undecided', key2: 'undecided'}
-    md5_analyzer.kd_tool.blocks_data = [block1, block2]
-    md5_analyzer.find_md5_duplicates()
-    assert len(md5_analyzer.md5_duplicates) == 0
+    groups, suggestions = md5_analyzer.find_md5_duplicates(input_blocks, input_decisions)
 
-def test_find_md5_duplicates_normalize_text(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试标准化是否影响比较"""
-    element1 = mock_element("文本  包含\n多余 空白", NarrativeText, "1")
-    element2 = mock_element("文本 包含 多余 空白", NarrativeText, "2")
-    block1 = ContentBlock(element1, "a.md")
-    block2 = ContentBlock(element2, "b.md")
-
-    # ==================== 修改：预设决策状态 ====================
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    md5_analyzer.kd_tool.block_decisions = {
-        key1: constants.DECISION_UNDECIDED,
-        key2: constants.DECISION_UNDECIDED
-    }
-    # ============================================================
-
-    md5_analyzer.kd_tool.blocks_data = [block1, block2]
-    md5_analyzer.find_md5_duplicates()
-    # ==================== 修改：断言应找到重复 ====================
-    # 因为 document_processor.py 中的 normalize 已修改为替换换行符
-    assert len(md5_analyzer.md5_duplicates) == 1
-    # ============================================================
-    assert len(md5_analyzer.md5_duplicates[0]) == 2
-    assert md5_analyzer.kd_tool.block_decisions.get(key1) == constants.DECISION_KEEP
-    assert md5_analyzer.kd_tool.block_decisions.get(key2) == constants.DECISION_DELETE
-
-
-def test_find_md5_duplicates_different_content(md5_analyzer: MD5Analyzer, mock_element) -> None:
-    """测试包含相同前缀但整体不同的内容块"""
-    element1 = mock_element("这是第一部分", NarrativeText, "1")
-    element2 = mock_element("这是第二部分", NarrativeText, "2")
-    block1 = ContentBlock(element1, "test.md")
-    block2 = ContentBlock(element2, "test.md")
-    key1 = create_decision_key(block1.file_path, block1.block_id, block1.block_type)
-    key2 = create_decision_key(block2.file_path, block2.block_id, block2.block_type)
-    md5_analyzer.kd_tool.block_decisions = {key1: 'undecided', key2: 'undecided'}
-    md5_analyzer.kd_tool.blocks_data = [block1, block2]
-    md5_analyzer.find_md5_duplicates()
-    assert len(md5_analyzer.md5_duplicates) == 0
+    assert len(groups) == 1
+    assert set(groups[0]) == {block1, block2, block3}
+    assert len(suggestions) == 3
+    # Use absolute keys for assertion
+    assert suggestions[key1_abs] == constants.DECISION_KEEP
+    assert suggestions[key2_abs] == constants.DECISION_DELETE
+    assert suggestions[key3_abs] == constants.DECISION_DELETE

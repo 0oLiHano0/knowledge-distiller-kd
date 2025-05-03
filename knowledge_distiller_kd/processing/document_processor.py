@@ -1,16 +1,18 @@
-# KD_Tool_CLI/knowledge_distiller_kd/core/document_processor.py
+# knowledge_distiller_kd/processing/document_processor.py <--- 新路径
 """
 文档预处理模块。
 
 此模块负责将不同格式的文档转换为标准化的内容块(ContentBlock)。
 """
 
+# --- 标准库导入 ---
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Union
 import logging
 import traceback # 确保导入 traceback
 
+# --- 第三方库导入 ---
 # 确保导入了 partition 和 partition_md
 from unstructured.partition.auto import partition
 from unstructured.partition.md import partition_md
@@ -19,9 +21,14 @@ from unstructured.documents.elements import (
     Text
 )
 
-from knowledge_distiller_kd.core.error_handler import KDError
-from knowledge_distiller_kd.core import constants # 导入常量
+# --- 项目内部模块导入 (修改为相对导入) ---
+# 原: from knowledge_distiller_kd.core.error_handler import KDError
+from ..core.error_handler import KDError # 使用 ..core 从 processing 上一级找到 core
 
+# 原: from knowledge_distiller_kd.core import constants
+from ..core import constants # 使用 ..core 从 processing 上一级找到 core
+
+# --- 类定义开始 ---
 # 配置日志
 logger = logging.getLogger(constants.LOGGER_NAME) # 使用常量中定义的名字
 

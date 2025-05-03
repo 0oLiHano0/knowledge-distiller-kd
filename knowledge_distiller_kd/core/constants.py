@@ -8,9 +8,7 @@ from pathlib import Path
 import os # 添加 os 模块导入以使用 os.path.join
 
 # --- 日志相关 ---
-# ==================== 新增：定义 Logger 名称 ====================
 LOGGER_NAME = "kd_tool" # 定义日志记录器的名称
-# ============================================================
 DEFAULT_LOG_DIR = "logs"
 DEFAULT_LOG_FILE = f"{LOGGER_NAME}.log" # 使用定义的名称
 LOG_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -27,11 +25,8 @@ DEFAULT_LOG_LEVEL = "INFO"
 # --- 文件处理相关 ---
 DEFAULT_ENCODING = "utf-8"
 SUPPORTED_EXTENSIONS = {".md", ".markdown"} # 明确支持的扩展名
-# ==================== 添加：默认输出目录 ====================
 DEFAULT_OUTPUT_DIR = "output" # 添加默认输出目录常量
-# ============================================================
 DEFAULT_OUTPUT_SUFFIX = "_deduped"
-PREVIEW_MAX_LEN = 80 # 预览文本的最大长度
 
 # --- 决策相关 ---
 DECISION_KEEP = "keep"
@@ -53,7 +48,6 @@ VECTOR_CACHE_FILE = "cache/vector_cache.pkl" # 向量缓存文件路径 (如果�
 CACHE_DIR = "cache" # 缓存目录
 
 # --- 错误代码 ---
-# (保持不变，如果需要可以添加更多)
 ERROR_CODES = {
     "FILE_NOT_FOUND": 1001,
     "FILE_PROCESSING_ERROR": 1002,
@@ -70,7 +64,6 @@ ERROR_CODES = {
 
 
 # --- 块类型 ---
-# (这些可以与 document_processor.ContentBlock.ELEMENT_TYPE_MAP 保持一致或独立定义)
 BLOCK_TYPE_TITLE = "Title"
 BLOCK_TYPE_TEXT = "NarrativeText" # 或 Text
 BLOCK_TYPE_LIST_ITEM = "ListItem"
@@ -81,7 +74,11 @@ BLOCK_TYPE_TABLE = "Table"
 # --- 版本信息 ---
 VERSION = "1.0.0" # 假设的版本号
 
+# --- UI Constants ---
+PREVIEW_LENGTH = 80 # Max length for block preview in UI
+
 # --- 缓存相关 ---
 # (如果需要更复杂的缓存策略)
 # CACHE_MAX_SIZE = 10000 # 示例：缓存最大条目数
 # CACHE_TTL = 3600 # 示例：缓存过期时间（秒）
+

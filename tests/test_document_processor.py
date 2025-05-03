@@ -18,7 +18,7 @@ from unstructured.documents.elements import (
     Element, Title, NarrativeText, ListItem, CodeSnippet, Table, Text
 )
 
-from knowledge_distiller_kd.core.document_processor import (
+from knowledge_distiller_kd.processing.document_processor import (
     ContentBlock,
     DocumentProcessingError,
     process_file,
@@ -167,7 +167,7 @@ def hello():
             CodeSnippet(text='```python\ndef hello():\n    print("Hello, World!")\n```', element_id="md_003")
         ]
         # patch 的目标是 process_file 内部实际调用的 partition_md
-        with patch("knowledge_distiller_kd.core.document_processor.partition_md") as mock:
+        with patch("knowledge_distiller_kd.processing.document_processor.partition_md") as mock:
             mock.return_value = elements
             yield mock
 
