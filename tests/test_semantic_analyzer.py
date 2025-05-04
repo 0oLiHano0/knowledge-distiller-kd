@@ -25,7 +25,6 @@ from unstructured.documents.elements import NarrativeText, Title, CodeSnippet
 class MockSentenceTransformerModel:
     def encode(self, texts: List[str], batch_size: int, show_progress_bar: bool) -> np.ndarray:
         # Return predictable vectors based on input text length or content
-        # Example: return vectors of ones with dimension matching MODEL_EMBEDDING_DIM
         # Use a fixed dimension for consistency in tests
         fixed_dimension = 384 # Match default model's expected dimension
         vectors = []
@@ -40,25 +39,26 @@ class MockSentenceTransformerModel:
                 vectors.append(vec) # Keep zero vector as is
         return np.array(vectors)
 
+    # Add mock for get_sentence_embedding_dimension if needed by the code under test
+    def get_sentence_embedding_dimension(self) -> int:
+        return 384
+
 @pytest.fixture
 def mock_sentence_transformer(mocker):
     """Fixture to mock the SentenceTransformer library."""
     # Mock the class itself
-    mock = MagicMock(spec=MockSentenceTransformerModel) # Use our mock class for spec
-    mock.encode.side_effect = MockSentenceTransformerModel().encode # Use encode from instance
+    mock_model_instance = MagicMock(spec=MockSentenceTransformerModel)
+    mock_model_instance.encode.side_effect = MockSentenceTransformerModel().encode
+    mock_model_instance.get_sentence_embedding_dimension.side_effect = MockSentenceTransformerModel().get_sentence_embedding_dimension
 
     # Patch the class where it's imported in the semantic_analyzer module
-    # Use the NEW correct path for patching
-    mocker.patch("knowledge_distiller_kd.analysis.semantic_analyzer.SentenceTransformer", return_value=mock)
-    return mock
+    mocker.patch("knowledge_distiller_kd.analysis.semantic_analyzer.SentenceTransformer", return_value=mock_model_instance)
+    return mock_model_instance # Return the instance for potential direct assertions if needed
 
 # Updated fixture for SemanticAnalyzer
 @pytest.fixture
 def semantic_analyzer() -> SemanticAnalyzer:
     """Creates a SemanticAnalyzer instance using default threshold."""
-    # Use the default threshold from constants
-    # Analyzer now takes threshold directly, no tool object needed
-    # Use the correct constant name from constants.py for threshold
     analyzer = SemanticAnalyzer(similarity_threshold=constants.DEFAULT_SIMILARITY_THRESHOLD)
     return analyzer
 
@@ -122,11 +122,7 @@ def test_load_semantic_model_success(mock_st_class: MagicMock, semantic_analyzer
         cache_folder=str(Path(constants.DEFAULT_CACHE_BASE_DIR).resolve())
     )
 
-# Skipped test_load_semantic_model_skipped
-@pytest.mark.skip(reason="Skipping logic moved outside analyzer")
-def test_load_semantic_model_skipped(semantic_analyzer: SemanticAnalyzer) -> None:
-    """Test skipping loading the semantic model (Logic moved, test needs redesign/removal)"""
-    pass
+# test_load_semantic_model_skipped removed
 
 # Use corrected patch path
 @patch("knowledge_distiller_kd.analysis.semantic_analyzer.SentenceTransformer", side_effect=Exception("Model loading error"))
@@ -138,48 +134,9 @@ def test_load_semantic_model_failure(mock_st_class_error: MagicMock, semantic_an
     assert semantic_analyzer.model is None
     assert semantic_analyzer._model_loaded is False
 
-# Skipped test for internal method
-@pytest.mark.skip(reason="Skipping test for internal method _compute_vectors for now")
-@patch("knowledge_distiller_kd.analysis.semantic_analyzer.SentenceTransformer")
-def test_compute_vectors(mock_st_class: MagicMock, semantic_analyzer: SemanticAnalyzer, create_content_block_sem) -> None:
-    """Test computing vectors for blocks."""
-    # Setup mock model
-    mock_model_instance = MagicMock(spec=MockSentenceTransformerModel)
-    mock_model_instance.encode.side_effect = MockSentenceTransformerModel().encode
-    mock_st_class.return_value = mock_model_instance
-
-    # Load the mock model into the analyzer
-    semantic_analyzer.load_semantic_model()
-    assert semantic_analyzer.model is not None
-
-    block1 = create_content_block_sem("First sentence.", element_id="id1")
-    block2 = create_content_block_sem("Second sentence, slightly longer.", element_id="id2")
-    input_blocks = [block1, block2]
-    texts = [b.analysis_text for b in input_blocks]
-
-    # Option 1: Call internal method (might be brittle)
-    try:
-        vectors = semantic_analyzer._compute_vectors(texts)
-        assert isinstance(vectors, list) # Check if it returns a list of ndarrays
-        assert len(vectors) == len(texts)
-        assert isinstance(vectors[0], np.ndarray) # Check the type of the first element
-        # Check dimension if possible (depends on mock model)
-        if vectors[0].size > 0:
-             assert vectors[0].shape[-1] == 384 # Assuming our mock uses this dimension
-        # Check if model's encode was called correctly
-        semantic_analyzer.model.encode.assert_called_once_with(
-            texts,
-            batch_size=semantic_analyzer.batch_size,
-            show_progress_bar=True # Adjusted expectation based on code
-        )
-    except AttributeError:
-        pytest.skip("_compute_vectors might not be intended for direct external testing")
-    except Exception as e:
-        pytest.fail(f"_compute_vectors call failed unexpectedly: {e}")
-
+# test_compute_vectors removed
 
 # Use corrected patch path
-# This test needs significant adaptation based on the new signature and return value
 @patch("knowledge_distiller_kd.analysis.semantic_analyzer.SentenceTransformer")
 def test_find_semantic_duplicates(mock_st_class: MagicMock, semantic_analyzer: SemanticAnalyzer, create_content_block_sem) -> None:
     """Test finding semantic duplicates."""

@@ -45,25 +45,38 @@ class SemanticAnalyzer:
     语义分析器类，用于查找和处理语义重复内容。
     (Refactored: Independent, loads model internally, operates on input data)
     """
+    # --- 所有方法定义都需要在这里开始缩进 ---
 
-    def __init__(self, similarity_threshold: float = constants.DEFAULT_SIMILARITY_THRESHOLD) -> None:
+    def __init__(self,
+                 similarity_threshold: float = constants.DEFAULT_SIMILARITY_THRESHOLD,
+                 model_name: str = constants.DEFAULT_SEMANTIC_MODEL,
+                 cache_dir: Path | str | None = None,
+                 batch_size: int = constants.DEFAULT_BATCH_SIZE) -> None:
         """
         初始化语义分析器。
 
         Args:
             similarity_threshold: 相似度阈值（0.0 到 1.0 之间）
+            model_name: 要使用的 Sentence Transformer 模型名称。
+            cache_dir: 用于缓存下载模型的目录路径。如果为 None，使用默认路径。
+            batch_size: 计算向量时的批处理大小。
         """
         logger.info("Initializing SemanticAnalyzer...")
-        self.model: Optional['SentenceTransformer'] = None # Type hint using string forward reference or TYPE_CHECKING
-        self.model_name: str = constants.DEFAULT_SEMANTIC_MODEL
-        self.model_dimension: Optional[int] = None # 用于存储模型维度
-        self.similarity_threshold: float = max(0.0, min(1.0, similarity_threshold)) # 确保范围
-        self.vector_cache: Dict[str, np.ndarray] = {} # 文本Hash -> 向量 (保持缓存)
-        self._model_loaded: bool = False # 模型加载状态标志
+        # 实例属性声明时可以带类型提示
+        self.model: Optional['SentenceTransformer'] = None
+        self.similarity_threshold: float = max(0.0, min(1.0, similarity_threshold))
+        self.vector_cache: Dict[str, np.ndarray] = {}
+        self._model_loaded: bool = False
+        self.model_dimension: Optional[int] = None
+
+        # 实例属性赋值时不带类型提示
+        self.model_name = model_name
+        self.batch_size = batch_size
+        self.cache_dir = Path(cache_dir if cache_dir is not None else constants.DEFAULT_CACHE_BASE_DIR).resolve()
 
         if not SENTENCE_TRANSFORMERS_AVAILABLE:
             logger.error("`sentence-transformers` library not found. Semantic analysis will be unavailable.")
-            # Note: The Engine should ultimately decide whether to skip based on this or its own config
+
 
     def load_semantic_model(self) -> bool:
         """
@@ -85,19 +98,24 @@ class SemanticAnalyzer:
             logger.info(f"Loading semantic model: {model_name_to_load} ... (This may take some time)")
             start_time = time.time()
 
+            # 确认 self.cache_dir 在这里是可访问的
+            logger.debug(f"DEBUG: Calling SentenceTransformer with model='{model_name_to_load}', cache_folder='{str(self.cache_dir)}'")
+
             # Instantiate the actual SentenceTransformer model
-            self.model = SentenceTransformer(model_name_to_load)
+            self.model = SentenceTransformer(
+                model_name_to_load,
+                cache_folder=str(self.cache_dir) # 使用已初始化的 self.cache_dir
+            )
 
             # Determine model dimension
             if hasattr(self.model, 'get_sentence_embedding_dimension'):
                  self.model_dimension = self.model.get_sentence_embedding_dimension()
             elif hasattr(self.model, 'encode'):
                  try:
-                      # Encode a dummy text to infer dimension
                       dummy_embedding = self.model.encode("test")
                       if isinstance(dummy_embedding, np.ndarray):
                           self.model_dimension = dummy_embedding.shape[-1]
-                      elif isinstance(dummy_embedding, list) and dummy_embedding: # Handle list output
+                      elif isinstance(dummy_embedding, list) and dummy_embedding:
                           self.model_dimension = len(dummy_embedding[0])
                       else:
                           logger.warning("Could not determine model dimension from encode output.")
@@ -122,13 +140,15 @@ class SemanticAnalyzer:
              logger.error("`sentence-transformers` library is missing, cannot load model.", exc_info=False)
              self._model_loaded = False
              self.model = None
-             return True # Still return True as the condition (missing library) is known
+             return True
         except Exception as e:
+            # 捕获包括 AttributeError 在内的所有加载错误
             logger.error(f"Failed to load semantic model '{self.model_name}': {e}", exc_info=True)
-            handle_error(e, f"loading semantic model {self.model_name}")
+            # 可以选择性地调用 handle_error，但日志已记录错误
+            # handle_error(e, f"loading semantic model {self.model_name}")
             self._model_loaded = False
             self.model = None
-            return False # Return False for unexpected loading errors
+            return False # 返回 False 表示加载失败
 
     def _compute_vectors(self, texts: List[str], batch_size: int = constants.DEFAULT_BATCH_SIZE) -> List[np.ndarray]:
         """
@@ -142,6 +162,7 @@ class SemanticAnalyzer:
         Returns:
             List[np.ndarray]: 文本向量列表 (对应输入 texts), empty arrays for errors/empty input.
         """
+        # --- (这个方法的代码保持不变，确保它也被正确缩进了) ---
         if not texts or self.model is None:
             logger.warning("_compute_vectors called with no texts or model not loaded.")
             return [np.array([])] * len(texts) # Return empty arrays for all
@@ -236,6 +257,7 @@ class SemanticAnalyzer:
                 contains two similar ContentBlock objects and their similarity score.
                 Returns an empty list if no pairs are found or if an error occurs.
         """
+        # --- (这个方法的代码保持不变，确保它也被正确缩进了) ---
         logger.info(f"Starting semantic similarity analysis for {len(blocks_to_analyze)} blocks...")
         similar_pairs: List[Tuple[ContentBlock, ContentBlock, float]] = []
 
@@ -255,7 +277,7 @@ class SemanticAnalyzer:
             # --- Step 1: Get analysis texts and compute vectors ---
             logger.info(f"Extracting texts and computing vectors for {len(blocks_to_analyze)} blocks...")
             texts_to_encode = [block.analysis_text for block in blocks_to_analyze]
-            block_vectors = self._compute_vectors(texts_to_encode)
+            block_vectors = self._compute_vectors(texts_to_encode, self.batch_size) # Pass batch_size
 
             # Filter out blocks for which vector computation failed
             valid_indices = [i for i, vec in enumerate(block_vectors) if isinstance(vec, np.ndarray) and vec.size > 0]
@@ -278,14 +300,15 @@ class SemanticAnalyzer:
             # Prepare embeddings array
             embeddings = np.array(block_vectors)
             if embeddings.ndim != 2 or embeddings.shape[0] != num_valid_blocks:
-                 logger.error(f"Embeddings array has unexpected shape: {embeddings.shape}. Expected ({num_valid_blocks}, {self.model_dimension}). Cannot compute similarity.")
+                 # Check if model dimension is available for a more informative error
+                 expected_dim = self.model_dimension if self.model_dimension else "unknown"
+                 logger.error(f"Embeddings array has unexpected shape: {embeddings.shape}. Expected ({num_valid_blocks}, {expected_dim}). Cannot compute similarity.")
                  return similar_pairs
             if embeddings.size == 0:
                 logger.info("Embeddings array is empty after filtering, cannot compute similarity.")
                 return similar_pairs
 
             # Compute cosine similarity
-            # st_util should be available if SENTENCE_TRANSFORMERS_AVAILABLE is True
             similarity_matrix = st_util.cos_sim(embeddings, embeddings) # type: ignore
 
             # Find pairs above threshold
@@ -308,13 +331,12 @@ class SemanticAnalyzer:
 
         except Exception as e:
              logger.error(f"Error during semantic similarity calculation: {e}", exc_info=True)
-             handle_error(e, "calculating semantic similarity")
+             # Use handle_error if it provides more value, otherwise just log
+             # handle_error(e, "calculating semantic similarity")
              return [] # Return empty list on error
 
         end_time = time.time()
         logger.info(f"Semantic analysis finished. Found {len(similar_pairs)} similar pairs. Time taken: {end_time - start_time:.2f} seconds")
         return similar_pairs
 
-    # --- UI related methods removed ---
-    # _display_semantic_duplicates_list removed
-    # review_semantic_duplicates_interactive removed
+# --- End of SemanticAnalyzer class ---

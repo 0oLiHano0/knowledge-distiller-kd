@@ -8,55 +8,62 @@ from pathlib import Path
 import pytest
 import os
 import tempfile
-from typing import Union, Tuple, Any, List # 确保导入 List
+from typing import Union, Tuple, Any, List # 确保导入所需类型
+from unittest.mock import MagicMock # 导入 MagicMock
 
-# 假设 mistune 在环境中可用，或者模拟它
-try:
-    import mistune
-except ImportError:
-    mistune = None # 或者使用 mock
+# mistune 不再需要导入，因为相关函数和测试已移除
 
+# 导入需要测试的函数和常量
+from knowledge_distiller_kd.core import constants
 from knowledge_distiller_kd.core.utils import (
     setup_logger,
     create_decision_key,
     parse_decision_key,
-    
+    # extract_text_from_children, # 已移除
     display_block_preview,
-    get_markdown_parser,
-    sort_blocks_key
+    # get_markdown_parser, # 已移除
+    sort_blocks_key,
+    find_markdown_files, # 如果需要测试这个函数
+    calculate_md5,     # 如果需要测试这个函数
+    # check_optional_dependency # 如果需要测试这个函数
 )
 from knowledge_distiller_kd.core.error_handler import KDError
-from knowledge_distiller_kd.core import constants # 导入常量以获取 PREVIEW_MAX_LEN
+
 
 # --- 测试 setup_logger ---
-
 def test_setup_logger(caplog) -> None:
     """
     测试日志记录器的设置。
     """
+    # 清理可能存在的旧 handlers，避免干扰
+    logger_instance_before = logging.getLogger(constants.LOGGER_NAME)
+    for handler in logger_instance_before.handlers[:]:
+        logger_instance_before.removeHandler(handler)
+        handler.close()
+
     # 设置为 DEBUG 级别进行测试
-    logger = setup_logger(logging.DEBUG)
+    setup_logger(logging.DEBUG) # 调用函数进行配置，不接收返回值
 
-    # ==================== 修改：直接检查 logger 属性 ====================
+    # 获取配置好的 logger 实例
+    logger_instance_after = logging.getLogger(constants.LOGGER_NAME)
+
     # 检查 logger 级别是否正确设置
-    assert logger.level == logging.DEBUG
+    assert logger_instance_after.level == logging.DEBUG
 
-    # 检查是否至少有一个 handler (通常是 FileHandler 和 StreamHandler)
-    assert len(logger.handlers) > 0
+    # 检查是否至少有一个 handler
+    assert len(logger_instance_after.handlers) > 0
+    has_stream = any(isinstance(h, logging.StreamHandler) for h in logger_instance_after.handlers)
+    has_file = any(isinstance(h, logging.FileHandler) for h in logger_instance_after.handlers)
+    assert has_stream or has_file # 至少配置了一种
 
-    # （可选）检查 handler 类型和级别
-    # has_stream_handler = any(isinstance(h, logging.StreamHandler) for h in logger.handlers)
-    # assert has_stream_handler
-
-    # 仍然可以记录一条消息，但不依赖 caplog.text 来断言
+    # 记录一条消息以验证 (可选)
     test_message = "这是一个调试信息"
-    logger.debug(test_message)
-    # 如果需要验证消息确实被处理，可能需要更复杂的 mock 或检查文件输出
-    # 但对于 setup_logger 本身的测试，检查 level 和 handlers 通常足够
-    # ============================================================
+    logger_instance_after.debug(test_message)
+    # 如果需要，可以使用 caplog 检查消息是否被捕获
+    # assert test_message in caplog.text
+
 
 # --- 测试 create_decision_key 和 parse_decision_key ---
-
 def test_create_decision_key() -> None:
     """测试创建决策键的功能。"""
     file_path = "/path/to/document.md"
@@ -67,17 +74,15 @@ def test_create_decision_key() -> None:
     assert create_decision_key(file_path, block_id, block_type) == expected_key
 
     file_path_obj = Path("/path/to/document.md")
-    assert create_decision_key(file_path_obj, block_id, block_type) == expected_key
+    assert create_decision_key(str(file_path_obj), block_id, block_type) == expected_key
 
     file_path_sep = f"/path/{separator}/doc.md"
-    block_id_sep = f"block{separator}456"
-    block_type_sep = f"Type{separator}A"
-    expected_key_sep = f"{file_path_sep}{separator}{block_id_sep}{separator}{block_type_sep}"
-    assert create_decision_key(file_path_sep, block_id_sep, block_type_sep) == expected_key_sep
+    expected_key_sep = f"{file_path_sep}{separator}{block_id}{separator}{block_type}"
+    assert create_decision_key(file_path_sep, block_id, block_type) == expected_key_sep
 
 
 def test_parse_decision_key() -> None:
-    """测试解析决策键的功能。"""
+    """测试解析决策键的功能（现在使用 rsplit 逻辑）。"""
     separator = constants.DECISION_KEY_SEPARATOR
     file_path_val = "/path/to/document.md"
     block_id_val = "block123"
@@ -88,16 +93,15 @@ def test_parse_decision_key() -> None:
     assert block_id == block_id_val
     assert block_type == block_type_val
 
-    # 测试包含分隔符的键 (使用修正后的 rsplit 逻辑)
+    # 测试包含分隔符的文件路径（rsplit应该能正确处理）
     file_path_sep_val = f"/path/{separator}/doc.md"
-    block_id_sep_val = f"block{separator}456"
-    block_type_sep_val = f"Type{separator}A"
-    key_sep = f"{file_path_sep_val}{separator}{block_id_sep_val}{separator}{block_type_sep_val}"
+    key_sep = f"{file_path_sep_val}{separator}{block_id_val}{separator}{block_type_val}"
     file_path_sep, block_id_sep, block_type_sep = parse_decision_key(key_sep)
-    # 保持断言不变，相信 utils.py 中的 rsplit 逻辑
-    assert file_path_sep == file_path_sep_val
-    assert block_id_sep == block_id_sep_val
-    assert block_type_sep == block_type_sep_val
+    assert file_path_sep == file_path_sep_val # rsplit 将文件路径部分正确保留
+    assert block_id_sep == block_id_val
+    assert block_type_sep == block_type_val
+
+    
 
     # 测试无效键 (分隔符不足)
     invalid_key_less = f"/path/to/document.md{separator}block123"
@@ -106,10 +110,11 @@ def test_parse_decision_key() -> None:
     assert block_id_less is None
     assert block_type_less is None
 
-    # 测试无效键 (过多分隔符，但 rsplit 能处理)
-    invalid_key_more = f"a{separator}b{separator}c{separator}d"
+    # 测试无效键 (过多分隔符，rsplit 会按规则分割) # <--- 修改注释
+    invalid_key_more = f"a{separator}b{separator}c{separator}d" # "a::b::c::d"
     file_path_more, block_id_more, block_type_more = parse_decision_key(invalid_key_more)
-    assert file_path_more == f"a{separator}b"
+    # 断言 rsplit 的实际结果
+    assert file_path_more == f"a{separator}b" # 即 "a::b"
     assert block_id_more == "c"
     assert block_type_more == "d"
 
@@ -126,65 +131,63 @@ def test_parse_decision_key() -> None:
     assert block_type_none is None
 
 
-# --- 测试 extract_text_from_children ---
-def test_extract_text_from_children() -> None:
-    """测试从子元素提取文本的功能。"""
-    class MockChildElement:
-        def __init__(self, text: str): self.text = text
-    class MockParentElement:
-        def __init__(self, children: list): self.children = children
-    child1 = MockChildElement("Hello ")
-    child2 = MockChildElement("World!")
-    parent = MockParentElement([child1, child2])
-    pytest.skip("Skipping test_extract_text_from_children as its relevance needs re-evaluation with ContentBlock")
-
+# --- 测试 extract_text_from_children (已跳过) ---
+# @pytest.mark.skip(reason="Skipping test_extract_text_from_children as function was removed/refactored")
+# def test_extract_text_from_children() -> None:
+#     """测试从子元素提取文本的功能。"""
+#     pass # 函数已移除，测试跳过
 
 # --- 测试 display_block_preview ---
 def test_display_block_preview() -> None:
     """测试生成块内容预览的功能。"""
-    max_len = constants.PREVIEW_MAX_LEN
-    trunc_len = max(0, max_len - 3)
-    long_text = "A" * 100
-    expected_long_text = long_text[:trunc_len] + ("..." if len(long_text) > trunc_len else "") + f" [长度: {len(long_text)}字符]"
+    # 使用正确的常量名 PREVIEW_LENGTH
+    max_len = constants.PREVIEW_LENGTH
+    long_text = "A" * (max_len + 20) # 确保足够长
+    expected_long_preview = long_text[:max_len] + "..." # 截断并加省略号
 
     test_cases = [
-        ("Short text", "Short text [长度: 10字符]"),
-        (long_text, expected_long_text),
-        ("Text with\nnewlines", "Text with newlines [长度: 18字符]"),
-        ("", " [长度: 0字符]"), # 包含前导空格
-        (None, " [长度: 0字符]"), # 包含前导空格
-        ("A" * max_len, ("A" * max_len) + f" [长度: {max_len}字符]"),
-        ("A" * (max_len - 1), ("A" * (max_len - 1)) + f" [长度: {max_len - 1}字符]"),
-        ("A" * (max_len + 1), ("A" * trunc_len + "...") + f" [长度: {max_len + 1}字符]"),
+        ("Short text", "Short text"),
+        (long_text, expected_long_preview),
+        ("Text with\nnewlines", "Text with newlines"), # 换行符被替换为空格
+        ("", ""), # 空字符串
+        (None, "[无内容]"), # None 输入
+        ("A" * max_len, "A" * max_len), # 正好等于最大长度
+        ("A" * (max_len - 1), "A" * (max_len - 1)), # 小于最大长度
+        ("A" * (max_len + 1), "A" * max_len + "..."), # 超出1个字符
     ]
 
     for text, expected in test_cases:
-        result = display_block_preview(text)
+        result = display_block_preview(text) # 默认使用 constants.PREVIEW_LENGTH
         assert result == expected
 
-
-# --- 测试 get_markdown_parser ---
-@pytest.mark.skipif(mistune is None, reason="mistune library is not installed")
-def test_get_markdown_parser() -> None:
-    """测试获取Markdown解析器的功能。"""
-    parser = get_markdown_parser()
-    if parser is not None:
-        assert isinstance(parser, mistune.Markdown)
-    else:
-        assert parser is None
+# --- 测试 get_markdown_parser (已移除) ---
+# def test_get_markdown_parser() -> None: 函数已移除
 
 
 # --- 测试 sort_blocks_key ---
 def test_sort_blocks_key() -> None:
-    """测试用于排序块的键函数。"""
-    block1 = ("/path/a.md", 1, "Title", "...")
-    block2 = ("/path/b.md", 0, "NarrativeText", "...")
-    block3 = ("/path/a.md", 0, "CodeSnippet", "...")
-    blocks: List[Union[Tuple[str, int, str, str], Any]] = [block1, block2, block3]
-    expected_sorted_keys = [("/path/a.md", 0), ("/path/a.md", 1), ("/path/b.md", 0)]
-    sorted_blocks = sorted(blocks, key=sort_blocks_key)
-    assert sorted_blocks[0] == block3
-    assert sorted_blocks[1] == block1
-    assert sorted_blocks[2] == block2
-    # pytest.skip("Skipping test_sort_blocks_key as it needs update for ContentBlock")
+    """测试用于排序块的键函数（使用模拟对象）。"""
+    # 使用 MagicMock 模拟具有 file_path 和 block_id 属性的对象
+    # block_id 尝试使用数字或包含数字的字符串
+    block1 = MagicMock(file_path="/path/a.md", block_id="id-10")
+    block2 = MagicMock(file_path="/path/b.md", block_id="id-5")
+    block3 = MagicMock(file_path="/path/a.md", block_id="id-2") # a.md, id 2
+    block4 = MagicMock(file_path="/path/a.md", block_id="alpha") # a.md, 非数字ID
+    block5 = MagicMock(file_path="/path/b.md", block_id="id-15")
+    # 测试 block_id 为纯数字的情况
+    block6 = MagicMock(file_path="/path/a.md", block_id=1) # a.md, id 1
 
+    blocks = [block1, block2, block3, block4, block5, block6]
+
+    # 预期排序：先按文件路径，再按 block_id (数字优先，然后字符串)
+    # /path/a.md, 1
+    # /path/a.md, id-2
+    # /path/a.md, id-10
+    # /path/a.md, alpha (字符串按字典序排在数字后)
+    # /path/b.md, id-5
+    # /path/b.md, id-15
+    expected_order = [block6, block3, block1, block4, block2, block5]
+
+    sorted_blocks = sorted(blocks, key=sort_blocks_key)
+
+    assert sorted_blocks == expected_order

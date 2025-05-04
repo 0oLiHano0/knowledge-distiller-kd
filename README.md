@@ -1,188 +1,187 @@
-Knowledge Distiller (KD)
+# Knowledge Distiller (KD)
 知识蒸馏工具 - 一个用于检测和处理文档重复内容的智能工具。
 
-项目概述
-Knowledge Distiller (KD) 是一个强大的文档内容分析工具，专门用于检测和处理文档中的重复内容。它使用先进的语义分析技术，不仅能够识别完全相同的内容，还能发现语义相似的内容片段。
+## 项目概述
+Knowledge Distiller (KD) 是一个强大的文档内容分析工具，专门用于检测和处理文档中的重复内容。它采用分层架构设计，使用先进的语义分析技术，不仅能够识别完全相同的内容，还能发现语义相似的内容片段。
 
-主要特性
+## 主要特性
 
-精确重复检测： 使用 MD5 哈希算法检测完全相同的内容块（默认跳过标题块）。
+- **精确重复检测**： 使用 MD5 哈希算法检测完全相同的内容块（默认跳过标题块）。
+- **语义相似度分析**： 使用 Sentence Transformers 进行语义相似度计算（默认跳过标题块）。
+- **文档解析**： 使用 `unstructured` 库解析多种文档格式（当前主要测试 Markdown），提取内容块。
+- **代码块合并**： 自动合并 Markdown 代码块的碎片（起始围栏、内容、结束围栏），以便进行更准确的分析和预览。
+- **交互式决策**： 提供友好的命令行界面 (`CLI`) 进行内容处理决策。
+- **持久化决策**： 将用户决策保存到 JSON 文件中。
+- **去重输出**： 根据用户决策生成去重后的 Markdown 文件。
+- **模块化设计**： 清晰的分层架构 (UI, Core Engine, Analysis, Processing, Storage)，易于维护和扩展。
 
-语义相似度分析： 使用 Sentence Transformers 进行语义相似度计算（默认跳过标题块）。
+## 安装指南
 
-代码块合并： 自动合并 Markdown 代码块的碎片（起始围栏、内容、结束围栏），以便进行更准确的分析和预览。
+### 系统要求
 
-交互式决策： 提供友好的命令行界面进行内容处理。
+- Python 3.8+
+- pip 包管理器
+- （推荐）libmagic 库 (用于 `unstructured` 更准确的文件类型检测，安装方式见下文)
 
-批量处理： 支持批量处理目录下的多个 Markdown 文档。
+### 安装步骤
 
-缓存机制： 使用向量缓存提高语义分析性能。
+1.  **克隆仓库**：
+    ```bash
+    git clone [https://github.com/yourusername/knowledge-distiller-kd.git](https://github.com/yourusername/knowledge-distiller-kd.git) # 替换为你的仓库地址
+    cd knowledge-distiller-kd
+    ```
 
-多语言支持： 底层模型支持多种语言（当前主要测试中文和英文）。
+2.  **创建并激活虚拟环境**：
+    ```bash
+    # 确保使用 Python 3.8+
+    python3 -m venv venv
+    source venv/bin/activate  # Linux/Mac
+    # 或
+    # .\venv\Scripts\activate  # Windows
+    ```
 
-安装指南
-系统要求
+3.  **更新 pip (推荐)**：
+    ```bash
+    pip install --upgrade pip
+    ```
 
-Python 3.8+
+4.  **安装核心依赖**：
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-pip 包管理器
+5.  **安装开发与测试依赖 (若需开发或运行测试)**：
+    ```bash
+    pip install -r requirements-dev.txt
+    ```
 
-（推荐）libmagic 库 (用于更准确的文件类型检测，安装方式见下文)
+6.  **安装 libmagic (推荐)**:
+    - macOS: `brew install libmagic`
+    - Debian/Ubuntu: `sudo apt-get update && sudo apt-get install libmagic1`
+    - Windows: 较复杂，可能需要下载预编译库或通过 conda 等方式安装。请参考 `unstructured` 官方文档获取最新指南。
 
-安装步骤
+## 使用方法
 
-克隆仓库：
+### 基本用法
 
-git clone https://github.com/yourusername/knowledge-distiller-kd.git
-cd knowledge-distiller-kd
+1.  **准备输入文件**：
+    将需要处理的文档放入 `input/` 目录（或您指定的其他目录）。
 
-创建并激活虚拟环境：
+2.  **运行工具 (确保虚拟环境已激活)**:
+    ```bash
+    # 进入交互模式 (推荐)
+    python -m knowledge_distiller_kd.cli
 
-# 确保使用 Python 3.8+
-python3 -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或
-# .\venv\Scripts\activate  # Windows
+    # 或直接指定输入目录运行分析 (非交互，自动应用已有决策或默认行为)
+    # python -m knowledge_distiller_kd.cli -i input/
+    ```
+    *(注意：直接指定输入目录运行的非交互模式可能需要进一步完善)*
 
-（可选但推荐）更新虚拟环境中的 pip：
+3.  **交互式处理**：
+    - 工具启动后会显示主菜单。
+    - 根据菜单提示进行操作，例如：
+        - 设置输入/输出/决策目录。
+        - 运行分析 (`Run Analysis`)。
+        - 查看 MD5 重复项 (`Review MD5 Duplicates`)。
+        - 查看语义相似项 (`Review Semantic Duplicates`)。
+        - 保存决策 (`Save Decisions`)。
+        - 应用决策生成去重文件 (`Apply Decisions`)。
+    - 在查看重复/相似项时，使用提示的命令（如 `k`, `d`, `k1d2` 等）进行决策。
 
-pip install --upgrade pip
+### 高级配置
 
-安装依赖：
+可以通过修改以下参数自定义工具行为（可通过交互菜单或未来可能的配置文件）：
 
-pip install -r requirements.txt
+- `similarity_threshold`: 语义相似度阈值（默认：0.8）
+- `model_name`: 使用的语义模型（默认：`paraphrase-multilingual-MiniLM-L12-v2`）
+- `decision_file`: 决策文件路径 (默认: `decisions/decisions.json`)
+- `output_dir`: 输出目录路径 (默认: `output/`)
+- `input_dir`: 输入目录路径 (默认: `input/`)
+- `skip_semantic`: 是否跳过语义分析
 
-安装开发依赖（可选）：
+## 开发指南
 
-pip install -r requirements-dev.txt
+### 项目结构
 
-安装 libmagic (推荐):
-
-macOS: brew install libmagic
-
-Debian/Ubuntu: sudo apt-get update && sudo apt-get install libmagic1
-
-Windows: 较复杂，可能需要下载预编译库或通过 conda 等方式安装。unstructured 文档可能有更详细说明。
-
-使用方法
-基本用法
-
-准备输入文件：
-
-将需要处理的 Markdown 文件放入 input 目录
-
-运行工具 (确保虚拟环境已激活):
-
-# 进入交互模式
-python3 -m knowledge_distiller_kd.core.kd_tool_CLI
-# 或直接指定输入目录运行分析
-python3 -m knowledge_distiller_kd.core.kd_tool_CLI -i input
-
-交互式处理：
-
-工具会显示主菜单或分析结果。
-
-根据菜单提示进行操作，例如设置目录、运行分析、查看重复、保存/应用决策等。
-
-在查看重复项时，使用提示的命令（如 k, d, k1d2等）进行决策。
-
-高级配置
-
-可以通过修改以下参数自定义工具行为（可通过交互菜单或命令行参数）：
-
-similarity_threshold: 语义相似度阈值（默认：0.8）
-
-model_name: 使用的语义模型（默认：paraphrase-multilingual-MiniLM-L12-v2）
-
-decision_file: 决策文件路径
-
-output_dir: 输出目录路径
-
-skip_semantic: 是否跳过语义分析
-
-开发指南
-项目结构
 
 knowledge-distiller-kd/
-├── input/                # 输入文件目录
-├── output/               # 输出文件目录
-├── decisions/            # 决策文件目录
-├── logs/                 # 日志文件目录
-├── knowledge_distiller_kd/ # 主要代码包
-│   ├── core/             # 核心逻辑模块
-│   │   ├── __init__.py
-│   │   ├── block_merger.py     # <--- 新增：代码块合并逻辑
+├── input/                  # 输入文件目录
+├── output/                 # 输出文件目录
+├── decisions/              # 决策文件目录
+├── logs/                   # 日志文件目录
+├── knowledge_distiller_kd/ # 项目核心代码包
+│   ├── init.py
+│   ├── cli.py              # 应用入口点和参数解析
+│   ├── core/               # 核心逻辑与组件
+│   │   ├── init.py
+│   │   ├── engine.py       # 核心引擎 (KnowledgeDistillerEngine)
 │   │   ├── constants.py
-│   │   ├── document_processor.py # 文档处理 (使用unstructured)
 │   │   ├── error_handler.py
-│   │   ├── kd_tool_CLI.py     # 主控制与命令行接口
-│   │   ├── md5_analyzer.py
-│   │   ├── semantic_analyzer.py
 │   │   └── utils.py
-│   └── __init__.py
-├── tests/                # 测试代码目录
-│   ├── __init__.py
-│   ├── test_block_merger.py # <--- 新增：合并逻辑测试
-│   ├── ...                # 其他测试文件
-├── docs/                 # 文档目录
+│   ├── analysis/           # 去重与分析逻辑
+│   │   ├── init.py
+│   │   ├── md5_analyzer.py
+│   │   └── semantic_analyzer.py
+│   ├── processing/         # 文档预处理
+│   │   ├── init.py
+│   │   ├── document_processor.py
+│   │   └── block_merger.py
+│   ├── storage/            # 数据持久化
+│   │   ├── init.py
+│   │   └── file_storage.py # JSON 文件存储
+│   └── ui/                 # 用户界面
+│       ├── init.py
+│       └── cli_interface.py # 命令行界面实现
+├── tests/                  # 测试代码目录 (详见 tests/README.md)
+│   ├── init.py
+│   ├── conftest.py
+│   ├── test_*.py           # 各模块单元测试
+│   ├── test_integration.py # 集成测试
+│   └── ui/
+│       └── test_cli_interface.py
+├── docs/                   # 项目文档目录
 │   └── ...
 ├── .gitignore
-├── LICENSE               # <--- 建议添加许可证文件
-├── README.md
-├── requirements-dev.txt  # 开发依赖
-├── requirements.txt      # 运行依赖
-├── setup.py              # 打包配置 (可能需要更新)
+├── LICENSE                 # <--- 建议添加许可证文件
+├── README.md               # 本文件
+├── requirements-dev.txt    # 开发与测试依赖
+├── requirements.txt        # 核心运行依赖
+└── setup.py                # 打包与安装配置
 
-开发进度
 
-[x] 基础框架搭建
+### 开发进度与下一步计划
 
-[x] MD5 精确重复检测 (跳过标题)
+详细内容请参考最新的项目状态文档。主要已完成和计划中的任务包括：
 
-[x] 语义分析器实现 (跳过标题)
+**已完成 (截至 2025-05-03):**
 
-[x] 集成 unstructured 进行文档处理
+- [x] **核心重构完成:** 实现分层架构 (UI, Core, Analysis, Processing, Storage)。
+- [x] **核心流程可运行:** 文档处理 -> 代码块合并 -> MD5分析 -> 语义分析 -> 决策 -> 输出。
+- [x] **`unstructured` 集成:** 稳定解析文档为 `ContentBlock`。
+- [x] **代码块合并:** 解决代码块碎片化问题。
+- [x] **分析优化:** 跳过标题块分析。
+- [x] **CLI 界面:** 实现交互式命令行操作。
+- [x] **JSON 决策存储:** 实现决策加载与保存。
+- [x] **测试覆盖:** 为主要模块添加单元测试和集成测试。
 
-[x] 实现代码块碎片合并功能
+**短期任务 (Immediate Focus):**
 
-[x] 测试用例编写与修复 (针对核心模块和 CLI)
+- [ ] **代码清理与完善:** 移除冗余文件、清理旧测试、补充文档字符串、规范化路径处理。
+- [ ] **测试增强:** 提高测试覆盖率，增加边界条件测试。
+- [ ] **配置管理优化:** 考虑使用更健壮的配置方式。
 
-[x] 文档完善 (持续)
+**中期任务 (Core Functionality & Infrastructure):**
 
-[ ] 重构 kd_tool_CLI.py (将 UI 逻辑分离) <--- 当前建议步骤
+- [ ] **引入数据库存储:** 设计并实现数据库存储层 (如 SQLite)。
+- [ ] **扩展文件格式支持:** 明确支持并测试 PDF、DOCX 等格式。
 
-[ ] 引入数据库存储 (SQLite)
+**长期任务 (Feature Enhancement & Advanced Capabilities):**
 
-[ ] 支持 PDF 文件格式
+- [ ] **实现辅助功能:** 标签、分类、搜索、版本控制。
+- [ ] **探索 LLM 集成:** 辅助去重、冲突检测等。
+- [ ] **开发 GUI:** 图形用户界面。
+- [ ] **性能优化:** 持续关注和优化。
 
-[ ] 支持 Office 文件格式 (.docx, .xlsx)
+### 测试
 
-[ ] 性能优化 (特别是大规模文件处理)
-
-[ ] 实现标签、分类、搜索等辅助功能
-
-[ ] 探索 LLM 集成 (辅助去重、冲突检测等)
-
-[ ] Web 界面或 GUI 开发
-
-[ ] API 接口开发
-
-当前功能
-Markdown 文件重复内容检测 (基于 MD5 和语义相似度)，默认跳过标题块的分析以减少噪音。
-
-使用 unstructured 进行文档元素分割。
-
-自动合并 Markdown 代码块碎片，以提高代码分析准确性和预览效果。
-
-交互式命令行界面，用于审查重复项、管理决策。
-
-决策的保存 (JSON 格式，尝试保存相对路径) 和加载。
-
-基于决策生成去重后的输出 Markdown 文件。
-
-下一步开发目标
-重构 CLI 代码: 将 kd_tool_CLI.py 中的交互逻辑拆分出来，提高可维护性，为未来可能的 GUI 或 Web UI 做准备。
-
-引入数据库存储: 使用 SQLite 等数据库持久化存储块信息、分析结果和决策，替代当前的 JSON 文件，提升大规模数据处理能力和后续功能扩展性。
-
-支持更多文档格式: 在当前处理流程稳定的基础上，逐步添加对 PDF、Word (.docx)、Excel (.xlsx) 等常见格式的支持。
+本项目使用 `pytest` 进行单元测试和集成测试。关于如何设置测试环境和运行测试的详细说明，请参阅 [`tests/README.md`](tests/README.md) 文件。

@@ -81,4 +81,4 @@ PREVIEW_LENGTH = 80 # Max length for block preview in UI
 # (如果需要更复杂的缓存策略)
 # CACHE_MAX_SIZE = 10000 # 示例：缓存最大条目数
 # CACHE_TTL = 3600 # 示例：缓存过期时间（秒）
-
+DEFAULT_CACHE_BASE_DIR = ".kd_cache"
