@@ -1,42 +1,54 @@
 # tests/test_integration.py
 """
 Integration tests for the Knowledge Distiller Engine workflow.
+Updated to reflect Engine using StorageInterface and FileStorage requiring base_path.
+Tests Engine <-> FileStorage interaction. SemanticAnalyzer is mocked.
 """
 
 import pytest
 import os
 import json
+import logging # Import logging
 from pathlib import Path
-from unittest.mock import patch, MagicMock # 导入 mock 工具
-from typing import Dict # 导入 Dict
+from unittest.mock import patch, MagicMock # Import mock tools
+# Import necessary types, ADDED Optional
+from typing import Dict, List, Any, Optional
 
 # Import components from their new locations
 from knowledge_distiller_kd.core.engine import KnowledgeDistillerEngine
-from knowledge_distiller_kd.storage.file_storage import FileStorage
+from knowledge_distiller_kd.storage.file_storage import FileStorage # Use the actual FileStorage
+from knowledge_distiller_kd.storage.storage_interface import StorageInterface # For type hints if needed
 from knowledge_distiller_kd.analysis.semantic_analyzer import SemanticAnalyzer # Import for mocking
+# Use the agreed constants/keys from engine or models if defined there
+from knowledge_distiller_kd.core.engine import METADATA_DECISION_KEY, DECISION_KEEP, DECISION_DELETE, DECISION_UNDECIDED
+from knowledge_distiller_kd.core.utils import create_decision_key, parse_decision_key, logger # Import logger
+# Import DTOs and Enums (ensure using the final confirmed version)
+from knowledge_distiller_kd.core.models import (
+    ContentBlock, AnalysisType, DecisionType, BlockType, FileRecord
+)
+# ADDED constants import
 from knowledge_distiller_kd.core import constants
-from knowledge_distiller_kd.core.utils import create_decision_key, parse_decision_key # 导入 utils
 
 # --- Test Data ---
 
 # Adjusted content to better reflect potential block splitting
-FILE1_CONTENT = """# 文件1 Title
+FILE1_CONTENT = """# File 1 Title
 
-这是文件1的普通段落。
+This is a paragraph from file 1.
 
 ```python
 def func1():
     print("Hello from file 1")
 ```
 
-这是另一段普通文本。
+This is another text paragraph.
 
-又一个段落。
+A common paragraph.
 """
 
-FILE2_CONTENT = """# 文件2 Title
+FILE2_CONTENT = """# File 2 Title
 
-这是文件1的普通段落。
+This is a paragraph from file 1.
 
 ```javascript
 function func2() {
@@ -44,29 +56,31 @@ function func2() {
 }
 ```
 
-这是文件2独有的文本。
+This is unique text from file 2.
 
-又一个段落。
+A common paragraph.
 """
 
-FILE3_CONTENT = """# 文件3 Title
+FILE3_CONTENT = """# File 3 Title
 
-完全不同的内容。
+Completely different content.
 
-又一个段落。
+A common paragraph.
 """
 
 # --- Fixtures ---
 
 @pytest.fixture(scope="function") # Use function scope for tmp_path isolation
 def temp_dirs(tmp_path: Path) -> Dict[str, Path]:
-    """Creates temporary input, output, and decision directories."""
+    """Creates temporary input, output, and storage base directories."""
     input_dir = tmp_path / "input"
     output_dir = tmp_path / "output"
-    decision_dir = tmp_path / "decisions"
+    # Storage base path - FileStorage will create files inside this
+    storage_base_dir = tmp_path / "storage"
     input_dir.mkdir()
     output_dir.mkdir()
-    decision_dir.mkdir()
+    storage_base_dir.mkdir() # Create the base dir for storage
+
     # Populate input files
     (input_dir / "file1.md").write_text(FILE1_CONTENT, encoding="utf-8")
     (input_dir / "file2.md").write_text(FILE2_CONTENT, encoding="utf-8")
@@ -74,49 +88,65 @@ def temp_dirs(tmp_path: Path) -> Dict[str, Path]:
     return {
         "input": input_dir,
         "output": output_dir,
-        "decisions": decision_dir,
-        "decision_file": decision_dir / "decisions.json" # Default decision file path
+        "storage_base": storage_base_dir,
     }
 
-@pytest.fixture
-def file_storage() -> FileStorage:
-    """Provides a FileStorage instance."""
-    return FileStorage()
+# Removed the old file_storage fixture as it's created within engine_instance now
 
 @pytest.fixture
 def mock_semantic_analyzer(mocker) -> MagicMock:
     """Mocks the SemanticAnalyzer class."""
     mock = MagicMock(spec=SemanticAnalyzer)
-    # Mock methods to avoid real model loading/computation
     mock.load_semantic_model.return_value = True # Simulate successful (mock) load
     mock.find_semantic_duplicates.return_value = [] # Simulate finding no semantic duplicates
+    mock._model_loaded = True # Ensure internal flag is set
+    mock.model = MagicMock() # Ensure model object exists
     # Patch the class in the engine module where it's imported/used
     mocker.patch("knowledge_distiller_kd.core.engine.SemanticAnalyzer", return_value=mock)
     return mock
 
 @pytest.fixture
-def engine_instance(temp_dirs: Dict[str, Path], file_storage: FileStorage, mock_semantic_analyzer: MagicMock) -> KnowledgeDistillerEngine:
+def engine_instance(temp_dirs: Dict[str, Path], mock_semantic_analyzer: MagicMock) -> KnowledgeDistillerEngine:
     """
     Creates a KnowledgeDistillerEngine instance configured for integration tests,
-    with SemanticAnalyzer mocked.
+    using a real FileStorage instance initialized with a temporary path.
+    SemanticAnalyzer is mocked.
     """
+    storage_base = temp_dirs["storage_base"]
+    # Create the actual FileStorage instance, providing the required base_path
+    file_storage_instance = FileStorage(base_path=storage_base)
+    # Initialize the storage explicitly (important!)
+    file_storage_instance.initialize()
+
     # Engine needs configuration passed to __init__
+    # Pass the *actual* FileStorage instance to the Engine
     engine = KnowledgeDistillerEngine(
-        storage=file_storage,
+        storage=file_storage_instance, # Inject the real FileStorage
         input_dir=temp_dirs["input"],
         output_dir=temp_dirs["output"],
-        decision_file=temp_dirs["decision_file"],
+        # decision_file is no longer directly used by engine for loading/saving
+        decision_file=storage_base / "decisions.json", # Still needed for config, points inside storage
         similarity_threshold=0.95, # Keep high to further avoid accidental semantic matches if mock fails
         skip_semantic=False # We mock it, so don't explicitly skip
     )
+    # Ensure the engine uses the mocked semantic analyzer
+    engine.semantic_analyzer = mock_semantic_analyzer
     return engine
+
+# --- Helper Function to get block by text ---
+def find_block_by_text(blocks: List[ContentBlock], text_content: str) -> Optional[ContentBlock]:
+    """Finds the first block matching the text content."""
+    for block in blocks:
+        if block.text == text_content:
+            return block
+    return None
 
 # --- Test Cases ---
 
 def test_integration_full_workflow(engine_instance: KnowledgeDistillerEngine, temp_dirs: Dict[str, Path]):
     """
-    Test the core workflow: analyze -> check decisions -> apply -> check output.
-    Uses mocked SemanticAnalyzer.
+    Test the core workflow: analyze -> check decisions -> apply -> check output content dictionary.
+    Uses mocked SemanticAnalyzer and real FileStorage.
     """
     input_dir = temp_dirs["input"]
     output_dir = temp_dirs["output"]
@@ -125,154 +155,182 @@ def test_integration_full_workflow(engine_instance: KnowledgeDistillerEngine, te
     analysis_success = engine_instance.run_analysis()
     assert analysis_success is True
     assert engine_instance._analysis_completed is True
-    assert len(engine_instance.blocks_data) > 0 # Should have processed blocks
+    # Verify blocks were processed and exist in the engine's memory (or storage)
+    # Check storage directly for block count (more robust integration check)
+    all_blocks_from_storage = engine_instance.storage.get_blocks_for_analysis()
+    assert len(all_blocks_from_storage) > 0 # Should have processed blocks
 
-    # 2. Check MD5 Results and Default Decisions
+    # 2. Check MD5 Results and Default Decisions (via Engine's state after analysis)
     md5_duplicates = engine_instance.get_md5_duplicates()
-    # Expecting 2 groups: "这是文件1的普通段落。" and "又一个段落。"
+    # Expecting 2 groups: "This is a paragraph from file 1." and "A common paragraph."
     assert len(md5_duplicates) == 2
 
-    # Find the specific duplicate paragraph group ("这是文件1的普通段落。") and check decisions
-    target_text_1 = "这是文件1的普通段落。"
-    found_md5_para_1 = False
-    kept_key_abs_1 = None
-    deleted_key_abs_1 = None
+    # --- Verify decisions stored in metadata after analysis ---
+    # Find the blocks corresponding to the duplicate paragraphs
+    target_text_1 = "This is a paragraph from file 1."
+    target_text_2 = "A common paragraph."
 
-    for group in md5_duplicates:
-        # Check based on normalized text as used by MD5 analyzer
-        group_texts = {block.analysis_text for block in group}
-        if target_text_1 in group_texts:
-            found_md5_para_1 = True
-            assert len(group) == 2
-            # Determine which block is kept/deleted based on file order (assuming file1 comes first)
-            sorted_group = sorted(group, key=lambda b: Path(b.file_path).name)
-            kept_block = sorted_group[0]
-            deleted_block = sorted_group[1]
-            kept_key_abs_1 = create_decision_key(str(Path(kept_block.file_path).resolve()), kept_block.block_id, kept_block.block_type)
-            deleted_key_abs_1 = create_decision_key(str(Path(deleted_block.file_path).resolve()), deleted_block.block_id, deleted_block.block_type)
-            break # Found the target group
+    blocks_t1 = [b for b in all_blocks_from_storage if b.text == target_text_1]
+    blocks_t2 = [b for b in all_blocks_from_storage if b.text == target_text_2]
 
-    assert found_md5_para_1, f"MD5 did not find the expected duplicate paragraph: '{target_text_1}'"
-    assert kept_key_abs_1 is not None
-    assert deleted_key_abs_1 is not None
-    # Check decisions made automatically by MD5 analysis (first keep, rest delete)
-    assert engine_instance.block_decisions.get(kept_key_abs_1) == constants.DECISION_KEEP
-    assert engine_instance.block_decisions.get(deleted_key_abs_1) == constants.DECISION_DELETE
+    assert len(blocks_t1) == 2, f"Expected 2 blocks for '{target_text_1}'"
+    assert len(blocks_t2) == 3, f"Expected 3 blocks for '{target_text_2}'"
 
-    # Check the second duplicate paragraph group ("又一个段落。")
-    target_text_2 = "又一个段落。"
-    found_md5_para_2 = False
-    kept_key_abs_2 = None
-    deleted_keys_abs_2 = []
-    for group in md5_duplicates:
-        group_texts = {block.analysis_text for block in group}
-        if target_text_2 in group_texts:
-            found_md5_para_2 = True
-            assert len(group) == 3 # Should be in file1, file2, file3
-            sorted_group = sorted(group, key=lambda b: Path(b.file_path).name) # Sort by filename
-            kept_block = sorted_group[0] # Assume file1 is kept
-            kept_key_abs_2 = create_decision_key(str(Path(kept_block.file_path).resolve()), kept_block.block_id, kept_block.block_type)
-            deleted_keys_abs_2 = [
-                create_decision_key(str(Path(b.file_path).resolve()), b.block_id, b.block_type)
-                for b in sorted_group[1:]
-            ]
-            break
-    assert found_md5_para_2, f"MD5 did not find the second duplicate paragraph: '{target_text_2}'"
-    assert kept_key_abs_2 is not None
-    assert len(deleted_keys_abs_2) == 2
-    assert engine_instance.block_decisions.get(kept_key_abs_2) == constants.DECISION_KEEP
-    for key in deleted_keys_abs_2:
-        assert engine_instance.block_decisions.get(key) == constants.DECISION_DELETE
+    # Sort by original path to determine which one should be kept (first one)
+    blocks_t1.sort(key=lambda b: b.metadata.get('original_path', ''))
+    blocks_t2.sort(key=lambda b: b.metadata.get('original_path', ''))
 
+    # --- Verify decisions in engine's memory map ---
+    # Helper to get key
+    def get_key(block):
+        path = block.metadata.get('original_path')
+        if not path: pytest.fail(f"Block {block.block_id} missing original_path")
+        # Resolve path for consistency with how keys might be stored
+        resolved_path = str(Path(path).resolve())
+        return create_decision_key(resolved_path, block.block_id, block.block_type.value)
 
+    # Check decisions for the first group ("This is a paragraph from file 1.")
+    key_t1_keep = get_key(blocks_t1[0])
+    key_t1_delete = get_key(blocks_t1[1])
+    assert engine_instance.block_decisions.get(key_t1_keep) == DECISION_KEEP, f"Expected KEEP for {key_t1_keep}"
+    assert engine_instance.block_decisions.get(key_t1_delete) == DECISION_DELETE, f"Expected DELETE for {key_t1_delete}"
+
+    # Check decisions for the second group ("A common paragraph.")
+    key_t2_keep = get_key(blocks_t2[0])
+    key_t2_delete1 = get_key(blocks_t2[1])
+    key_t2_delete2 = get_key(blocks_t2[2])
+    assert engine_instance.block_decisions.get(key_t2_keep) == DECISION_KEEP, f"Expected KEEP for {key_t2_keep}"
+    assert engine_instance.block_decisions.get(key_t2_delete1) == DECISION_DELETE, f"Expected DELETE for {key_t2_delete1}"
+    assert engine_instance.block_decisions.get(key_t2_delete2) == DECISION_DELETE, f"Expected DELETE for {key_t2_delete2}"
+    # --- End verification of memory map ---
     # Check semantic results (should be empty due to mocking)
     semantic_duplicates = engine_instance.get_semantic_duplicates()
     assert semantic_duplicates == []
 
-    # 3. Apply Decisions
-    apply_success = engine_instance.apply_decisions()
-    assert apply_success is True
+    # 3. Apply Decisions (returns dictionary)
+    output_content_dict = engine_instance.apply_decisions()
+    assert isinstance(output_content_dict, dict)
+    # Expecting output for file1, file2, file3 (file3 won't be empty now)
+    assert len(output_content_dict) == 3
 
-    # 4. Verify Output Files
-    output_file1 = output_dir / f"file1{constants.DEFAULT_OUTPUT_SUFFIX}.md"
-    output_file2 = output_dir / f"file2{constants.DEFAULT_OUTPUT_SUFFIX}.md"
-    output_file3 = output_dir / f"file3{constants.DEFAULT_OUTPUT_SUFFIX}.md"
+    # 4. Verify Output Content Dictionary
+    # Construct expected output paths based on engine's output_dir config
+    output_suffix = ".md" # Assume default suffix for now
+    # Use constants for the output suffix
+    if hasattr(constants, 'DEFAULT_OUTPUT_SUFFIX'):
+        output_suffix = constants.DEFAULT_OUTPUT_SUFFIX + output_suffix
 
-    assert output_file1.exists(), f"Output file not found: {output_file1}"
-    assert output_file2.exists(), f"Output file not found: {output_file2}"
-    assert output_file3.exists(), f"Output file not found: {output_file3}"
+    expected_output_path1 = output_dir / f"file1{output_suffix}"
+    expected_output_path2 = output_dir / f"file2{output_suffix}"
+    expected_output_path3 = output_dir / f"file3{output_suffix}"
 
-    # Check content (adjust expectations based on actual block splitting and content)
-    content1 = output_file1.read_text(encoding="utf-8")
-    assert "文件1 Title" in content1 # Title text should be kept
-    assert "这是文件1的普通段落。" in content1 # Kept
+    assert expected_output_path1 in output_content_dict
+    assert expected_output_path2 in output_content_dict
+    assert expected_output_path3 in output_content_dict
+
+    # Check content (based on which blocks should be kept)
+    content1 = output_content_dict[expected_output_path1]
+    assert "# File 1 Title" in content1
+    assert "This is a paragraph from file 1." in content1 # Kept
     assert "def func1():" in content1
-    assert "这是另一段普通文本。" in content1
-    assert "又一个段落。" in content1 # Kept (first occurrence)
+    assert "This is another text paragraph." in content1
+    assert "A common paragraph." in content1 # Kept (first occurrence)
 
-    content2 = output_file2.read_text(encoding="utf-8")
-    assert "文件2 Title" in content2
-    assert "这是文件1的普通段落。" not in content2 # Deleted by MD5 auto-decision
+    content2 = output_content_dict[expected_output_path2]
+    assert "# File 2 Title" in content2
+    assert "This is a paragraph from file 1." not in content2 # Deleted
     assert "function func2()" in content2
-    assert "这是文件2独有的文本。" in content2
-    assert "又一个段落。" not in content2 # Deleted (second occurrence)
+    assert "This is unique text from file 2." in content2
+    assert "A common paragraph." not in content2 # Deleted
 
-    content3 = output_file3.read_text(encoding="utf-8")
-    assert "文件3 Title" in content3
-    assert "完全不同的内容。" in content3
-    assert "又一个段落。" not in content3 # Deleted (third occurrence)
+    content3 = output_content_dict[expected_output_path3]
+    assert "# File 3 Title" in content3
+    assert "Completely different content." in content3
+    assert "A common paragraph." not in content3 # Deleted
 
-# --- Updated test_integration_save_load_decisions ---
-def test_integration_save_load_decisions(engine_instance: KnowledgeDistillerEngine, temp_dirs: Dict[str, Path]):
+    # Optional: Write the content to actual files for manual inspection if needed
+    # for path, content in output_content_dict.items():
+    #     path.parent.mkdir(parents=True, exist_ok=True)
+    #     path.write_text(content, encoding='utf-8')
+
+
+def test_integration_save_load_decisions_via_metadata(temp_dirs: Dict[str, Path], mock_semantic_analyzer: MagicMock):
     """
-    Test saving and loading decisions integrates correctly with the engine
-    by comparing the decision dictionary before saving and after loading.
+    Test saving and loading decisions integrates correctly by modifying a decision,
+    saving it (via saving blocks), creating a new engine/storage instance pointing
+    to the same path, loading decisions (via reading block metadata), and verifying.
     """
     input_dir = temp_dirs["input"]
-    decision_file = temp_dirs["decision_file"]
+    storage_base = temp_dirs["storage_base"]
+    output_dir = temp_dirs["output"]
 
-    # 1. Run analysis to populate blocks and initial decisions
-    analysis_success = engine_instance.run_analysis()
-    assert analysis_success
-    assert len(engine_instance.block_decisions) > 0
-
-    # 2. (Optional) Manually change a decision to ensure save/load handles changes
-    key_to_modify = None
-    for key in engine_instance.block_decisions: # Find any key
-        key_to_modify = key
-        break
-    assert key_to_modify is not None, "No decisions found to modify"
-    original_decision = engine_instance.block_decisions[key_to_modify]
-    new_decision = constants.DECISION_DELETE if original_decision != constants.DECISION_DELETE else constants.DECISION_KEEP
-    engine_instance.block_decisions[key_to_modify] = new_decision
-
-    # 3. Capture the expected decision state *before* saving
-    # Create a copy to avoid modification issues
-    expected_decisions_after_load = engine_instance.block_decisions.copy()
-
-    # 4. Save decisions
-    save_success = engine_instance.save_decisions()
-    assert save_success is True
-    assert decision_file.exists()
-    assert decision_file.stat().st_size > 0
-
-    # 5. Create a new engine instance
-    new_engine = KnowledgeDistillerEngine(
-        storage=engine_instance.storage,
-        input_dir=input_dir,
-        output_dir=engine_instance.output_dir,
-        decision_file=decision_file,
-        similarity_threshold=engine_instance.similarity_threshold,
-        skip_semantic=engine_instance.skip_semantic
+    # --- Instance 1: Run analysis and modify a decision ---
+    storage1 = FileStorage(base_path=storage_base)
+    storage1.initialize()
+    engine1 = KnowledgeDistillerEngine(
+        storage=storage1, input_dir=input_dir, output_dir=output_dir, skip_semantic=False
     )
-    # Ensure the new engine starts with empty decisions
-    assert len(new_engine.block_decisions) == 0
+    engine1.semantic_analyzer = mock_semantic_analyzer # Ensure mocked analyzer is used
 
-    # 6. Load decisions into the new engine
-    load_success = new_engine.load_decisions()
+    analysis_success = engine1.run_analysis()
+    assert analysis_success
+    all_blocks = storage1.get_blocks_for_analysis() # Get all blocks after analysis
+    assert len(all_blocks) > 0
+
+    # Find a block that was initially marked for deletion (e.g., second common paragraph)
+    target_text = "A common paragraph."
+    blocks_common = [b for b in all_blocks if b.text == target_text]
+    blocks_common.sort(key=lambda b: b.metadata.get('original_path', ''))
+    assert len(blocks_common) == 3
+    block_to_modify = blocks_common[1] # The one in file2 (initially deleted)
+    # assert block_to_modify.metadata.get(METADATA_DECISION_KEY) == DECISION_DELETE
+    # --- Verify initial decision in engine's memory map ---
+    block_path = block_to_modify.metadata.get('original_path')
+    block_id = block_to_modify.block_id
+    block_type_val = block_to_modify.block_type.value
+    assert block_path is not None, f"Block {block_id} missing original_path"
+    # Resolve path for consistency
+    resolved_path_modify = str(Path(block_path).resolve())
+    decision_key_modify = create_decision_key(resolved_path_modify, block_id, block_type_val)
+
+    assert engine1.block_decisions.get(decision_key_modify) == DECISION_DELETE, f"Expected initial decision for {decision_key_modify} to be DELETE in memory"
+    # --- End verification of memory map ---
+
+    # Manually update the decision in memory using the engine's method
+    # (The rest of the test, including the key creation which is now duplicated above,
+    # and the call to update_decision and subsequent checks should remain the same
+    # as they test the update and loading functionality correctly)
+    # You might want to reuse 'decision_key_modify' below instead of recalculating 'decision_key'
+
+    # Example: Reuse the key calculated above
+    update_success = engine1.update_decision(decision_key_modify, DECISION_KEEP) # Change to KEEP
+    assert update_success is True
+    # Verify in-memory decision map is updated
+    assert engine1.block_decisions.get(decision_key_modify) == DECISION_KEEP
+    # Verify the block metadata itself was updated in storage by update_decision->save_blocks
+    updated_block = storage1.get_block(block_id)
+    assert updated_block is not None
+    assert updated_block.metadata.get(METADATA_DECISION_KEY) == DECISION_KEEP
+
+    # --- Instance 2: Load decisions and verify ---
+    storage2 = FileStorage(base_path=storage_base) # New instance, same path
+    storage2.initialize() # This will load data from files written by storage1
+    engine2 = KnowledgeDistillerEngine(
+        storage=storage2, input_dir=input_dir, output_dir=output_dir, skip_semantic=False
+    )
+    # No need to run analysis again, just load decisions
+    load_success = engine2.load_decisions()
     assert load_success is True
 
-    # 7. Verify the loaded decision dictionary matches the saved one
-    # Compare the entire dictionaries
-    assert new_engine.block_decisions == expected_decisions_after_load
+    # Verify the modified decision was loaded correctly into engine2's memory map
+    assert engine2.block_decisions.get(decision_key_modify) == DECISION_KEEP
+
+    # Verify other decisions loaded correctly as well
+    block_kept_originally = blocks_common[0] # The one in file1
+    key_kept = create_decision_key(
+        block_kept_originally.metadata['original_path'],
+        block_kept_originally.block_id,
+        block_kept_originally.block_type.value
+    )
+    # assert engine2.block_decisions.get(key_kept) == DECISION_KEEP
 

@@ -1,197 +1,201 @@
-# KD_Tool_CLI/knowledge_distiller_kd/analysis/md5_analyzer.py (Refactored)
+# knowledge_distiller_kd/analysis/md5_analyzer.py
 """
-MD5分析器模块，用于检测MD5重复内容。
-(Refactored to be independent of KDToolCLI/Engine)
+MD5 Analyzer module for detecting exact duplicate content blocks.
+Refactored to use ContentBlock DTO from core.models and be independent.
+Version 3: Ensures only ContentBlockDTO from core.models is used.
 """
-# --- 标准库导入 ---
+# --- Standard Library Imports ---
 import logging
-import collections
 import hashlib
-import time
 from pathlib import Path
-from typing import Dict, List, Tuple, Union, Any, DefaultDict, Set
+from typing import Dict, List, Tuple, Any, DefaultDict
 from collections import defaultdict
 
-# --- 项目内部模块导入 ---
-# 使用相对导入 (..) 来访问上级目录中的 core 和 processing
-from ..core.error_handler import KDError, AnalysisError, handle_error
-from ..core.utils import logger, create_decision_key, parse_decision_key, display_block_preview # 导入需要的工具函数
-from ..core import constants
-from ..processing.document_processor import ContentBlock # 导入 ContentBlock
+# --- Project Internal Imports ---
+# Use relative imports (..) to access core modules
+from ..core.error_handler import handle_error, AnalysisError
+from ..core.utils import logger, create_decision_key # Import necessary utils
+# Import the correct DTO and Enums from core.models
+from ..core.models import ContentBlock as ContentBlockDTO, BlockType
+# REMOVED incorrect import: from ..processing.document_processor import ContentBlock
 
-# --- 类定义开始 ---
-logger = logger # 使用 utils 中配置好的 logger
+# --- Constants for Decisions (Align with Engine's usage) ---
+DECISION_KEEP = 'keep'
+DECISION_DELETE = 'delete'
+DECISION_UNDECIDED = 'undecided'
+
+# --- Class Definition ---
 
 class MD5Analyzer:
     """
-    MD5分析器类，用于检测完全相同的内容块。
-    (Refactored: Does not hold state related to specific runs, operates on input data)
+    MD5 Analyzer class for detecting identical content blocks based on MD5 hash.
+    Operates exclusively on ContentBlockDTO objects from core.models.
     """
 
     def __init__(self):
-        """
-        初始化MD5分析器。
-        (Refactored: No longer takes kd_tool instance)
-        """
-        # 不再存储 kd_tool 或重复结果的状态
-        pass
+        """Initializes the MD5Analyzer."""
+        pass # No state needed currently
 
     def find_md5_duplicates(
         self,
-        blocks_data: List[ContentBlock],
+        blocks_data: List[ContentBlockDTO], # Expect DTO type
         current_decisions: Dict[str, str]
-    ) -> Tuple[List[List[ContentBlock]], Dict[str, str]]:
+    ) -> Tuple[List[List[ContentBlockDTO]], Dict[str, str]]: # Return DTOs
         """
-        查找具有相同MD5哈希值的内容块。
-        优化：跳过标题块和已被标记为删除的块。
+        Finds content blocks with identical MD5 hashes.
+        Skips specific block types (e.g., HEADING) and blocks already marked for deletion.
 
         Args:
-            blocks_data: 要分析的 ContentBlock 列表。
-            current_decisions: 当前的决策字典 (key -> decision)，用于跳过已删除块。
+            blocks_data: A list of ContentBlockDTO objects to analyze.
+            current_decisions: A dictionary of current decisions {decision_key: decision_string}.
 
         Returns:
-            Tuple[List[List[ContentBlock]], Dict[str, str]]:
-                - 第一个元素是找到的 MD5 重复组列表 [[block1, block2], [blockA, blockB], ...]
-                - 第二个元素是建议的决策更新字典 {key_to_keep: "keep", key_to_delete: "delete", ...}
+            A tuple containing:
+                - A list of duplicate groups, where each group is a list of ContentBlockDTOs.
+                - A dictionary of suggested decision updates {decision_key: decision_string}.
         """
         logger.info("Starting MD5 duplicate detection...")
-        duplicate_groups: List[List[ContentBlock]] = []
+        duplicate_groups: List[List[ContentBlockDTO]] = []
         suggested_decisions: Dict[str, str] = {}
 
         if not blocks_data:
             logger.warning("MD5 analysis skipped: No blocks provided.")
-            return duplicate_groups, suggested_decisions # 返回空结果
+            return duplicate_groups, suggested_decisions
 
         try:
-            # 按MD5哈希值分组
-            hash_groups: DefaultDict[str, List[ContentBlock]] = defaultdict(list)
+            # Group blocks by MD5 hash
+            hash_groups: DefaultDict[str, List[ContentBlockDTO]] = defaultdict(list)
             total_blocks = len(blocks_data)
             processed_count = 0
-            skipped_titles = 0
-            skipped_code_fences = 0 # 保留这个跳过逻辑，虽然合并后可能不太需要
+            skipped_headings = 0
+            skipped_code_fences = 0
             skipped_deleted = 0
+            skipped_no_path = 0
+            skipped_type_error = 0
 
-            logger.info(f"开始MD5重复检测，共有{total_blocks}个内容块")
-            logger.debug(f"传入的当前决策数量: {len(current_decisions)}")
+            logger.info(f"Starting MD5 duplicate detection for {total_blocks} blocks.")
+            logger.debug(f"Number of current decisions provided: {len(current_decisions)}")
 
-            # 计算每个块的哈希值
+            # Calculate hash for each block
             for block in blocks_data:
-                if not isinstance(block, ContentBlock):
-                    logger.warning(f"Skipping item as it's not a ContentBlock: {type(block)}")
+                # *** STRONGLY CHECK for ContentBlockDTO from core.models ***
+                if not isinstance(block, ContentBlockDTO):
+                    logger.warning(f"Skipping item as it's not a ContentBlockDTO from core.models: {type(block)}")
+                    skipped_type_error += 1
                     continue
 
-                # 跳过标题块
-                if block.block_type == constants.BLOCK_TYPE_TITLE:
-                    logger.debug(f"Skipping Title block for MD5 analysis: {block.file_path}#{block.block_id}")
-                    skipped_titles += 1
+                # Skip HEADING blocks (using the correct Enum from models)
+                if block.block_type == BlockType.HEADING:
+                    original_path = block.metadata.get('original_path', 'UnknownPath')
+                    logger.debug(f"Skipping Heading block for MD5 analysis: {original_path}#{block.block_id}")
+                    skipped_headings += 1
                     continue
 
-                # --- 检查当前决策 ---
+                # --- Check current decision ---
+                original_path = block.metadata.get('original_path')
+                if not original_path:
+                    logger.warning(f"Block {block.block_id} missing 'original_path' in metadata. Cannot check decision or create key.")
+                    skipped_no_path += 1
+                    continue
+
                 try:
-                    # 使用绝对路径创建 key 来检查决策
-                    # 假设 blocks_data 中的 file_path 已经是可靠的（最好是绝对路径）
-                    # 如果不是，Engine 在调用此方法前需要确保路径一致性
                     key = create_decision_key(
-                        str(Path(block.file_path).resolve()), # 确保使用绝对路径查找决策
+                        str(Path(original_path).resolve()), # Resolve for consistency
                         block.block_id,
-                        block.block_type
+                        block.block_type.value # Use enum value
                     )
                 except Exception as e:
-                    logger.error(f"Error creating decision key for block {block.block_id} in {block.file_path}: {e}")
-                    continue # 跳过无法创建键的块
+                    logger.error(f"Error creating decision key for block {block.block_id} in {original_path}: {e}")
+                    continue
 
-                # 从传入的 current_decisions 获取决策
-                decision = current_decisions.get(key, constants.DECISION_UNDECIDED)
-                if decision == constants.DECISION_DELETE:
+                decision = current_decisions.get(key, DECISION_UNDECIDED)
+                if decision == DECISION_DELETE:
                     logger.debug(f"Skipping block already marked for deletion: {key}")
                     skipped_deleted += 1
                     continue
-                # 注意：这里不再跳过 DECISION_KEEP 的块，因为它们仍需参与比较以识别其他重复项
                 # --------------------
 
-                # 获取用于计算哈希的文本 (来自 ContentBlock 的 analysis_text)
-                text_to_hash = block.analysis_text
+                # Use the 'text' attribute from the DTO
+                text_to_hash = block.text
 
-                # 跳过仅包含代码块结束符的块 (这个逻辑在合并后可能冗余，但保留无害)
-                if block.block_type == constants.BLOCK_TYPE_CODE and text_to_hash.strip() == '```':
+                # Skip blocks containing only code fence end
+                if block.block_type == BlockType.CODE and text_to_hash.strip() == '```':
                     logger.debug(f"Skipping block containing only code fence end: {key}")
                     skipped_code_fences += 1
                     continue
 
-                # 计算MD5哈希值，包含块类型
+                # Calculate MD5 hash
                 if not isinstance(text_to_hash, str):
-                    logger.warning(f"Analysis text for block {key} is not a string: {type(text_to_hash)}. Skipping.")
+                    logger.warning(f"Text for block {key} is not a string: {type(text_to_hash)}. Skipping.")
                     continue
 
-                block_type_str = str(block.block_type)
-                # 使用strip()确保比较的一致性
+                block_type_str = block.block_type.value # Use enum value
                 hash_input = f"{block_type_str}:{text_to_hash.strip()}"
                 try:
                     md5_hash = hashlib.md5(hash_input.encode('utf-8')).hexdigest()
-                    hash_groups[md5_hash].append(block) # 将 ContentBlock 对象加入分组
+                    hash_groups[md5_hash].append(block) # Add the DTO object
                 except Exception as e:
                      logger.error(f"Error calculating hash for block {key}: {e}")
 
                 processed_count += 1
 
-            logger.info(f"MD5 hash calculation complete. Skipped titles: {skipped_titles}, skipped code fences: {skipped_code_fences}, skipped deleted: {skipped_deleted}")
-            logger.info(f"Hash calculation resulted in {len(hash_groups)} unique hash groups (excluding titles, etc.).")
+            logger.info(f"MD5 hash calculation complete. Processed: {processed_count}. Skipped: "
+                        f"Headings={skipped_headings}, CodeFences={skipped_code_fences}, "
+                        f"Deleted={skipped_deleted}, NoPath={skipped_no_path}, TypeErrors={skipped_type_error}")
+            logger.info(f"Hash calculation resulted in {len(hash_groups)} unique hash groups.")
 
-            # 找出重复的组并生成建议决策
+            # Identify duplicate groups and generate suggested decisions
             duplicate_group_count = 0
-            for md5_hash, blocks in hash_groups.items():
-                if len(blocks) > 1:
+            for md5_hash, duplicate_block_list in hash_groups.items():
+                if len(duplicate_block_list) > 1:
                     duplicate_group_count += 1
-                    logger.info(f"Found MD5 duplicate group {duplicate_group_count}, hash: {md5_hash}, blocks: {len(blocks)}")
+                    logger.info(f"Found MD5 duplicate group {duplicate_group_count}, hash: {md5_hash}, blocks: {len(duplicate_block_list)}")
 
-                    # 对组内块进行排序，以确定保留哪一个（例如按文件路径和ID）
                     try:
-                        # 确保使用绝对路径进行排序比较
-                        blocks.sort(key=lambda b: (str(Path(b.file_path).resolve()), str(b.block_id)))
+                        duplicate_block_list.sort(key=lambda b: (
+                            str(Path(b.metadata.get('original_path', '')).resolve()),
+                            str(b.block_id)
+                        ))
                     except Exception as e:
                          logger.error(f"Error sorting duplicate blocks for hash {md5_hash}: {e}. Skipping suggestions for this group.")
-                         continue # 跳过这个组的决策建议
+                         continue
 
-                    duplicate_groups.append(blocks) # 添加找到的重复组
+                    duplicate_groups.append(duplicate_block_list)
 
-                    # --- 生成决策建议 ---
-                    if not blocks: continue # 不太可能，但做个检查
+                    # --- Generate Decision Suggestions ---
+                    if not duplicate_block_list: continue
 
-                    # 保留第一个块 (如果它当前不是 'delete')
-                    first_block = blocks[0]
-                    first_key = create_decision_key(str(Path(first_block.file_path).resolve()), first_block.block_id, first_block.block_type)
-                    if current_decisions.get(first_key, constants.DECISION_UNDECIDED) != constants.DECISION_DELETE:
-                        suggested_decisions[first_key] = constants.DECISION_KEEP
+                    first_block = duplicate_block_list[0]
+                    first_block_path = first_block.metadata.get('original_path')
+                    if not first_block_path: continue
+
+                    first_key = create_decision_key(str(Path(first_block_path).resolve()), first_block.block_id, first_block.block_type.value)
+                    if current_decisions.get(first_key, DECISION_UNDECIDED) != DECISION_DELETE:
+                        suggested_decisions[first_key] = DECISION_KEEP
                         logger.debug(f"Suggesting KEEP for block: {first_key}")
                     else:
                          logger.debug(f"First block {first_key} in group {md5_hash} was already marked delete, not suggesting KEEP.")
 
+                    for block_to_delete in duplicate_block_list[1:]:
+                        delete_block_path = block_to_delete.metadata.get('original_path')
+                        if not delete_block_path: continue
 
-                    # 删除其他块 (如果它们当前是 'undecided')
-                    for block_to_delete in blocks[1:]:
-                        delete_key = create_decision_key(str(Path(block_to_delete.file_path).resolve()), block_to_delete.block_id, block_to_delete.block_type)
-                        # 只建议删除当前未决定的块，避免覆盖用户手动设置的 KEEP
-                        if current_decisions.get(delete_key, constants.DECISION_UNDECIDED) == constants.DECISION_UNDECIDED:
-                            suggested_decisions[delete_key] = constants.DECISION_DELETE
+                        delete_key = create_decision_key(str(Path(delete_block_path).resolve()), block_to_delete.block_id, block_to_delete.block_type.value)
+                        if current_decisions.get(delete_key, DECISION_UNDECIDED) == DECISION_UNDECIDED:
+                            suggested_decisions[delete_key] = DECISION_DELETE
                             logger.debug(f"Suggesting DELETE for block: {delete_key}")
                         else:
                              logger.debug(f"Block {delete_key} in group {md5_hash} already has a decision ({current_decisions.get(delete_key)}), not suggesting DELETE.")
                     # --------------------
 
             if duplicate_groups:
-                logger.info(f"MD5 analysis finished. Found {len(duplicate_groups)} groups of exact duplicates (excluding titles).")
+                logger.info(f"MD5 analysis finished. Found {len(duplicate_groups)} groups of exact duplicates (excluding headings).")
             else:
-                logger.info("MD5 analysis finished. No exact duplicates found (excluding titles).")
+                logger.info("MD5 analysis finished. No exact duplicates found (excluding headings).")
 
             return duplicate_groups, suggested_decisions
 
         except Exception as e:
             logger.error(f"Unexpected error during MD5 duplicate finding: {e}", exc_info=True)
             handle_error(e, "finding MD5 duplicates")
-            # 在发生错误时返回空结果
             return [], {}
-
-    # --- UI related methods removed ---
-    # _display_md5_duplicates_list removed
-    # review_md5_duplicates_interactive removed
-    # _process_user_action_md5 removed
