@@ -1,132 +1,161 @@
-# knowledge_distiller_kd/processing/block_merger.py <--- 新路径
+# knowledge_distiller_kd/processing/block_merger.py
 """
-Provides functionality to merge fragmented content blocks, especially code blocks.
+合并由 unstructured 解析而碎片化的 Markdown 围栏代码块。
 """
-
-# --- 标准库导入 ---
 import re
 import logging
-from typing import List
+import hashlib
+from typing import List, Optional, Dict, Any
 
-# --- 项目内部模块导入 (修改为相对导入) ---
-from .document_processor import ContentBlock # ContentBlock 现在在同级目录
+from knowledge_distiller_kd.core.models import BlockDTO, BlockType, DecisionType
+from knowledge_distiller_kd.core.utils import normalize_text_for_analysis
 
-from ..core import constants # 使用 ..core 从 processing 上一级找到 core
-
-# --- 第三方库导入 ---
-# 导入必要的 Element 类型如果需要创建新的 ContentBlocks
-from unstructured.documents.elements import CodeSnippet
-
-# --- 函数定义开始 ---
-logger = logging.getLogger(constants.LOGGER_NAME)
-
-def merge_code_blocks(blocks: List[ContentBlock]) -> List[ContentBlock]:
+def merge_code_blocks(
+    current_blocks: List[BlockDTO],
+    config: Dict[str, Any],
+    logger: logging.Logger
+) -> List[BlockDTO]:
     """
-    Merges fragmented code blocks (start fence, content, end fence) parsed by
-    unstructured into single ContentBlock objects of type CodeSnippet.
-
-    Relies on text pattern matching for fence detection, not element types.
-
-    Args:
-        blocks: The initial list of ContentBlock objects from document processing.
-
-    Returns:
-        A new list of ContentBlock objects with code blocks merged.
+    合并同一文件中由 unstructured 解析碎片化的 Markdown 围栏代码块。
     """
-    if not blocks:
-        return []
+    processed_blocks: List[BlockDTO] = []
+    current_segment: List[BlockDTO] = []
+    in_fenced = False
+    current_file_id: Optional[str] = None
+    non_code_count = 0
+    max_gap = config.get(
+        "processing.merging.max_consecutive_non_code_lines_to_break_merge", 1
+    )
 
-    merged_blocks: List[ContentBlock] = []
-    current_code_block_parts: List[ContentBlock] = []
-    in_code_block = False
-
-    # Regex to detect start fence (``` or ```language) - simplified check at start
-    start_fence_prefix = "```"
-    # End fence is just ``` stripped
-    end_fence_text = "```"
-
-    for i, block in enumerate(blocks):
-        original_text_stripped = block.original_text.strip()
-
-        # Determine if the current block looks like a start or end fence based on text
-        # A block is a potential start fence if its stripped text starts with ```
-        is_potential_start_fence = original_text_stripped.startswith(start_fence_prefix)
-        # A block is an end fence if its stripped text is exactly ```
-        is_end_fence = (original_text_stripped == end_fence_text)
-
-        if not in_code_block:
-            # If not in a block, and it looks like a start fence, begin code block
-            if is_potential_start_fence:
-                logger.debug(f"Block {block.block_id}: Detected start fence.")
-                in_code_block = True
-                current_code_block_parts = [block] # Start collecting
-                # If this start fence is ALSO an end fence (i.e., just ```),
-                # we immediately look for the next block to see if it's the end.
-                # This handles the empty ``` case correctly in the next iteration.
+    def flush_segment():
+        nonlocal in_fenced, non_code_count
+        if not current_segment:
+            return
+        first = current_segment[0]
+        file_id = first.file_id
+        first_line = first.text_content.strip().splitlines()[0] if first.text_content else ""
+        match = re.match(r"```(\w+)", first_line)
+        language = match.group(1) if match else None
+        merged_lines: List[str] = []
+        for idx, blk in enumerate(current_segment):
+            lines = blk.text_content.splitlines(keepends=True)
+            if idx == 0:
+                if lines and lines[0].strip().startswith("```"):
+                    merged_lines.extend(lines[1:])
+                else:
+                    merged_lines.extend(lines)
+            elif idx == len(current_segment) - 1:
+                if lines and lines[-1].strip() == "```":
+                    merged_lines.extend(lines[:-1])
+                else:
+                    merged_lines.extend(lines)
             else:
-                # Not in a code block and not a start fence, just add it
-                merged_blocks.append(block)
-        else: # We are inside a code block
-            # Always add the current block to the parts list while inside
-            current_code_block_parts.append(block)
+                merged_lines.extend(lines)
+        merged_text = "".join(merged_lines)
+        try:
+            analysis_text = normalize_text_for_analysis(merged_text)
+        except Exception:
+            analysis_text = merged_text
+        raw = (file_id or "") + merged_text
+        new_id = hashlib.md5(raw.encode()).hexdigest()
+        metadata = dict(first.metadata or {})
+        metadata["language"] = language
+        char_count = len(merged_text)
+        token_count = sum(b.token_count for b in current_segment)
+        merged_block = BlockDTO(
+            block_id=new_id,
+            file_id=file_id,
+            block_type=BlockType.CODE,
+            text_content=merged_text,
+            analysis_text=analysis_text,
+            char_count=char_count,
+            token_count=token_count,
+            metadata=metadata,
+            kd_processing_status=DecisionType.UNDECIDED
+        )
+        processed_blocks.append(merged_block)
+        for blk in current_segment:
+            blk.kd_processing_status = DecisionType.DELETE
+            blk.duplicate_of_block_id = new_id
+        logger.debug(
+            f"Merged code blocks {[b.block_id for b in current_segment]} into {new_id}"
+        )
+        current_segment.clear()
+        in_fenced = False
+        non_code_count = 0
 
-            # Check if this block is the end fence
-            if is_end_fence:
-                logger.debug(f"Block {block.block_id}: Detected end fence.")
-                # --- Perform the merge ---
-                if len(current_code_block_parts) > 0: # Should always be true here
-                    start_block = current_code_block_parts[0]
-                    # Join original texts, preserving newlines between parts
-                    # Use original_text for accurate reconstruction
-                    merged_original_text = "\n".join(part.original_text for part in current_code_block_parts)
+    i = 0
+    length = len(current_blocks)
+    while i < length:
+        block = current_blocks[i]
+        stripped = block.text_content.strip()
+        next_block = current_blocks[i + 1] if i + 1 < length else None
 
-                    # --- Extract pure code for analysis_text ---
-                    analysis_text = ""
-                    temp_lines = merged_original_text.splitlines()
-                    if len(temp_lines) >= 2: # Must have at least start and end fence
-                        # Extract lines between the first and the last
-                        code_lines = temp_lines[1:-1] # Exclude first and last lines
-                        analysis_text = "\n".join(code_lines).strip() # Join remaining lines and strip
-                    # If only fences (len(temp_lines) == 2), analysis_text remains ""
+        # 文件切换
+        if block.file_id != current_file_id:
+            if in_fenced:
+                flush_segment()
+            in_fenced = False
+            non_code_count = 0
+            current_file_id = block.file_id
 
-                    logger.debug(f"Merging {len(current_code_block_parts)} parts into one CodeSnippet.")
-                    logger.debug(f"Merged original text preview: '{merged_original_text[:50]}...'")
-                    logger.debug(f"Merged analysis text preview: '{analysis_text[:50]}...'")
+        if not in_fenced:
+            # 自包含的完整围栏块
+            if (
+                block.block_type == BlockType.CODE
+                and stripped.startswith("```")
+                and stripped.endswith("```")
+                and stripped != "```"
+            ):
+                processed_blocks.append(block)
+            # 起始围栏：带语言标识
+            elif (
+                block.block_type == BlockType.CODE
+                and stripped.startswith("```")
+                and stripped != "```"
+            ):
+                in_fenced = True
+                current_segment.append(block)
+            # 纯围栏开始：只有在后面有纯围栏闭合时
+            elif (
+                block.block_type == BlockType.CODE
+                and stripped == "```"
+                and next_block
+                and next_block.text_content.strip() == "```"
+            ):
+                in_fenced = True
+                current_segment.append(block)
+            else:
+                processed_blocks.append(block)
+        else:
+            # 结束围栏
+            if block.block_type == BlockType.CODE and stripped == "```":
+                current_segment.append(block)
+                flush_segment()
+            # 非代码行
+            elif block.block_type != BlockType.CODE:
+                non_code_count += 1
+                if non_code_count > max_gap:
+                    # 中断合并：原样输出累积的
+                    for blk in current_segment:
+                        processed_blocks.append(blk)
+                    processed_blocks.append(block)
+                    current_segment.clear()
+                    in_fenced = False
+                    non_code_count = 0
+                else:
+                    current_segment.append(block)
+            # 普通代码行
+            else:
+                current_segment.append(block)
 
-                    # Create the new merged ContentBlock
-                    # Use CodeSnippet type for the new element.
-                    # Pass the merged original text.
-                    merged_element = CodeSnippet(text=merged_original_text, element_id=start_block.block_id) # Use start block's ID
+        i += 1
 
-                    # Create ContentBlock instance. _infer_block_type and _normalize_text will run.
-                    merged_block = ContentBlock(
-                        element=merged_element,
-                        file_path=start_block.file_path
-                    )
+    # 文件末尾未闭合的围栏
+    if in_fenced and current_segment:
+        logger.warning(
+            "Unclosed code block detected at end of file. Flushing accumulated fragments."
+        )
+        flush_segment()
 
-                    # Crucially, override the analysis_text with our extracted pure code
-                    merged_block.analysis_text = analysis_text
-                    # Ensure the block type is CodeSnippet after potential inference/normalization
-                    # The ContentBlock init should handle this if the element is CodeSnippet,
-                    # but we can force it if needed (less ideal). Let's rely on init for now.
-                    if merged_block.block_type != "CodeSnippet":
-                         logger.warning(f"Merged block {merged_block.block_id} type was {merged_block.block_type}, forcing to CodeSnippet.")
-                         # This direct assignment might be problematic depending on ContentBlock's design.
-                         # A cleaner approach might be needed if ContentBlock resists this.
-                         # Forcing it here for demonstration if ContentBlock's infer logic overrides.
-                         merged_block.element.__class__ = CodeSnippet # Force the underlying element type
-
-                    merged_blocks.append(merged_block)
-
-                # Reset state after successful merge
-                in_code_block = False
-                current_code_block_parts = []
-            # else: Block is part of code content, already added to parts list
-
-    # Handle unclosed code block at the end of the file
-    if in_code_block and current_code_block_parts:
-        logger.warning(f"Unclosed code block detected at the end of processing file '{current_code_block_parts[0].file_path}'. Treating fragments as separate blocks.")
-        # Add remaining parts as they were, without merging
-        merged_blocks.extend(current_code_block_parts)
-
-    return merged_blocks
+    return processed_blocks

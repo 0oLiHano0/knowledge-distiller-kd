@@ -9,6 +9,15 @@ import pytest
 import os
 import json
 import logging # Import logging
+
+@pytest.fixture
+def logger():
+    logger = logging.getLogger("integration_block_merger_test")
+    logger.addHandler(logging.NullHandler())
+    return logger
+
+from knowledge_distiller_kd.processing.block_merger import merge_code_blocks
+from knowledge_distiller_kd.core.models import BlockDTO, BlockType, DecisionType
 from pathlib import Path
 from unittest.mock import patch, MagicMock # Import mock tools
 # Import necessary types, ADDED Optional
@@ -21,7 +30,7 @@ from knowledge_distiller_kd.storage.storage_interface import StorageInterface # 
 from knowledge_distiller_kd.analysis.semantic_analyzer import SemanticAnalyzer # Import for mocking
 # Use the agreed constants/keys from engine or models if defined there
 from knowledge_distiller_kd.core.engine import METADATA_DECISION_KEY, DECISION_KEEP, DECISION_DELETE, DECISION_UNDECIDED
-from knowledge_distiller_kd.core.utils import create_decision_key, parse_decision_key, logger # Import logger
+from knowledge_distiller_kd.core.utils import create_decision_key, parse_decision_key # Import logger
 # Import DTOs and Enums (ensure using the final confirmed version)
 from knowledge_distiller_kd.core.models import (
     ContentBlock, AnalysisType, DecisionType, BlockType, FileRecord
@@ -334,3 +343,25 @@ def test_integration_save_load_decisions_via_metadata(temp_dirs: Dict[str, Path]
     )
     # assert engine2.block_decisions.get(key_kept) == DECISION_KEEP
 
+# -----------------------------------------------------------------------------
+# 新增：Block Merger 集成测试，确保不会被跳过
+def test_integration_block_merger_basic(tmp_path, logger):
+    # 准备三个碎片化的 Markdown 围栏代码块（同一 file_id）
+    blocks = [
+        BlockDTO(block_id="c1", file_id="fileA", block_type=BlockType.CODE, text_content="```python\n"),
+        BlockDTO(block_id="c2", file_id="fileA", block_type=BlockType.CODE, text_content="print('hello')\n"),
+        BlockDTO(block_id="c3", file_id="fileA", block_type=BlockType.CODE, text_content="```\n"),
+    ]
+    # 使用默认 config（max_gap=1）
+    config = {}
+    merged = merge_code_blocks(blocks, config, logger)
+
+    # 合并后应只有一个 BlockDTO
+    assert len(merged) == 1, "碎片化代码块应被合并为一个"
+    m = merged[0]
+    # 合并结果不应包含围栏标记，且 metadata.language 正确
+    assert "```" not in m.text_content
+    assert m.metadata.get("language") == "python"
+    # 原始三片段都应被标记为 DELETE
+    for orig in blocks:
+        assert orig.kd_processing_status == DecisionType.DELETE

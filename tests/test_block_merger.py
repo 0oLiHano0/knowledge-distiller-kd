@@ -1,168 +1,146 @@
-# tests/test_block_merger.py
-"""
-Tests for the block merging logic, specifically for code blocks.
-"""
-
 import pytest
-from typing import List, Type
+import logging
 
-# Import necessary classes from the core modules
-# Assuming ContentBlock and Element types are needed for creating test data
-from knowledge_distiller_kd.processing.document_processor import ContentBlock
-from unstructured.documents.elements import Element, NarrativeText, Text, CodeSnippet, Title
-
-# Import the function to be tested
 from knowledge_distiller_kd.processing.block_merger import merge_code_blocks
+from knowledge_distiller_kd.core.models import BlockDTO, BlockType, DecisionType
 
-# Helper fixture to create ContentBlock instances easily in tests
+# Helper to create a dummy logger
 @pytest.fixture
-def create_block():
-    """Factory fixture to create ContentBlock instances."""
-    def _create(text: str, file_path: str = "test.md", element_type: Type[Element] = NarrativeText, element_id_suffix: str = "") -> ContentBlock:
-        # Use a simple counter or random string for unique IDs in tests if needed
-        import uuid
-        element_id = f"test_{element_id_suffix}_{uuid.uuid4()}"
-        element = element_type(text=text, element_id=element_id)
-        # Instantiate ContentBlock - it will call _infer_block_type and _normalize_text
-        cb = ContentBlock(element=element, file_path=file_path)
-        # Note: We let ContentBlock infer its type. Tests should check the state *after* inference.
-        return cb
-    return _create
+def logger():
+    logger = logging.getLogger("block_merger_test")
+    # prevent printing to console
+    logger.addHandler(logging.NullHandler())
+    return logger
 
-# --- Test Cases ---
+# Helper to create BlockDTO
+def make_block(block_id, file_id, block_type, text_content, token_count=1):
+    return BlockDTO(
+        block_id=block_id,
+        file_id=file_id,
+        block_type=block_type,
+        text_content=text_content,
+        analysis_text=text_content,
+        token_count=token_count
+    )
 
-def test_merge_no_code_blocks(create_block):
-    """Test merging when there are no code blocks."""
-    input_blocks = [
-        create_block("# Title 1", element_type=Title, element_id_suffix="title1"),
-        create_block("Paragraph 1.", element_type=NarrativeText, element_id_suffix="p1"),
-        create_block("Paragraph 2.", element_type=NarrativeText, element_id_suffix="p2"),
-    ]
-    expected_blocks = input_blocks # Expect no changes
-    merged_blocks = merge_code_blocks(input_blocks)
-    assert len(merged_blocks) == len(expected_blocks)
-    # Check if the objects are the same (or have the same relevant attributes)
-    for i in range(len(merged_blocks)):
-        assert merged_blocks[i].original_text == expected_blocks[i].original_text
-        assert merged_blocks[i].block_id == expected_blocks[i].block_id
-        assert merged_blocks[i].block_type == expected_blocks[i].block_type
+def test_empty_list_returns_empty(logger):
+    result = merge_code_blocks([], {}, logger)
+    assert result == [], "Expected empty result for empty input"
 
-def test_merge_single_fragmented_code_block(create_block):
-    """Test merging a typical fragmented code block."""
-    input_blocks = [
-        create_block("# Title", element_type=Title, element_id_suffix="title"),
-        create_block("```python", element_type=NarrativeText, element_id_suffix="cb_start"), # Intentionally NarrativeText
-        create_block("print('Hello')", element_type=NarrativeText, element_id_suffix="cb_content"),
-        create_block("```", element_type=Text, element_id_suffix="cb_end"), # Intentionally Text
-        create_block("After code.", element_type=NarrativeText, element_id_suffix="after"),
-    ]
-    merged_blocks = merge_code_blocks(input_blocks)
+def test_no_code_blocks_pass_through(logger):
+    b1 = make_block("t1", "fileA", BlockType.TEXT, "just text")
+    b2 = make_block("t2", "fileA", BlockType.HEADING, "# title")
+    result = merge_code_blocks([b1, b2], {}, logger)
+    assert result == [b1, b2], "Non-code blocks should pass through unchanged"
 
-    assert len(merged_blocks) == 3 # Title, Merged Code Block, After code
-    assert merged_blocks[0].block_type == "Title"
-    assert merged_blocks[2].block_type == "NarrativeText"
+def test_single_complete_code_block_no_merge(logger):
+    # A single block containing full fenced code
+    code = "```python\nprint('hello')\n```"
+    b = make_block("c1", "fileA", BlockType.CODE, code)
+    result = merge_code_blocks([b], {}, logger)
+    # Should not merge: original block is preserved
+    assert len(result) == 1
+    out = result[0]
+    assert out is b, "Original block should be returned"
+    assert out.kd_processing_status == DecisionType.UNDECIDED
 
-    # Check the merged code block
-    merged_code = merged_blocks[1]
-    assert merged_code.block_type == "CodeSnippet" # Should be forced to CodeSnippet
-    # Check original text joining (assuming newline)
-    expected_original_text = "```python\nprint('Hello')\n```"
-    assert merged_code.original_text == expected_original_text
+def test_fragmented_code_block_merge(logger):
+    # Start, content, end fragments
+    start = make_block("c1", "fileA", BlockType.CODE, "```python")
+    mid = make_block("c2", "fileA", BlockType.CODE, "print(1)")
+    end = make_block("c3", "fileA", BlockType.CODE, "```")
+    result = merge_code_blocks([start, mid, end], {}, logger)
+    # Expect one merged block
+    assert len(result) == 1
+    merged = result[0]
+    # Merged content should not include fences
+    assert "```" not in merged.text_content
+    # Language metadata
+    assert merged.metadata.get("language") == "python"
+    # Original fragments marked DELETE
+    assert start.kd_processing_status == DecisionType.DELETE
+    assert mid.kd_processing_status == DecisionType.DELETE
+    assert end.kd_processing_status == DecisionType.DELETE
+    # duplicate_of_block_id set correctly
+    assert start.duplicate_of_block_id == merged.block_id
+    assert mid.duplicate_of_block_id == merged.block_id
+    assert end.duplicate_of_block_id == merged.block_id
 
-    # Check the analysis text (should be pure code)
-    expected_analysis_text = "print('Hello')"
-    assert merged_code.analysis_text == expected_analysis_text
-    # Check ID and file path (should likely take from the starting block)
-    assert merged_code.block_id == input_blocks[1].block_id
-    assert merged_code.file_path == input_blocks[1].file_path
+def test_multiple_independent_fragments_same_file(logger):
+    # Two separate code blocks
+    s1 = make_block("s1", "fileA", BlockType.CODE, "```js")
+    m1 = make_block("m1", "fileA", BlockType.CODE, "console.log('a');")
+    e1 = make_block("e1", "fileA", BlockType.CODE, "```")
+    s2 = make_block("s2", "fileA", BlockType.CODE, "```python")
+    m2 = make_block("m2", "fileA", BlockType.CODE, "print('b')")
+    e2 = make_block("e2", "fileA", BlockType.CODE, "```")
+    result = merge_code_blocks([s1, m1, e1, s2, m2, e2], {}, logger)
+    # Expect two merged blocks
+    assert len(result) == 2
+    langs = [blk.metadata.get("language") for blk in result]
+    assert set(langs) == {"js", "python"}
 
-def test_merge_multiple_code_blocks(create_block):
-    """Test merging multiple code blocks sequentially."""
-    input_blocks = [
-        create_block("```python", element_type=Text, element_id_suffix="cb1_start"),
-        create_block("code1", element_type=NarrativeText, element_id_suffix="cb1_content"),
-        create_block("```", element_type=Text, element_id_suffix="cb1_end"),
-        create_block("Some text", element_type=NarrativeText, element_id_suffix="p1"),
-        create_block("```javascript", element_type=NarrativeText, element_id_suffix="cb2_start"),
-        create_block("code2", element_type=NarrativeText, element_id_suffix="cb2_content"),
-        create_block("```", element_type=Text, element_id_suffix="cb2_end"),
-    ]
-    merged_blocks = merge_code_blocks(input_blocks)
+def test_fragments_different_files_not_merged(logger):
+    # Fragments in different files
+    s1 = make_block("1", "A", BlockType.CODE, "```python")
+    c1 = make_block("2", "A", BlockType.CODE, "a=1")
+    e1 = make_block("3", "A", BlockType.CODE, "```")
+    s2 = make_block("4", "B", BlockType.CODE, "```python")
+    c2 = make_block("5", "B", BlockType.CODE, "b=2")
+    e2 = make_block("6", "B", BlockType.CODE, "```")
+    result = merge_code_blocks([s1, c1, e1, s2, c2, e2], {}, logger)
+    assert len(result) == 2
+    assert result[0].file_id == "A"
+    assert result[1].file_id == "B"
 
-    assert len(merged_blocks) == 3 # Code1, Text, Code2
-    assert merged_blocks[0].block_type == "CodeSnippet"
-    assert merged_blocks[0].analysis_text == "code1"
-    assert merged_blocks[1].block_type == "NarrativeText"
-    assert merged_blocks[2].block_type == "CodeSnippet"
-    assert merged_blocks[2].analysis_text == "code2"
+def test_allowed_gap_merges_across_non_code(logger):
+    # One non-code allowed between fragments
+    s = make_block("s", "fileA", BlockType.CODE, "```python")
+    t = make_block("t", "fileA", BlockType.TEXT, "# comment")
+    e = make_block("e", "fileA", BlockType.CODE, "```")
+    result = merge_code_blocks([s, t, e], {}, logger)
+    assert len(result) == 1
+    merged = result[0]
+    assert "# comment" in merged.text_content
 
-def test_merge_unclosed_code_block(create_block, caplog):
-    """Test merging when a code block is not properly closed at the end."""
-    input_blocks = [
-        create_block("Paragraph.", element_type=NarrativeText, element_id_suffix="p1"),
-        create_block("```python", element_type=NarrativeText, element_id_suffix="cb_start"),
-        create_block("unclosed_code", element_type=NarrativeText, element_id_suffix="cb_content"),
-        # No closing ```
-    ]
-    merged_blocks = merge_code_blocks(input_blocks)
+def test_exceeding_gap_breaks_merge(logger):
+    # No non-code allowed (gap=0)
+    config = {"processing.merging.max_consecutive_non_code_lines_to_break_merge": 0}
+    s = make_block("s", "fileA", BlockType.CODE, "```python")
+    t = make_block("t", "fileA", BlockType.TEXT, "# comment")
+    e = make_block("e", "fileA", BlockType.CODE, "```")
+    result = merge_code_blocks([s, t, e], config, logger)
+    # Should not merge: expect three blocks
+    assert len(result) == 3
+    # None should be marked DELETE
+    assert all(b.kd_processing_status == DecisionType.UNDECIDED for b in result)
 
-    # Expect the unclosed parts to be returned as original blocks, with a warning
-    assert len(merged_blocks) == 3
-    assert merged_blocks[0].block_type == "NarrativeText"
-    # The original types of the unclosed parts should be preserved *after* ContentBlock init
-    # ==================== Fix Assertion ====================
-    # ContentBlock._infer_block_type correctly identifies ```python as CodeSnippet
-    assert merged_blocks[1].block_type == "CodeSnippet"
-    # ======================================================
-    assert merged_blocks[1].original_text == "```python"
-    assert merged_blocks[2].block_type == "NarrativeText"
-    assert merged_blocks[2].original_text == "unclosed_code"
-    # Check for warning log
+def test_unclosed_fence_at_end_merges(logger, caplog):
+    caplog.set_level(logging.WARNING)
+    s = make_block("s", "fileA", BlockType.CODE, "```python")
+    c = make_block("c", "fileA", BlockType.CODE, "x=1")
+    # No closing fence
+    result = merge_code_blocks([s, c], {}, logger)
+    assert len(result) == 1
     assert "Unclosed code block detected" in caplog.text
 
-def test_merge_only_start_fence(create_block, caplog):
-    """Test when only a start fence exists."""
-    input_blocks = [
-        create_block("```python", element_type=NarrativeText, element_id_suffix="cb_start"),
-    ]
-    merged_blocks = merge_code_blocks(input_blocks)
-    assert len(merged_blocks) == 1
-    # ==================== Fix Assertion ====================
-    # Check attributes, as the object identity might change if ContentBlock modified type
-    assert merged_blocks[0].original_text == input_blocks[0].original_text
-    assert merged_blocks[0].block_type == "CodeSnippet" # Type inference will make it CodeSnippet
-    # ======================================================
-    assert "Unclosed code block detected" in caplog.text
+def test_empty_code_block_only_fences(logger):
+    # start and end only
+    s = make_block("s", "fileA", BlockType.CODE, "```")
+    e = make_block("e", "fileA", BlockType.CODE, "```")
+    result = merge_code_blocks([s, e], {}, logger)
+    assert len(result) == 1
+    merged = result[0]
+    assert merged.text_content == ""
 
-def test_merge_start_and_end_fence_only(create_block):
-    """Test merging a code block with only start and end fences (empty content)."""
-    input_blocks = [
-        create_block("```", element_type=Text, element_id_suffix="cb_start"),
-        create_block("```", element_type=Text, element_id_suffix="cb_end"),
-    ]
-    merged_blocks = merge_code_blocks(input_blocks)
-    # ==================== Fix Assertion ====================
-    assert len(merged_blocks) == 1 # Should now merge correctly
-    # ======================================================
-    merged_code = merged_blocks[0]
-    assert merged_code.block_type == "CodeSnippet"
-    assert merged_code.original_text == "```\n```" # Check original text joining
-    assert merged_code.analysis_text == "" # Analysis text should be empty
-
-def test_merge_ignores_fences_within_text(create_block):
-    """Test that fences within regular text are not treated as code blocks."""
-    input_blocks = [
-        create_block("Text with ``` inside.", element_type=NarrativeText, element_id_suffix="p1"),
-        create_block("Another ```python example.", element_type=NarrativeText, element_id_suffix="p2"),
-    ]
-    expected_blocks = input_blocks
-    merged_blocks = merge_code_blocks(input_blocks)
-    assert len(merged_blocks) == len(expected_blocks)
-    for i in range(len(merged_blocks)):
-        assert merged_blocks[i].original_text == expected_blocks[i].original_text
-        assert merged_blocks[i].block_type == expected_blocks[i].block_type
-
-# Add more tests as needed:
-# - Code blocks with different language identifiers
-# - Nested structures (though Markdown doesn't typically nest code blocks like this)
-# - Edge cases with whitespace around fences
+def test_default_config_key_missing_uses_default(logger):
+    # config without key should use max_gap=1
+    s = make_block("s", "fileA", BlockType.CODE, "```python")
+    t1 = make_block("t1", "fileA", BlockType.TEXT, "a")
+    t2 = make_block("t2", "fileA", BlockType.TEXT, "b")
+    e = make_block("e", "fileA", BlockType.CODE, "```")
+    # Two non-code in between -> exceeds default=1 -> no merge
+    result = merge_code_blocks([s, t1, t2, e], {}, logger)
+    assert len(result) == 4
+    # All original remain
+    assert [b.block_id for b in result] == ["s", "t1", "t2", "e"]

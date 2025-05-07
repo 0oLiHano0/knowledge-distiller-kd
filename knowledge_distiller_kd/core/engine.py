@@ -127,7 +127,7 @@ class KnowledgeDistillerEngine:
             handle_error(e, "setting input directory"); print(f"[Error] Error setting input directory: {e}"); return False
         except Exception as e:
             handle_error(e, "setting input directory"); print(f"[Error] Unexpected error setting input directory: {e}"); return False
-
+    
     def run_analysis(self) -> bool:
         """
         Orchestrates the full analysis workflow. Returns True if successful, False otherwise.
@@ -499,7 +499,7 @@ class KnowledgeDistillerEngine:
     # from . import constants
     import re # <--- 添加这个 import
 
- # --- 在 engine.py 文件中 ---
+# --- 在 engine.py 文件中 ---
     # 确保文件顶部有这些 import:
     # from pathlib import Path
     # from .utils import logger, create_decision_key
@@ -520,14 +520,12 @@ class KnowledgeDistillerEngine:
         error_files: List[str] = []
         all_files: List[FileRecordDTO] = []
 
-        # 检查内存中的决策映射是否存在
+        # Ensure decisions are loaded/initialized (should have happened in run_analysis)
         if not self.block_decisions:
-             logger.warning("In-memory decision map (self.block_decisions) is empty. Output might include all blocks or be empty.")
-             # 可以考虑如果决策映射为空是否应该返回空字典，取决于期望行为
-             # return {}
+             logger.warning("Decision map is empty. Output might include all blocks.")
+             # If you prefer to output nothing if decisions aren't ready, return {} here.
 
         try:
-            # 1. 获取所有已注册的文件记录
             all_files = self.storage.list_files()
             if not all_files:
                 logger.warning("No files registered in storage.")
@@ -535,74 +533,61 @@ class KnowledgeDistillerEngine:
             total_files = len(all_files)
             logger.info(f"Found {total_files} registered files.")
 
-            # 2. 遍历每个文件
             for i, file_record in enumerate(all_files):
                 original_path_str = file_record.original_path
                 file_id = file_record.file_id
                 original_path: Optional[Path] = None
-                resolved_original_path: Optional[str] = None # 用于生成 key
-
-                # 安全地处理和解析路径
                 try:
                     if not original_path_str or not isinstance(original_path_str, str):
-                        raise ValueError("Missing/invalid original_path in file record")
+                        raise ValueError("Missing/invalid path")
                     original_path = Path(original_path_str)
-                    resolved_original_path = str(original_path.resolve()) # 解析一次路径
+                    resolved_original_path = str(original_path.resolve()) # Resolve once per file
                 except Exception as path_err:
-                    logger.error(f"Invalid path '{original_path_str}' for file {file_id}: {path_err}. Skipping file.")
+                    logger.error(f"Invalid path '{original_path_str}' for file {file_id}: {path_err}. Skipping.")
                     error_files.append(f"FileID:{file_id}(InvalidPath)")
                     continue
 
                 logger.debug(f"Processing file {i+1}/{total_files}: {original_path.name} (ID: {file_id})")
-                output_lines_for_file: List[str] = [] # 存储此文件最终输出的行
-
                 try:
-                    # 3. 获取该文件的所有块
                     blocks_in_file = self.storage.get_blocks_by_file(file_id)
-                    # 注意：这里的顺序可能依赖于存储的实现。如果需要严格按原文顺序，
-                    # 可能需要在处理文档时（_process_documents）记录并存储块的顺序信息。
-                    # 目前假设 get_blocks_by_file 返回的顺序大致正确。
+                    # Optional: Sort blocks if order matters and metadata allows.
+                    # For now, assuming storage returns them in a reasonable order.
 
                     if not blocks_in_file:
                         logger.info(f"No blocks found for {original_path.name} in storage.")
                         processed_files_count += 1
                         continue
 
-                    # 4. 遍历文件中的每个块
+                    output_lines_for_file: List[str] = [] # Store formatted lines
                     for block_dto in blocks_in_file:
-                        decision = DECISION_UNDECIDED # 默认值
-
-                        # 5. 获取该块的决策 (核心修改!)
+                        # --- FIX 1: Use self.block_decisions ---
+                        decision = DECISION_UNDECIDED # Default if key somehow missing
                         try:
-                            # 使用之前解析好的 resolved_original_path
+                            # Use resolved path consistent with key generation elsewhere
                             key = create_decision_key(resolved_original_path, block_dto.block_id, block_dto.block_type.value)
-                            # 从内存映射 self.block_decisions 获取决策
                             decision = self.block_decisions.get(key, DECISION_UNDECIDED)
                         except Exception as key_err:
-                            logger.error(f"Error creating/getting decision key for block {block_dto.block_id}: {key_err}. Treating as UNDECIDED.")
-                            decision = DECISION_UNDECIDED
+                            logger.error(f"Error creating/getting decision key for block {block_dto.block_id}: {key_err}")
+                            # Decide how to handle - skip block? treat as undecided? Defaulting to undecided.
 
-                        # 6. 如果决策不是 DELETE，则处理并格式化
+                        # --- Apply decision ---
                         if decision != DECISION_DELETE:
                             text = block_dto.text
-                            # 7. 尝试还原基本 Markdown 格式 (核心修改!)
+                            # --- FIX 2: Add basic formatting ---
                             if block_dto.block_type == BlockType.HEADING:
-                                # 简单处理：假设所有标题都是一级标题
+                                # Assuming level 1 heading for simplicity
                                 output_lines_for_file.append(f"# {text}")
                             elif block_dto.block_type == BlockType.CODE:
-                                # 简单处理：使用通用代码块标记。
-                                # 未来可优化：从元数据读取语言信息 (如果存储了的话)
-                                code_lang = block_dto.metadata.get("code_language", "") # 尝试获取语言
-                                output_lines_for_file.append(f"```{code_lang}\n{text}\n```")
-                            elif block_dto.block_type == BlockType.LIST_ITEM:
-                                # 简单处理：假设是无序列表项
-                                output_lines_for_file.append(f"- {text}")
-                            else: # 其他类型 (TEXT, TABLE, UNKNOWN 等) 直接添加文本
+                                # Assuming generic code block, could enhance with language later
+                                output_lines_for_file.append(f"```\n{text}\n```")
+                            # Add more formatting rules here if needed (e.g., lists)
+                            # elif block_dto.block_type == BlockType.LIST_ITEM:
+                            #     output_lines_for_file.append(f"- {text}")
+                            else: # Default for TEXT, UNKNOWN etc.
                                 output_lines_for_file.append(text)
 
-                    # 8. 如果此文件有内容需要输出
                     if output_lines_for_file:
-                        # 确定输出路径 (保持原有逻辑)
+                        # Determine output path (existing logic seems okay)
                         output_sub_dir = self.output_dir_config_path
                         if self.input_dir and original_path.is_absolute() and self.input_dir.is_absolute():
                              try: relative_parent = original_path.parent.relative_to(self.input_dir); output_sub_dir = self.output_dir_config_path / relative_parent
@@ -615,7 +600,7 @@ class KnowledgeDistillerEngine:
                         output_filename = original_path.stem + output_suffix
                         output_filepath = output_sub_dir / output_filename
 
-                        # 使用双换行连接各块内容
+                        # Join the formatted lines with double newline
                         output_content_map[output_filepath] = '\n\n'.join(output_lines_for_file)
                         logger.info(f"Generated content for {output_filepath} ({len(output_lines_for_file)} blocks kept)")
                         generated_files_count += 1
@@ -633,7 +618,6 @@ class KnowledgeDistillerEngine:
                     error_files.append(original_path.name)
                     continue
 
-        # ... (方法末尾的异常处理和日志保持不变) ...
         except FileOperationError as storage_list_e:
             logger.error(f"Storage error listing files: {storage_list_e}")
             print(f"[Error] Storage list error: {storage_list_e}")
@@ -648,6 +632,11 @@ class KnowledgeDistillerEngine:
         if error_files:
             print(f"[Warning] Errors processing files: {', '.join(error_files)}")
         return output_content_map
+        """
+        Applies decisions stored in the engine's memory map (`self.block_decisions`),
+        generating output content for blocks that are not marked DELETE.
+        Attempts to restore basic Markdown formatting including heading levels.
+        """
         logger.info(f"Applying decisions to generate output content...")
         print(f"[*] Applying decisions...")
         output_content_map: Dict[Path, str] = {}
