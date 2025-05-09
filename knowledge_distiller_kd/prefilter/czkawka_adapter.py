@@ -1,22 +1,31 @@
+# knowledge_distiller_kd/prefilter/czkawka_adapter.py
+
 import subprocess
 import json
 import logging
 from pathlib import Path
 from typing import List, Optional, Dict, Any
 
+from knowledge_distiller_kd.core.utils import get_bundled_czkawka_path
 from knowledge_distiller_kd.core.models import (
     DuplicateFileInfoDTO,
     DuplicateFileGroupDTO,
 )
 
+
 class CzkawkaAdapter:
     def __init__(
         self,
-        czkawka_cli_path: str = "czkawka_cli",
+        czkawka_cli_path: Optional[str] = None,
         config: Optional[Dict[str, Any]] = None,
         logger: Optional[logging.Logger] = None,
     ):
-        self.czkawka_cli_path = czkawka_cli_path
+        # 如果用户指定了路径则使用，否则加载捆绑在 vendor 下的二进制
+        if czkawka_cli_path:
+            self.czkawka_cli_path = czkawka_cli_path
+        else:
+            self.czkawka_cli_path = get_bundled_czkawka_path()
+
         self.config = config or {}
         self.logger = logger or logging.getLogger(__name__)
 
@@ -52,7 +61,10 @@ class CzkawkaAdapter:
                 groups.append(DuplicateFileGroupDTO(files=files_info))
         return groups
 
-    def scan_directory_for_duplicates(self, target_directory: Path) -> List[DuplicateFileGroupDTO]:
+    def scan_directory_for_duplicates(
+        self,
+        target_directory: Path
+    ) -> List[DuplicateFileGroupDTO]:
         """
         调用 Czkawka CLI 扫描目录，解析并返回重复文件组 DTO 列表。
         """
@@ -64,14 +76,19 @@ class CzkawkaAdapter:
                 stderr=subprocess.PIPE,
                 text=True,
                 check=False,
-                timeout=300,
+                timeout=self.config.get("timeout", 300),
             )
         except FileNotFoundError as e:
             self.logger.error(f"Czkawka 可执行文件未找到: {e}")
             return []
+        except subprocess.TimeoutExpired as e:
+            self.logger.error(f"Czkawka 执行超时: {e}")
+            return []
 
         if result.returncode != 0:
-            self.logger.error(f"Czkawka 返回错误码 {result.returncode}: {result.stderr}")
+            self.logger.error(
+                f"Czkawka 返回错误码 {result.returncode}: {result.stderr}"
+            )
             return []
 
         try:

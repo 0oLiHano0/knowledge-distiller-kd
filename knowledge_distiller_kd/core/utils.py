@@ -6,6 +6,7 @@
 import logging
 import json
 import hashlib
+import platform
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Union, Generator, Set
@@ -492,4 +493,25 @@ def normalize_text_for_analysis(text: str) -> str:
     """
     return text
 
-# --- get_markdown_parser 函数已被移除 ---
+# --- 20250509添加以下函数 ---
+def get_bundled_czkawka_path() -> str:
+    """
+    返回捆绑在项目 vendor 目录下的 czkawka_cli 可执行文件路径。
+    当前仅支持 macOS ARM64 架构。
+    """
+    system = platform.system().lower()
+    arch = platform.machine().lower()
+
+    # 项目根目录: knowledge_distiller_kd/
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    if system == "darwin" and arch in ("arm64", "aarch64"):
+        bin_path = BASE_DIR / "vendor" / "czkawka" / "macos-arm64" / "czkawka_cli"
+    else:
+        raise RuntimeError(f"Unsupported platform/arch for bundled czkawka: {system}/{arch}")
+
+    if not bin_path.exists():
+        raise FileNotFoundError(f"Bundled czkawka_cli not found at {bin_path}")
+
+    return str(bin_path)
+
+# --- 20250509添加函数 End---
