@@ -503,7 +503,7 @@ def get_bundled_czkawka_path() -> str:
     arch = platform.machine().lower()
 
     # 项目根目录: knowledge_distiller_kd/
-    BASE_DIR = Path(__file__).resolve().parent.parent
+    BASE_DIR = Path(__file__).resolve().parent.parent.parent
     if system == "darwin" and arch in ("arm64", "aarch64"):
         bin_path = BASE_DIR / "vendor" / "czkawka" / "macos-arm64" / "czkawka_cli"
     else:
