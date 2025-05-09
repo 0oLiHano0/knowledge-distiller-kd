@@ -33,17 +33,72 @@ def _is_complete_fence(line: str) -> bool:
 def _assemble_code_body(blocks: List[BlockDTO]) -> str:
     """聚合当前片段中所有代码行，去除首尾围栏"""
     merged: List[str] = []
+    last_content_ended_with_newline = True  # 初始为True确保第一个块不用考虑前置空格
+    
     for idx, blk in enumerate(blocks):
-        lines = blk.text_content.splitlines(keepends=True)
-        # 去掉起始围栏
-        if idx == 0 and _is_start_fence(lines[0]):
-            merged.extend(lines[1:])
-        # 去掉尾围栏
-        elif idx == len(blocks) - 1 and _is_end_fence(lines[-1]):
-            merged.extend(lines[:-1])
+        content = blk.text_content
+        
+        # 处理空内容块 - 转换为空行（确保有两个换行符）
+        if not content.strip():
+            # 确保空块贡献至少一个完整空行（前后均有换行符）
+            if not last_content_ended_with_newline and merged:
+                merged.append("\n")  # 结束前一行
+            merged.append("\n")      # 添加空行
+            last_content_ended_with_newline = True
+            continue
+            
+        # 将内容拆分为行，保留换行符
+        lines = content.splitlines(keepends=True)
+        
+        # 处理无换行符的内容（单行无换行的情况）
+        if not lines:
+            lines = [content]  # 将整个内容作为单行处理
+        
+        # 以下处理针对不同位置的块
+        
+        # 情况1: 起始围栏处理
+        if idx == 0 and lines and _is_start_fence(lines[0]):
+            # 如果只有一行且是起始围栏，则确保为第二行内容添加一个换行符
+            if len(lines) == 1:
+                merged.append("\n")
+                last_content_ended_with_newline = True
+            else:
+                merged.extend(lines[1:])  # 移除起始围栏行，保留其余内容
+                # 更新换行符状态
+                last_content_ended_with_newline = lines[-1].endswith("\n") if lines else True
+        
+        # 情况2: 结束围栏处理
+        elif idx == len(blocks) - 1 and lines and _is_end_fence(lines[-1]):
+            merged.extend(lines[:-1])  # 移除结束围栏行，保留其余内容
+            # 更新换行符状态
+            if lines[:-1]:
+                last_content_ended_with_newline = lines[-2].endswith("\n")
+        
+        # 情况3: 中间内容处理
         else:
+            # 处理碎片化代码之间的空格问题
+            if (not last_content_ended_with_newline and merged and 
+                    not content.startswith("\n") and not content.startswith(" ")):
+                # 检查合并点是否需要额外的空格
+                if merged[-1] and content:
+                    last_char = merged[-1][-1] if merged[-1] else ""
+                    first_char = content[0] if content else ""
+                    
+                    # 检查是否需要添加空格：词与词、标识符与标识符之间
+                    if (last_char.isalnum() and first_char.isalnum()) or \
+                       (last_char in "_" and first_char.isalnum()) or \
+                       (last_char.isalnum() and first_char in "_"):
+                        merged.append(" ")
+            
+            # 添加当前内容
             merged.extend(lines)
-    return "".join(merged)
+        
+        # 记录本次内容是否以换行符结束，用于下一个块的处理
+        last_content_ended_with_newline = content.endswith("\n") if content else True
+    
+    # 合并所有文本片段
+    result = "".join(merged)
+    return result
 
 
 def _create_merged_block(
@@ -87,7 +142,8 @@ def _create_merged_block(
     # 生成分析文本
     try:
         analysis = normalize_text_for_analysis(code_body)
-    except Exception:
+    except (ValueError, TypeError, AttributeError) as e:
+        logger.warning(f"Error normalizing text: {e}. Using raw code body.")
         analysis = code_body
     # 生成新的 block_id
     raw = (file_id or "") + full_text
