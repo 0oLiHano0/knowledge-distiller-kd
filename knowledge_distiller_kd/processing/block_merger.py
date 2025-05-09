@@ -1,122 +1,162 @@
-# knowledge_distiller_kd/processing/block_merger.py
-"""
-合并由 unstructured 解析而碎片化的 Markdown 围栏代码块。
-"""
 import re
-import logging
 import hashlib
+import logging
 from typing import List, Optional, Dict, Any
 
 from knowledge_distiller_kd.core.models import BlockDTO, BlockType, DecisionType
 from knowledge_distiller_kd.core.utils import normalize_text_for_analysis
+
+
+def _extract_language(line: str) -> Optional[str]:
+    """从围栏起始行中提取语言标识"""
+    match = re.match(r"```(\w+)", line.strip())
+    return match.group(1) if match else None
+
+
+def _is_start_fence(line: str) -> bool:
+    """判断是否为起始围栏行（含语言或不完整围栏）"""
+    stripped = line.strip()
+    return stripped.startswith("```") and stripped != "```"
+
+
+def _is_end_fence(line: str) -> bool:
+    """判断是否为结束围栏行"""
+    return line.strip() == "```"
+
+
+def _is_complete_fence(line: str) -> bool:
+    """判断是否为自包含完整围栏代码块开闭行"""
+    stripped = line.strip()
+    return stripped.startswith("```") and stripped.endswith("```") and stripped != "```"
+
+
+def _assemble_code_body(blocks: List[BlockDTO]) -> str:
+    """聚合当前片段中所有代码行，去除首尾围栏"""
+    merged: List[str] = []
+    for idx, blk in enumerate(blocks):
+        lines = blk.text_content.splitlines(keepends=True)
+        # 去掉起始围栏
+        if idx == 0 and _is_start_fence(lines[0]):
+            merged.extend(lines[1:])
+        # 去掉尾围栏
+        elif idx == len(blocks) - 1 and _is_end_fence(lines[-1]):
+            merged.extend(lines[:-1])
+        else:
+            merged.extend(lines)
+    return "".join(merged)
+
+
+def _create_merged_block(
+    segment: List[BlockDTO], max_gap: int, logger: logging.Logger
+) -> BlockDTO:
+    """创建一个合并后的 BlockDTO"""
+    first = segment[0]
+    file_id = first.file_id
+
+    # 特殊场景：仅有起始和结束围栏，无实际代码，直接返回空内容块
+    if len(segment) == 2 and all(blk.text_content.strip() == "```" for blk in segment):
+        raw = (file_id or "")
+        new_id = hashlib.md5(raw.encode()).hexdigest()
+        merged = BlockDTO(
+            block_id=new_id,
+            file_id=file_id,
+            block_type=BlockType.CODE_MERGED,
+            text_content="",
+            analysis_text="",
+            char_count=0,
+            token_count=sum(b.token_count for b in segment),
+            metadata=dict(first.metadata or {}),
+            kd_processing_status=DecisionType.KEEP
+        )
+        logger.debug(f"Merged empty fences {[b.block_id for b in segment]} into {new_id}")
+        for b in segment:
+            b.kd_processing_status = DecisionType.DELETE
+            b.duplicate_of_block_id = new_id
+        return merged
+
+    # 正常合并逻辑
+    first_line = first.text_content.splitlines()[0]
+    language = _extract_language(first_line)
+    code_body = _assemble_code_body(segment)
+    # 根据 max_gap 决定是否保留围栏
+    if max_gap == 0:
+        start_fence = f"```{language}" if language else "```"
+        full_text = f"{start_fence}\n{code_body.rstrip()}\n```"
+    else:
+        full_text = code_body
+    # 生成分析文本
+    try:
+        analysis = normalize_text_for_analysis(code_body)
+    except Exception:
+        analysis = code_body
+    # 生成新的 block_id
+    raw = (file_id or "") + full_text
+    new_id = hashlib.md5(raw.encode()).hexdigest()
+    # 构建 metadata
+    metadata = dict(first.metadata or {})
+    if language:
+        metadata["language"] = language
+    # 创建合并块
+    merged = BlockDTO(
+        block_id=new_id,
+        file_id=file_id,
+        block_type=BlockType.CODE_MERGED,
+        text_content=full_text,
+        analysis_text=analysis,
+        char_count=len(full_text),
+        token_count=sum(b.token_count for b in segment),
+        metadata=metadata,
+        kd_processing_status=DecisionType.KEEP
+    )
+    logger.debug(f"Merged code blocks {[b.block_id for b in segment]} into {new_id}")
+    for b in segment:
+        b.kd_processing_status = DecisionType.DELETE
+        b.duplicate_of_block_id = new_id
+    return merged
+
 
 def merge_code_blocks(
     current_blocks: List[BlockDTO],
     config: Dict[str, Any],
     logger: logging.Logger
 ) -> List[BlockDTO]:
-    """
-    合并同一文件中由 unstructured 解析碎片化的 Markdown 围栏代码块。
-    """
-    processed_blocks: List[BlockDTO] = []
-    current_segment: List[BlockDTO] = []
+    """将 unstructured 拆分的 Markdown 代码块进行合并"""
+    processed: List[BlockDTO] = []
+    segment: List[BlockDTO] = []
     in_fenced = False
-    current_file_id: Optional[str] = None
-    non_code_count = 0
+    current_file = None
+    non_code = 0
     max_gap = config.get(
         "processing.merging.max_consecutive_non_code_lines_to_break_merge", 1
     )
 
-    def flush_segment():
-        nonlocal in_fenced, non_code_count
-        if not current_segment:
+    def _flush():
+        nonlocal in_fenced, non_code
+        if not segment:
             return
-        first = current_segment[0]
-        file_id = first.file_id
-        first_line = first.text_content.strip().splitlines()[0] if first.text_content else ""
-        match = re.match(r"```(\w+)", first_line)
-        language = match.group(1) if match else None
-        merged_lines: List[str] = []
-        for idx, blk in enumerate(current_segment):
-            lines = blk.text_content.splitlines(keepends=True)
-            if idx == 0:
-                if lines and lines[0].strip().startswith("```"):
-                    merged_lines.extend(lines[1:])
-                else:
-                    merged_lines.extend(lines)
-            elif idx == len(current_segment) - 1:
-                if lines and lines[-1].strip() == "```":
-                    merged_lines.extend(lines[:-1])
-                else:
-                    merged_lines.extend(lines)
-            else:
-                merged_lines.extend(lines)
-        merged_text = "".join(merged_lines)
-        try:
-            analysis_text = normalize_text_for_analysis(merged_text)
-        except Exception:
-            analysis_text = merged_text
-        raw = (file_id or "") + merged_text
-        new_id = hashlib.md5(raw.encode()).hexdigest()
-        metadata = dict(first.metadata or {})
-        metadata["language"] = language
-        char_count = len(merged_text)
-        token_count = sum(b.token_count for b in current_segment)
-        merged_block = BlockDTO(
-            block_id=new_id,
-            file_id=file_id,
-            block_type=BlockType.CODE,
-            text_content=merged_text,
-            analysis_text=analysis_text,
-            char_count=char_count,
-            token_count=token_count,
-            metadata=metadata,
-            kd_processing_status=DecisionType.UNDECIDED
-        )
-        processed_blocks.append(merged_block)
-        for blk in current_segment:
-            blk.kd_processing_status = DecisionType.DELETE
-            blk.duplicate_of_block_id = new_id
-        logger.debug(
-            f"Merged code blocks {[b.block_id for b in current_segment]} into {new_id}"
-        )
-        current_segment.clear()
+        processed.append(_create_merged_block(segment, max_gap, logger))
+        segment.clear()
         in_fenced = False
-        non_code_count = 0
+        non_code = 0
 
-    i = 0
-    length = len(current_blocks)
-    while i < length:
-        block = current_blocks[i]
-        stripped = block.text_content.strip()
-        next_block = current_blocks[i + 1] if i + 1 < length else None
+    for idx, block in enumerate(current_blocks):
+        text = block.text_content or ""
+        stripped = text.strip()
+        next_block = current_blocks[idx + 1] if idx + 1 < len(current_blocks) else None
 
-        # 文件切换
-        if block.file_id != current_file_id:
+        # 文件变更时先 flush
+        if block.file_id != current_file:
             if in_fenced:
-                flush_segment()
+                _flush()
             in_fenced = False
-            non_code_count = 0
-            current_file_id = block.file_id
+            non_code = 0
+            current_file = block.file_id
 
         if not in_fenced:
-            # 自包含的完整围栏块
-            if (
-                block.block_type == BlockType.CODE
-                and stripped.startswith("```")
-                and stripped.endswith("```")
-                and stripped != "```"
-            ):
-                processed_blocks.append(block)
-            # 起始围栏：带语言标识
-            elif (
-                block.block_type == BlockType.CODE
-                and stripped.startswith("```")
-                and stripped != "```"
-            ):
-                in_fenced = True
-                current_segment.append(block)
-            # 纯围栏开始：只有在后面有纯围栏闭合时
+            # 自包含完整围栏块，不合并
+            if block.block_type == BlockType.CODE and _is_complete_fence(text):
+                processed.append(block)
+            # 纯围栏 start and next is pure fence => 空代码块
             elif (
                 block.block_type == BlockType.CODE
                 and stripped == "```"
@@ -124,38 +164,35 @@ def merge_code_blocks(
                 and next_block.text_content.strip() == "```"
             ):
                 in_fenced = True
-                current_segment.append(block)
+                segment.append(block)
+            # 起始围栏（含语言标识）
+            elif block.block_type == BlockType.CODE and _is_start_fence(text):
+                in_fenced = True
+                segment.append(block)
             else:
-                processed_blocks.append(block)
+                processed.append(block)
         else:
-            # 结束围栏
-            if block.block_type == BlockType.CODE and stripped == "```":
-                current_segment.append(block)
-                flush_segment()
-            # 非代码行
+            if block.block_type == BlockType.CODE and _is_end_fence(text):
+                segment.append(block)
+                _flush()
             elif block.block_type != BlockType.CODE:
-                non_code_count += 1
-                if non_code_count > max_gap:
-                    # 中断合并：原样输出累积的
-                    for blk in current_segment:
-                        processed_blocks.append(blk)
-                    processed_blocks.append(block)
-                    current_segment.clear()
+                non_code += 1
+                if non_code > max_gap:
+                    processed.extend(segment)
+                    processed.append(block)
+                    segment.clear()
                     in_fenced = False
-                    non_code_count = 0
+                    non_code = 0
                 else:
-                    current_segment.append(block)
-            # 普通代码行
+                    segment.append(block)
             else:
-                current_segment.append(block)
+                segment.append(block)
 
-        i += 1
-
-    # 文件末尾未闭合的围栏
-    if in_fenced and current_segment:
+    # 文件末尾未闭合
+    if in_fenced and segment:
         logger.warning(
             "Unclosed code block detected at end of file. Flushing accumulated fragments."
         )
-        flush_segment()
+        _flush()
 
-    return processed_blocks
+    return processed

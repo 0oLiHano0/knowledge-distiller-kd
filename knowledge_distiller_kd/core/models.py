@@ -24,6 +24,7 @@ class BlockType(Enum):
     HEADING = "heading"
     LIST_ITEM = "list_item"
     CODE = "code"
+    CODE_MERGED = "code_merged"
     TABLE = "table"
 
 
@@ -35,6 +36,7 @@ class AnalysisType(Enum):
 
 class DecisionType(Enum):
     UNDECIDED = "undecided"
+    KEEP = "keep"  # 0508新增：合并后保留状态
     MERGE = "merge"
     IGNORE = "ignore"
     MARK_DUPLICATE = "mark_duplicate"
@@ -261,3 +263,18 @@ def normalize_text_for_analysis(text: str) -> str:
     如果需要更复杂的清洗，可以后续再改。
     """
     return text
+
+# --- Czkawka 适配器相关 DTO ---
+
+class DuplicateFileInfoDTO(BaseModel):
+    path: str                   # 原始文件路径字符串
+    size: int                   # 文件大小 (bytes)
+    modified: Optional[int] = None  # 修改时间戳 (optional)
+
+class DuplicateFileGroupDTO(BaseModel):
+    files: List[DuplicateFileInfoDTO]  # 一组精确重复的文件列表
+    header: Optional[str] = None       # （可选）原始 header 信息
+
+class CzkawkaConfigDTO(BaseModel):
+    czkawka_cli_path: str = "czkawka_cli"
+    default_args: List[str] = ["duplicates", "--json", "-d"]

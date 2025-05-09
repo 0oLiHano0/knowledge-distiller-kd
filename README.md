@@ -2,7 +2,11 @@
 知识蒸馏工具 - 一个用于检测和处理文档重复内容的智能工具。
 
 ## 项目概述
-Knowledge Distiller (KD) 是一个强大的文档内容分析工具，专门用于检测和处理文档中的重复内容。它采用分层架构设计，使用先进的语义分析技术，不仅能够识别完全相同的内容，还能发现语义相似的内容片段。
+Knowledge Distiller (KD) 是一个强大的文档内容分析工具，采用分层架构设计(UI, Core, Analysis, Processing, Storage)，使用先进的语义分析技术，能够：
+- 通过Czkawka进行文件级预过滤
+- 实现MD5 → SimHash → SBERT三层内容去重
+- 支持SQLite作为核心数据存储
+- 提供灵活的命令行交互界面
 
 ## 主要特性
 
@@ -14,6 +18,10 @@ Knowledge Distiller (KD) 是一个强大的文档内容分析工具，专门用�
 - **持久化决策**： 将用户决策保存到 JSON 文件中。
 - **去重输出**： 根据用户决策生成去重后的 Markdown 文件。
 - **模块化设计**： 清晰的分层架构 (UI, Core Engine, Analysis, Processing, Storage)，易于维护和扩展。
+- **文件级预过滤**：集成Czkawka工具检测重复文件
+- **三层去重检测**：MD5(精确) → SimHash(近似) → SBERT(语义)
+- **SQLite存储**：核心数据持久化方案，支持高效查询
+- **决策管理**：统一的决策管理接口
 
 ## 安装指南
 
@@ -101,37 +109,30 @@ Knowledge Distiller (KD) 是一个强大的文档内容分析工具，专门用�
 
 ## 开发指南
 
-### 项目结构
+### 项目结构 (更新后)
 
 
 knowledge-distiller-kd/
-├── input/                  # 输入文件目录
-├── output/                 # 输出文件目录
-├── decisions/              # 决策文件目录
-├── logs/                   # 日志文件目录
+├── input/ # 输入文件目录
+├── output/ # 输出文件目录
+├── decisions/ # 决策文件目录 (JSON导出)
+├── logs/ # 日志文件目录
 ├── knowledge_distiller_kd/ # 项目核心代码包
-│   ├── init.py
-│   ├── cli.py              # 应用入口点和参数解析
-│   ├── core/               # 核心逻辑与组件
-│   │   ├── init.py
-│   │   ├── engine.py       # 核心引擎 (KnowledgeDistillerEngine)
-│   │   ├── constants.py
-│   │   ├── error_handler.py
-│   │   └── utils.py
-│   ├── analysis/           # 去重与分析逻辑
-│   │   ├── init.py
-│   │   ├── md5_analyzer.py
-│   │   └── semantic_analyzer.py
-│   ├── processing/         # 文档预处理
-│   │   ├── init.py
-│   │   ├── document_processor.py
-│   │   └── block_merger.py
-│   ├── storage/            # 数据持久化
-│   │   ├── init.py
-│   │   └── file_storage.py # JSON 文件存储
-│   └── ui/                 # 用户界面
-│       ├── init.py
-│       └── cli_interface.py # 命令行界面实现
+│ ├── core/ # 核心逻辑与组件
+│ │ ├── engine.py # 核心引擎 (KnowledgeDistillerEngine)
+│ │ └── ...
+│ ├── prefilter/ # 新增: 文件预过滤
+│ │ ├── czkawka_adapter.py # Czkawka集成
+│ ├── analysis/ # 去重与分析逻辑
+│ │ ├── md5_analyzer.py
+│ │ ├── simhash_analyzer.py # 新增: SimHash分析
+│ │ └── semantic_analyzer.py
+│ ├── storage/ # 数据持久化
+│ │ ├── sqlite_storage.py # 新增: SQLite实现
+│ │ └── file_storage.py # JSON文件存储(降级为辅助)
+│ └── ui/                 # 用户界面
+│    ├── init.py
+│    └── cli_interface.py # 命令行界面实现
 ├── tests/                  # 测试代码目录 (详见 tests/README.md)
 │   ├── init.py
 │   ├── conftest.py
@@ -149,38 +150,22 @@ knowledge-distiller-kd/
 └── setup.py                # 打包与安装配置
 
 
-### 开发进度与下一步计划
+### 开发进度与下一步计划 (更新后)
 
-详细内容请参考最新的项目状态文档。主要已完成和计划中的任务包括：
+**待完成 (截至 2025-06-15):**
+- [ ] **三层去重架构**: MD5 → SimHash → SBERT
+- [ ] **SQLite集成**: 核心数据存储方案
+- [ ] **Czkawka预过滤**: 文件级重复检测
+- [ ] **GUI开发**: 基于Tkinter的图形界面
+- [ ] **性能优化**: 大规模文档处理效率提升
 
-**已完成 (截至 2025-05-03):**
+**已完成:**
+- [x] **BlockMerger优化**: 提升代码块合并准确性
 
-- [x] **核心重构完成:** 实现分层架构 (UI, Core, Analysis, Processing, Storage)。
-- [x] **核心流程可运行:** 文档处理 -> 代码块合并 -> MD5分析 -> 语义分析 -> 决策 -> 输出。
-- [x] **`unstructured` 集成:** 稳定解析文档为 `ContentBlock`。
-- [x] **代码块合并:** 解决代码块碎片化问题。
-- [x] **分析优化:** 跳过标题块分析。
-- [x] **CLI 界面:** 实现交互式命令行操作。
-- [x] **JSON 决策存储:** 实现决策加载与保存。
-- [x] **测试覆盖:** 为主要模块添加单元测试和集成测试。
 
-**短期任务 (Immediate Focus):**
-
-- [ ] **代码清理与完善:** 移除冗余文件、清理旧测试、补充文档字符串、规范化路径处理。
-- [ ] **测试增强:** 提高测试覆盖率，增加边界条件测试。
-- [ ] **配置管理优化:** 考虑使用更健壮的配置方式。
-
-**中期任务 (Core Functionality & Infrastructure):**
-
-- [ ] **引入数据库存储:** 设计并实现数据库存储层 (如 SQLite)。
-- [ ] **扩展文件格式支持:** 明确支持并测试 PDF、DOCX 等格式。
-
-**长期任务 (Feature Enhancement & Advanced Capabilities):**
-
-- [ ] **实现辅助功能:** 标签、分类、搜索、版本控制。
-- [ ] **探索 LLM 集成:** 辅助去重、冲突检测等。
-- [ ] **开发 GUI:** 图形用户界面。
-- [ ] **性能优化:** 持续关注和优化。
+**长期规划:**
+- [ ] **OCR支持**: 扫描文档处理
+- [ ] **LLM集成**: 智能冲突解决
 
 ### 测试
 
