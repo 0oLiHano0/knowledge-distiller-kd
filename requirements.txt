@@ -1,0 +1,11 @@
+sentence-transformers>=2.2.2
+numpy>=1.24.0
+torch>=2.0.0
+tqdm>=4.65.0
+pathlib>=1.0.1
+typing>=3.7.4
+markdown>=3.4.0
+PyYAML>=6.0.0
+colorama>=0.4.6 
+unstructured>=0.10.0
+unstructured[docx]>=0.10.0 
