@@ -169,8 +169,16 @@ class KnowledgeDistillerEngine:
             elapsed_ms = int((end_time - start_time) * 1000)
             
             # 计算总文件数
-            total_files = len(unique_files) + sum(len(group) for group in duplicate_groups)
-            filtered_count = sum(len(group) - 1 for group in duplicate_groups)
+            total_files = len(unique_files)
+            for group in duplicate_groups:
+                total_files += len(group)
+            
+            # 计算重复文件数量（每组中第一个文件不算重复，其余都算重复）
+            filtered_count = 0
+            for group in duplicate_groups:
+                # 每组中除第一个文件外，其余都算作重复
+                filtered_count += max(0, len(group) - 1)
+            
             unique_count = len(unique_files)
             
             # 使用logger输出统计信息
@@ -271,8 +279,16 @@ class KnowledgeDistillerEngine:
                     elapsed_ms = int((end_time - start_time) * 1000)
                     
                     # 计算总文件数和重复文件数
-                    total_files = len(unique_files) + sum(len(group) for group in duplicate_groups)
-                    filtered_count = sum(len(group) - 1 for group in duplicate_groups)
+                    total_files = len(unique_files)
+                    for group in duplicate_groups:
+                        total_files += len(group)
+                    
+                    # 计算重复文件数量（每组中第一个文件不算重复，其余都算重复）
+                    filtered_count = 0
+                    for group in duplicate_groups:
+                        # 每组中除第一个文件外，其余都算作重复
+                        filtered_count += max(0, len(group) - 1)
+                    
                     unique_count = len(unique_files)
                     
                     # 设置要处理的文件为唯一文件
