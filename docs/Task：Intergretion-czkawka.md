@@ -1,9 +1,8 @@
 原子任务 1：实现 CzkawkaAdapter.filter_unique_files()
 - 上下文
     - 路径：knowledge_distiller_kd/prefilter/czkawka_adapter.py
-    - 目标
-    - 扫描给定目录，过滤掉重复文件，只保留 .md、.doc、.docx 三种扩展名
-    - 二进制:vendor/czkawka/macos-arm64/czkawka
+    - 目标：扫描给定目录，过滤掉重复文件，只保留 .md、.doc、.docx 三种扩展名
+    - 二进制：vendor/czkawka/macos-arm64/czkawka
 - 输入
     ```python
     input_dir: Path  # 例如 Path("input/")

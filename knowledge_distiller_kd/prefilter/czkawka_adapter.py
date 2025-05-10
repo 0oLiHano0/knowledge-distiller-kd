@@ -4,7 +4,7 @@ import subprocess
 import json
 import logging
 from pathlib import Path
-from typing import List, Optional, Dict, Any, Set
+from typing import List, Optional, Dict, Any, Set, Tuple
 import platform
 import time
 
@@ -157,46 +157,97 @@ class CzkawkaAdapter:
             self.logger.error(f"执行 Czkawka 时发生意外错误: {e}")
             return []
 
-    def filter_unique_files(self, target_directory: Path, patterns: Optional[List[str]] = None) -> List[Path]:
+    def filter_unique_files(
+        self, 
+        input_dir: Path, 
+        extensions: List[str] = [".md", ".doc", ".docx"], 
+        recursive: bool = True,
+        max_depth: Optional[int] = None
+    ) -> Tuple[List[Path], List[List[Path]]]:
         """
-        扫描目录，识别重复文件组，然后返回最终要解析的文件列表
+        扫描给定目录，过滤掉重复文件，只保留指定扩展名的文件。
         
         Args:
-            target_directory: 要扫描的目录
-            patterns: 可选的文件匹配模式列表，默认为 ["*.md", "*.markdown"]
+            input_dir: 要扫描的目录，例如 Path("input/")
+            extensions: 需要处理的文件扩展名列表，默认为 [".md", ".doc", ".docx"]
+            recursive: 是否递归扫描子目录，默认为 True
+            max_depth: 递归的最大深度，None 表示无限制
             
         Returns:
-            List[Path]: 过滤后的文件路径列表
+            Tuple[List[Path], List[List[Path]]]: 
+                - 唯一文件路径列表
+                - 重复文件组列表，每组包含多个重复文件的路径
         """
-        # 确保 patterns 有默认值
-        file_patterns: List[str] = patterns if patterns is not None else ["*.md", "*.markdown"]
+        start_time = time.time()
+        self.logger.info(f"开始扫描目录 {input_dir} 查找 {', '.join(extensions)} 文件...")
         
-        # 1. 用 Czkawka 找到所有重复组
-        groups = self.scan_directory_for_duplicates(target_directory, patterns=file_patterns)
+        # 1. 转换扩展名为 Czkawka 支持的模式
+        patterns = [f"*{ext}" for ext in extensions]
+        self.logger.debug(f"使用模式: {patterns}")
         
-        # 2. 收集所有重复文件路径和每组要保留的代表文件
-        files_in_groups: Set[Path] = set()
-        representatives: Set[Path] = set()
+        # 2. 扫描重复文件
+        duplicate_groups_dto = self.scan_directory_for_duplicates(input_dir, patterns)
+        self.logger.debug(f"czkawka 发现 {len(duplicate_groups_dto)} 组重复文件")
+        for idx, grp in enumerate(duplicate_groups_dto):
+            self.logger.debug(f"重复组 #{idx+1}: {len(grp.files)} 个文件")
         
-        for grp in groups:
-            # 转换所有文件路径到Path对象
-            paths = [Path(f.path) for f in grp.files]
-            files_in_groups.update(paths)
+        # 3. 处理结果
+        all_files = set()  # 所有匹配文件
+        duplicate_files = set()  # 重复文件
+        duplicate_groups = []  # 重复文件组
+        
+        # 收集所有文件和重复文件
+        if recursive:
+            for ext in extensions:
+                glob_pattern = "**/*" + ext
+                if max_depth is not None:
+                    # 通过手动实现深度限制来扫描
+                    for depth in range(1, max_depth + 2):  # +2 因为根目录算一层
+                        pattern = "/".join(["*"] * (depth - 1)) + ("/*" + ext if depth > 1 else "*" + ext)
+                        found = list(input_dir.glob(pattern))
+                        self.logger.debug(f"深度 {depth}, 模式 {pattern}: 找到 {len(found)} 文件")
+                        all_files.update(found)
+                else:
+                    found = list(input_dir.glob(glob_pattern))
+                    self.logger.debug(f"模式 {glob_pattern}: 找到 {len(found)} 文件")
+                    all_files.update(found)
+        else:
+            # 不递归，只扫描顶层目录
+            for ext in extensions:
+                found = list(input_dir.glob("*" + ext))
+                self.logger.debug(f"模式 *{ext}: 找到 {len(found)} 文件")
+                all_files.update(found)
+        
+        self.logger.debug(f"总共找到 {len(all_files)} 个匹配扩展名的文件")
+        
+        # 从DTO转换为路径列表
+        for group in duplicate_groups_dto:
+            if len(group.files) < 2:
+                continue  # 跳过不是真正重复的组
+                
+            duplicate_group = []
+            for file_info in group.files:
+                path = Path(file_info.path)
+                duplicate_files.add(path)
+                duplicate_group.append(path)
             
-            # 选择每组的第一个文件作为代表
-            if paths:
-                representatives.add(paths[0])
+            if duplicate_group:
+                duplicate_groups.append(duplicate_group)
         
-        # 3. 列出目录下所有匹配的文件
-        all_files: Set[Path] = set()
-        for pattern in file_patterns:  # 使用已定义的file_patterns变量
-            all_files.update(target_directory.rglob(pattern))
+        self.logger.debug(f"重复文件组: {len(duplicate_groups)}, 重复文件总数: {len(duplicate_files)}")
         
-        # 4. 过滤：保留不在任何重复组的文件和每组的代表文件
-        unique_files = [p for p in all_files if (p not in files_in_groups or p in representatives)]
+        # 检查路径是否在 all_files 中
+        for dup_file in duplicate_files:
+            if dup_file not in all_files:
+                self.logger.warning(f"重复文件 {dup_file} 不在扫描到的文件列表中")
         
-        # 5. 返回排序后的列表
-        return sorted(unique_files)
+        # 找出唯一文件 (所有文件中排除重复文件)
+        unique_files = sorted(list(all_files - duplicate_files))
+        
+        self._log_performance("filter", start_time)
+        self.logger.info(f"扫描完成: 发现 {len(unique_files)} 个唯一文件，{len(duplicate_groups)} 组重复文件。")
+        
+        return unique_files, duplicate_groups
 
     def _log_performance(self, operation: str, start_time: float):
         duration = time.time() - start_time

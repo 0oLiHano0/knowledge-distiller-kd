@@ -2,10 +2,13 @@ import unittest
 from pathlib import Path
 import json
 import subprocess
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 import os
 import pytest
 from io import StringIO
+import tempfile
+import shutil
+import logging
 
 from knowledge_distiller_kd.prefilter.czkawka_adapter import CzkawkaAdapter
 from knowledge_distiller_kd.core.models import DuplicateFileInfoDTO, DuplicateFileGroupDTO
@@ -242,7 +245,6 @@ class TestCzkawkaAdapter(unittest.TestCase):
         
         # 使用StringIO捕获日志输出
         log_capture = StringIO()
-        import logging
         handler = logging.StreamHandler(log_capture)
         logger = logging.getLogger()
         logger.addHandler(handler)
@@ -261,12 +263,12 @@ class TestCzkawkaAdapter(unittest.TestCase):
         """测试从重复组中筛选出唯一文件"""
         # 假设已实现filter_unique_files方法
         # 这个测试用例验证它是否正确保留每组的第一个文件和所有不在重复组中的文件
-        
+
         # 模拟一个目录中有以下文件:
         # /test/file1.md, /test/file2.md (重复)
-        # /test/file3.md, /test/file4.md, /test/file5.md (重复) 
+        # /test/file3.md, /test/file4.md, /test/file5.md (重复)
         # /test/unique.md (唯一文件)
-        
+
         # 模拟scan_directory_for_duplicates的返回结果
         mock_scan.return_value = [
             DuplicateFileGroupDTO(files=[
@@ -279,40 +281,49 @@ class TestCzkawkaAdapter(unittest.TestCase):
                 DuplicateFileInfoDTO(path="/test/file5.md", size=200)
             ])
         ]
-        
-        # 模拟Path.rglob方法
-        with patch('pathlib.Path.rglob') as mock_rglob:
-            mock_rglob.side_effect = lambda pattern: [
+
+        # 模拟文件系统
+        with patch('pathlib.Path.glob') as mock_glob:
+            all_files = [
                 Path("/test/file1.md"), Path("/test/file2.md"),
                 Path("/test/file3.md"), Path("/test/file4.md"), Path("/test/file5.md"),
                 Path("/test/unique.md")  # 不在任何重复组中
-            ] if pattern in ["*.md", "*.markdown"] else []
-            
-            # 调用filter_unique_files方法 (需要实现)
-            result = self.adapter.filter_unique_files(Path("/test"))
-            
-            # 验证结果
-            expected = [
-                Path("/test/file1.md"),  # 第一组保留
-                Path("/test/file3.md"),  # 第二组保留
-                Path("/test/unique.md")  # 唯一文件保留
             ]
             
-            # 排序进行比较
-            self.assertEqual(sorted(str(p) for p in result), 
-                             sorted(str(p) for p in expected))
+            def glob_side_effect(pattern):
+                if pattern.endswith(".md"):
+                    return all_files
+                return []
+            
+            mock_glob.side_effect = glob_side_effect
+
+            # 调用filter_unique_files方法
+            unique_files, duplicate_groups = self.adapter.filter_unique_files(Path("/test"), extensions=[".md"])
+
+            # 验证结果
+            # 应有1个唯一文件
+            self.assertEqual(len(unique_files), 1)
+            self.assertEqual(unique_files[0].name, "unique.md")
+            
+            # 应有2组重复文件
+            self.assertEqual(len(duplicate_groups), 2)
+            # 第一组有2个文件
+            self.assertEqual(len(duplicate_groups[0]), 2)
+            # 第二组有3个文件
+            self.assertEqual(len(duplicate_groups[1]), 3)
 
     def test_filter_unique_files_empty_directory(self):
         """测试空目录的处理"""
         with patch('knowledge_distiller_kd.prefilter.czkawka_adapter.CzkawkaAdapter.scan_directory_for_duplicates') as mock_scan:
             mock_scan.return_value = []
-            
-            with patch('pathlib.Path.rglob') as mock_rglob:
-                mock_rglob.return_value = []
-                
-                # 调用filter_unique_files方法 (需要实现)
-                result = self.adapter.filter_unique_files(Path("/empty"))
-                self.assertEqual(result, [])
+
+            with patch('pathlib.Path.glob') as mock_glob:
+                mock_glob.return_value = []
+
+                # 调用filter_unique_files方法
+                unique_files, duplicate_groups = self.adapter.filter_unique_files(Path("/empty"))
+                self.assertEqual(len(unique_files), 0)
+                self.assertEqual(len(duplicate_groups), 0)
 
     def test_filter_unique_files_custom_patterns(self):
         """测试使用自定义文件模式"""
@@ -323,28 +334,201 @@ class TestCzkawkaAdapter(unittest.TestCase):
                     DuplicateFileInfoDTO(path="/test/file2.txt", size=100)
                 ])
             ]
-            
-            with patch('pathlib.Path.rglob') as mock_rglob:
+
+            with patch('pathlib.Path.glob') as mock_glob:
                 # 模拟不同的模式返回不同的文件
                 def side_effect(pattern):
-                    if pattern == "*.txt":
+                    if pattern.endswith(".txt"):
                         return [Path("/test/file1.txt"), Path("/test/file2.txt"), Path("/test/unique.txt")]
                     return []
-                
-                mock_rglob.side_effect = side_effect
-                
+
+                mock_glob.side_effect = side_effect
+
                 # 调用filter_unique_files方法并传入自定义模式
-                result = self.adapter.filter_unique_files(
-                    Path("/test"), patterns=["*.txt"]
+                unique_files, duplicate_groups = self.adapter.filter_unique_files(
+                    Path("/test"), extensions=[".txt"]
                 )
                 
-                expected = [
-                    Path("/test/file1.txt"),  # 保留第一个文件
-                    Path("/test/unique.txt")  # 不在任何重复组中的文件
+                # 验证结果
+                self.assertEqual(len(unique_files), 1)
+                self.assertEqual(unique_files[0].name, "unique.txt")
+                self.assertEqual(len(duplicate_groups), 1)
+
+    @patch('knowledge_distiller_kd.prefilter.czkawka_adapter.CzkawkaAdapter.scan_directory_for_duplicates')
+    def test_filter_unique_files_with_extensions(self, mock_scan):
+        """测试 filter_unique_files 方法使用指定扩展名过滤重复文件"""
+        # 模拟 scan_directory_for_duplicates 返回结果
+        duplicate_group = DuplicateFileGroupDTO(files=[
+            DuplicateFileInfoDTO(path="/tmp/doc1.md", size=100),
+            DuplicateFileInfoDTO(path="/tmp/doc1_copy.md", size=100)
+        ])
+        mock_scan.return_value = [duplicate_group]
+        
+        # 模拟文件系统
+        with patch('pathlib.Path.glob') as mock_glob:
+            # 返回的文件应该包括重复组中的文件和一些唯一文件
+            md_files = [
+                Path("/tmp/doc1.md"),
+                Path("/tmp/doc1_copy.md"),
+                Path("/tmp/unique1.md")
+            ]
+            docx_files = [
+                Path("/tmp/unique2.docx")
+            ]
+            ignored_files = [
+                Path("/tmp/ignored.txt")
+            ]
+            
+            # 模拟找到的所有文件
+            def glob_side_effect(pattern):
+                # 根据不同模式返回不同结果，避免重复计数
+                if pattern.endswith(".md"):
+                    return md_files
+                elif pattern.endswith(".doc"):
+                    return []
+                elif pattern.endswith(".docx"):
+                    return docx_files
+                else:
+                    return []
+                
+            mock_glob.side_effect = glob_side_effect
+            
+            # 调用测试目标方法
+            adapter = CzkawkaAdapter()
+            
+            # 因为测试时不会真的执行替换，我们使用一个更明确的自定义logger来验证
+            test_logger = logging.getLogger("test_logger")
+            adapter.logger = test_logger
+            
+            with patch('logging.getLogger'):
+                unique_files, duplicate_groups = adapter.filter_unique_files(
+                    Path("/tmp"), 
+                    extensions=[".md", ".doc", ".docx"]
+                )
+                
+                # 验证结果
+                self.assertEqual(len(unique_files), 2)  # 1个md, 1个docx
+                unique_names = [f.name for f in unique_files]
+                self.assertIn("unique1.md", unique_names)
+                self.assertIn("unique2.docx", unique_names)
+                self.assertEqual(len(duplicate_groups), 1)
+
+    def test_filter_unique_files_real_files(self):
+        """使用真实临时文件测试 filter_unique_files 方法"""
+        # 创建临时目录
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            
+            # 创建测试文件结构
+            # 唯一文件
+            with open(temp_path / "unique1.md", "w") as f:
+                f.write("This is unique file 1")
+            
+            with open(temp_path / "unique2.docx", "w") as f:
+                f.write("This is unique file 2")
+                
+            # 重复文件 (内容相同)
+            duplicate_content = "This is duplicate content"
+            with open(temp_path / "dup1.md", "w") as f:
+                f.write(duplicate_content)
+            
+            with open(temp_path / "dup2.md", "w") as f:
+                f.write(duplicate_content)
+                
+            # 忽略的文件类型
+            with open(temp_path / "ignored.txt", "w") as f:
+                f.write("This should be ignored")
+                
+            # 创建子目录测试递归
+            sub_dir = temp_path / "subdir"
+            sub_dir.mkdir()
+            
+            with open(sub_dir / "sub_unique.md", "w") as f:
+                f.write("Unique in subdirectory")
+                
+            with open(sub_dir / "sub_dup.md", "w") as f:
+                f.write(duplicate_content)  # 与 dup1.md 和 dup2.md 内容相同
+            
+            # 模拟 czkawka 的执行 (因为真实执行可能不可靠)
+            with patch('knowledge_distiller_kd.prefilter.czkawka_adapter.subprocess.run') as mock_run:
+                # 模拟 czkawka 的输出，返回我们创建的重复文件
+                duplicate_json = [{
+                    "files": [
+                        {"path": str(temp_path / "dup1.md"), "size": len(duplicate_content)},
+                        {"path": str(temp_path / "dup2.md"), "size": len(duplicate_content)},
+                        {"path": str(sub_dir / "sub_dup.md"), "size": len(duplicate_content)}
+                    ]
+                }]
+                
+                mock_run.return_value = subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout=json.dumps(duplicate_json), stderr=""
+                )
+                
+                # 执行被测试的方法
+                adapter = CzkawkaAdapter()
+                unique_files, duplicate_groups = adapter.filter_unique_files(
+                    temp_path,
+                    extensions=[".md", ".docx"],
+                    recursive=True
+                )
+                
+                # 验证结果
+                # 唯一文件应该有3个：unique1.md, unique2.docx, sub_unique.md
+                self.assertEqual(len(unique_files), 3)
+                unique_filenames = [f.name for f in unique_files]
+                self.assertIn("unique1.md", unique_filenames)
+                self.assertIn("unique2.docx", unique_filenames)
+                self.assertIn("sub_unique.md", unique_filenames)
+                
+                # 重复文件组应该有1组
+                self.assertEqual(len(duplicate_groups), 1)
+                # 每组应该有3个文件
+                self.assertEqual(len(duplicate_groups[0]), 3)
+                
+                # 忽略的文件类型不应该出现在结果中
+                for file in unique_files + [f for group in duplicate_groups for f in group]:
+                    self.assertNotEqual(file.name, "ignored.txt")
+
+    def test_filter_unique_files_non_recursive(self):
+        """测试非递归模式下的 filter_unique_files 方法"""
+        # 模拟 scan_directory_for_duplicates 的返回
+        with patch('knowledge_distiller_kd.prefilter.czkawka_adapter.CzkawkaAdapter.scan_directory_for_duplicates') as mock_scan:
+            duplicate_group = DuplicateFileGroupDTO(files=[
+                DuplicateFileInfoDTO(path="/tmp/dup1.md", size=100),
+                DuplicateFileInfoDTO(path="/tmp/dup2.md", size=100)
+            ])
+            mock_scan.return_value = [duplicate_group]
+            
+            # 模拟文件系统
+            with patch('pathlib.Path.glob') as mock_glob:
+                top_level_files = [
+                    Path("/tmp/dup1.md"),
+                    Path("/tmp/dup2.md"),
+                    Path("/tmp/unique1.md")
                 ]
                 
-                self.assertEqual(sorted(str(p) for p in result), 
-                                 sorted(str(p) for p in expected))
-    # end of add in 2025-05-09 17:00
+                # 不同的扩展名和递归模式应返回不同结果
+                def glob_side_effect(pattern):
+                    # 只返回顶层文件，不返回子目录文件
+                    if ".md" in pattern and "**" not in pattern:
+                        return [f for f in top_level_files if str(f).endswith(".md")]
+                    elif ".docx" in pattern and "**" not in pattern:
+                        return []
+                    return []
+                
+                mock_glob.side_effect = glob_side_effect
+                
+                # 执行被测试方法
+                adapter = CzkawkaAdapter()
+                unique_files, duplicate_groups = adapter.filter_unique_files(
+                    Path("/tmp"),
+                    recursive=False  # 非递归模式
+                )
+                
+                # 验证结果
+                self.assertEqual(len(unique_files), 1)  # 只应返回顶层的唯一文件
+                self.assertEqual(unique_files[0].name, "unique1.md")
+                self.assertEqual(len(duplicate_groups), 1)
+
 if __name__ == "__main__":
     unittest.main()
