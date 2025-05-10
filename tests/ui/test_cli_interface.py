@@ -6,6 +6,9 @@ Unit tests for the CliInterface class.
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call, mock_open, DEFAULT
+import sys
+from io import StringIO
+import subprocess
 
 # Modules to test
 from knowledge_distiller_kd.ui.cli_interface import CliInterface
@@ -350,9 +353,7 @@ def test_review_semantic_invalid_format(mock_input: MagicMock, mock_print: Magic
     mock_pairs = [(block1, block2, 0.85)]
     mock_engine.get_semantic_duplicates.return_value = mock_pairs
     cli_instance.review_semantic_duplicates()
-    # ==================== Correction: Assert correct invalid format message ====================
     mock_print.assert_any_call("无效操作格式: 'keep 1'. 使用 k1, k2, d1, d2.")
-    # ========================================================================================
     mock_engine.update_decision.assert_not_called()
 # =================================================================
 
@@ -396,4 +397,148 @@ def test_run_handle_config_menu(mock_handle_config: MagicMock, mock_input: Magic
     # Check that the config handler was called
     mock_handle_config.assert_called_once()
 # ==================================================================
+
+@patch('sys.exit')
+@patch('sys.stdout', new_callable=StringIO)
+def test_cli_pre_filter_only(mock_stdout, mock_exit, mock_engine: MagicMock):
+    """Test --pre-filter flag works correctly."""
+    # 模拟命令行参数
+    test_args = ['cli.py', '-i', '/test/dir', '--pre-filter']
+    
+    # 在每次测试前重置mock以避免之前的调用影响当前测试
+    mock_exit.reset_mock()
+    mock_stdout.truncate(0)
+    mock_stdout.seek(0)
+    
+    with patch('sys.argv', test_args):
+        with patch('knowledge_distiller_kd.cli.parse_args') as mock_parse:
+            # 创建模拟的参数对象
+            mock_args = MagicMock()
+            mock_args.input_dir = '/test/dir'
+            mock_args.pre_filter = True
+            mock_args.skip_prefilter = False
+            mock_args.skip_semantic = False
+            mock_args.threshold = 0.8
+            mock_args.log_level = 'INFO'
+            mock_args.output_dir = '/test/output'
+            mock_args.decision_file = '/test/decisions.json'
+            mock_parse.return_value = mock_args
+            
+            # 直接替换cli.py中导入的KnowledgeDistillerEngine类
+            with patch('knowledge_distiller_kd.cli.KnowledgeDistillerEngine') as mock_engine_class:
+                # 创建我们的模拟引擎实例
+                engine_instance = MagicMock()
+                engine_instance.input_dir = Path('/test/dir')
+                # 确保run_prefilter_only被调用时不会设置run_prefilter_only_called属性
+                engine_instance.run_prefilter_only.side_effect = lambda: (4, 
+                                                       [Path('/test/file1.md'), Path('/test/file3.md')],
+                                                       [[Path('/test/file2.md'), Path('/test/file2_dup.md')]])
+                
+                # 设置其他必要的mock
+                engine_instance.set_input_dir.return_value = True
+                
+                # 设置模拟类返回我们的模拟实例
+                mock_engine_class.return_value = engine_instance
+                
+                # 直接替换CliInterface类以避免run()被调用
+                with patch('knowledge_distiller_kd.cli.CliInterface') as mock_cli_class:
+                    cli_instance = MagicMock()
+                    mock_cli_class.return_value = cli_instance
+                    
+                    # 模拟 FileStorage
+                    with patch('knowledge_distiller_kd.cli.FileStorage') as mock_storage:
+                        mock_storage_instance = MagicMock()
+                        mock_storage.return_value = mock_storage_instance
+                        
+                        # 运行CLI主函数
+                        from knowledge_distiller_kd.cli import main
+                        main()
+                        
+                        # 验证参数解析和预过滤是否被调用
+                        mock_parse.assert_called_once()
+                        engine_instance.run_prefilter_only.assert_called_once()
+                        
+                        # 验证输出信息和退出代码
+                        output = mock_stdout.getvalue()
+                        assert "[Prefilter] Scanned 4 files, filtered 1 duplicates → 2 files remain." in output
+                        
+                        # 验证sys.exit被调用了，且最后一次调用是以0作为参数
+                        assert mock_exit.called, "sys.exit应被调用"
+                        args, _ = mock_exit.call_args_list[-1]  # 获取最后一次调用的参数
+                        assert args[0] == 0, f"系统应以退出码0退出，实际为{args[0]}"
+
+@patch('knowledge_distiller_kd.core.engine.KnowledgeDistillerEngine.run_analysis')
+def test_cli_skip_prefilter(mock_run_analysis, mock_engine: MagicMock):
+    """Test --skip-prefilter flag skips prefilter step."""
+    # 模拟命令行参数
+    test_args = ['cli.py', '-i', '/test/dir', '--skip-prefilter']
+    
+    with patch('sys.argv', test_args):
+        with patch('knowledge_distiller_kd.cli.parse_args') as mock_parse:
+            # 创建模拟的参数对象
+            mock_args = MagicMock()
+            mock_args.input_dir = '/test/dir'
+            mock_args.pre_filter = False
+            mock_args.skip_prefilter = True
+            mock_args.skip_semantic = False
+            mock_args.threshold = 0.8
+            mock_args.log_level = 'INFO'
+            mock_args.output_dir = '/test/output'
+            mock_args.decision_file = '/test/decisions.json'
+            mock_parse.return_value = mock_args
+            
+            # 直接替换cli.py中导入的KnowledgeDistillerEngine类
+            with patch('knowledge_distiller_kd.cli.KnowledgeDistillerEngine') as mock_engine_class:
+                # 创建我们的模拟引擎实例并明确设置run_prefilter_only方法
+                engine_instance = MagicMock()
+                engine_instance.input_dir = Path('/test/dir')
+                engine_instance.skip_prefilter = True
+                engine_instance.run_prefilter_only = MagicMock()  # 显式创建mock以跟踪调用
+                mock_run_analysis.return_value = True
+                
+                # 设置模拟类返回我们的模拟实例
+                mock_engine_class.return_value = engine_instance
+                
+                # 直接替换 cli.py 中的 FileStorage 实例化
+                with patch('knowledge_distiller_kd.cli.FileStorage') as mock_storage:
+                    mock_storage_instance = MagicMock()
+                    mock_storage.return_value = mock_storage_instance
+                    
+                    # 模拟 CliInterface
+                    with patch('knowledge_distiller_kd.cli.CliInterface') as mock_cli_class:
+                        cli_instance = MagicMock()
+                        mock_cli_class.return_value = cli_instance
+                        
+                        # 拦截sys.exit
+                        with patch('sys.exit') as mock_exit:
+                            # 运行CLI主函数
+                            from knowledge_distiller_kd.cli import main
+                            main()
+                            
+                            # 验证引擎初始化参数包含skip_prefilter=True
+                            mock_engine_class.assert_called_once()
+                            _, kwargs = mock_engine_class.call_args
+                            assert kwargs.get('skip_prefilter', False) is True, "skip_prefilter参数未正确传递"
+                            
+                            # 确认run_prefilter_only不会被调用
+                            engine_instance.run_prefilter_only.assert_not_called()
+                            
+                            # 验证UI运行代码被调用
+                            cli_instance.run.assert_called_once(), "应该调用UI运行主循环"
+
+@patch('argparse.ArgumentParser.error')
+def test_cli_conflicting_pre_filter_args(mock_error):
+    """Test that using both --pre-filter and --skip-prefilter flags raises an error."""
+    # 模拟命令行参数
+    test_args = ['cli.py', '-i', '/test/dir', '--pre-filter', '--skip-prefilter']
+    
+    with patch('sys.argv', test_args):
+        # 使用实际的 parse_args 函数
+        from knowledge_distiller_kd.cli import parse_args
+        
+        # 调用 parse_args 应该引发参数冲突错误
+        parse_args()
+        
+        # 验证是否调用了 parser.error
+        mock_error.assert_called_once_with("参数冲突：不能同时使用 --pre-filter 和 --skip-prefilter。")
 

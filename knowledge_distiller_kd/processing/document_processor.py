@@ -8,7 +8,7 @@
 # --- 标准库导入 ---
 import re
 from pathlib import Path
-from typing import Dict, Any, List, Union
+from typing import Dict, Any, List, Union, Optional
 import logging
 import traceback # 确保导入 traceback
 
@@ -216,44 +216,82 @@ def process_file(file_path: Union[str, Path]) -> List[ContentBlock]:
             details={"error": str(e), "traceback": traceback.format_exc()}
         )
 
-def process_directory(dir_path: Union[str, Path], recursive: bool = True) -> Dict[Path, List[ContentBlock]]:
-    """处理目录中的所有Markdown文件。"""
+def process_directory(directory_path: Union[str, Path], recursive: bool = True, 
+                       file_patterns: Optional[List[str]] = None) -> Dict[str, List[ContentBlock]]:
+    """
+    处理指定目录下的文档文件，提取内容块。
+    
+    Args:
+        directory_path: 要处理的目录路径
+        recursive: 是否递归处理子目录
+        file_patterns: 可选的文件名模式列表，用于筛选要处理的特定文件
+    
+    Returns:
+        Dict[str, List[ContentBlock]]: 以文件路径为键，内容块列表为值的字典
+    
+    Raises:
+        DocumentProcessingError: 如果处理过程中发生错误
+    """
     try:
-        dir_path = Path(dir_path)
+        dir_path = Path(directory_path)
         if not dir_path.exists(): raise FileNotFoundError(f"Directory not found: {dir_path}")
         if not dir_path.is_dir(): raise NotADirectoryError(f"Not a directory: {dir_path}")
         logger.info(f"Processing directory: {dir_path}")
+        
+        # 使用常量定义的支持扩展名
+        markdown_extensions = constants.SUPPORTED_EXTENSIONS
+        
         results = {}
-        markdown_extensions = constants.SUPPORTED_EXTENSIONS # 使用常量
-        pattern = "**/*" if recursive else "*"
-        # 查找所有匹配扩展名的文件
-        files_to_process = [fp for fp in dir_path.glob(pattern) if fp.is_file() and fp.suffix.lower() in markdown_extensions]
-        if not files_to_process:
-            logger.warning(f"No Markdown files found in directory: {dir_path}"); return {}
         processed_count = 0
+        error_count = 0
+        
+        # 查找所有匹配扩展名的文件
+        if file_patterns:
+            # 如果提供了file_patterns，只处理匹配的文件
+            files_to_process = []
+            for pattern in file_patterns:
+                pattern_path = dir_path / pattern
+                if pattern_path.is_file() and pattern_path.suffix.lower() in markdown_extensions:
+                    files_to_process.append(pattern_path)
+        else:
+            # 否则处理整个目录中匹配扩展名的文件
+            pattern = "**/*" if recursive else "*"
+            files_to_process = [fp for fp in dir_path.glob(pattern) if fp.is_file() and fp.suffix.lower() in markdown_extensions]
+        
+        if not files_to_process:
+            logger.warning(f"No supported files found in directory: {dir_path}"); return {}
+            
         # 遍历并处理每个文件
         for file_path in files_to_process:
             try:
+                logger.debug(f"Processing file: {file_path}")
                 blocks = process_file(file_path)
                 if blocks: # 只添加处理后包含块的文件
-                    results[file_path] = blocks; processed_count += 1
+                    results[str(file_path)] = blocks
+                    processed_count += 1
             except DocumentProcessingError as e:
                 # 记录单个文件处理错误，但继续处理其他文件
-                logger.error(f"Error processing file {file_path} within directory: {e}"); continue
+                error_count += 1
+                logger.error(f"Error processing file {file_path} within directory: {e}")
+                continue
             except Exception as e_single:
                 # 捕获未预期的错误
-                logger.error(f"Unexpected error processing file {file_path} within directory: {e_single}", exc_info=True); continue
-        logger.info(f"Successfully processed {processed_count} Markdown files with content in {dir_path}")
+                error_count += 1
+                logger.error(f"Unexpected error processing file {file_path} within directory: {e_single}", exc_info=True)
+                continue
+                
+        logger.info(f"Successfully processed {processed_count} files with {error_count} errors in {dir_path}")
         return results
+        
     except (FileNotFoundError, NotADirectoryError) as e:
         # 目录路径无效错误
-        logger.error(f"Invalid directory path: {dir_path} - {e}")
+        logger.error(f"Invalid directory path: {directory_path} - {e}")
         raise DocumentProcessingError(str(e), error_code="INVALID_DIRECTORY") from e
     except Exception as e:
         # 其他目录处理错误
-        logger.error(f"Error processing directory {dir_path}: {str(e)}", exc_info=True)
+        logger.error(f"Error processing directory {directory_path}: {str(e)}", exc_info=True)
         raise DocumentProcessingError(
-            f"Error processing directory {dir_path}: {str(e)}",
+            f"Error processing directory {directory_path}: {str(e)}",
             error_code="DIRECTORY_PROCESSING_ERROR",
             details={"error": str(e), "traceback": traceback.format_exc()}
         )

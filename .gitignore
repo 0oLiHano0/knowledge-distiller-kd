@@ -110,3 +110,10 @@ requirements/*.txt
 
 ### Jupyter Notebook ###
 .ipynb_checkpoints/
+# 测试日志
+/tests/test.log
+
+# 本地模型缓存
+/.kd_cache/
+
+/.cursor/

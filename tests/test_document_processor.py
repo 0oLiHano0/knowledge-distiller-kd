@@ -192,8 +192,9 @@ def hello():
         shutil.copy(test_md_file, extra_file)
         results = process_directory(test_dir)
         assert len(results) == 2
-        assert test_md_file in results
-        assert extra_file in results
+        # 检查返回结果中包含两个文件路径的字符串形式
+        assert str(test_md_file) in results
+        assert str(extra_file) in results
         assert all(isinstance(blocks, list) for blocks in results.values())
         for blocks in results.values():
              assert len(blocks) > 0
