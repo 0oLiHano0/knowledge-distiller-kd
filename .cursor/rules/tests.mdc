@@ -1,0 +1,9 @@
+---
+description: 
+globs: tests/**
+alwaysApply: false
+---
+  - 本项目采用测试驱动开发（TDD），先红后绿；
+  - 使用 pytest 编写测试。
+  - 测试文件统一放在tests目录下，测试覆盖率需 ≥85%。
+  - 需要主动思考更多测试用例与边界测试，提高项目健壮性。

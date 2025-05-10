@@ -1,0 +1,9 @@
+---
+description: 
+globs: knowledge_distiller_kd/storage/**
+alwaysApply: false
+---
+  - 所有数据库操作必须通过 `storage_interface.py` 抽象接口，禁止直接调用 SQLite API。
+  - 写操作必须包裹在事务中：失败回滚并记录日志，成功提交。
+  - 方法签名需带类型注解，返回 `bool` 或对应 DTO；错误时抛出 `StorageError`。
+  - 在建议中明确指出要修改或新增的 storage_interface.py 文件和方法名。

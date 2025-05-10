@@ -1,0 +1,10 @@
+---
+description: 
+globs: *.py
+alwaysApply: false
+---
+  - 所有 `.py` 文件需遵循 Black（line-length=88）和 isort（标准库→第三方→本地包）格式化与导入排序。
+  - 代码需通过 mypy 静态类型检查；使用描述性命名，禁止不明缩写和歧义词汇。
+  - 所有公开函数或类必须带有 Google 风格 docstring；
+  - 复杂逻辑处添加详细注释。
+  - 单元测试必须使用 pytest 编写，放在 `tests/` 目录，测试覆盖率需 ≥85%。

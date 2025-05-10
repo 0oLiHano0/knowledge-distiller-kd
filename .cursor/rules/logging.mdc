@@ -1,0 +1,10 @@
+---
+description: 
+globs: knowledge_distiller_kd/prefilter/**,knowledge_distiller_kd/processing/**,knowledge_distiller_kd/analysis/**,knowledge_distiller_kd/core/**,knowledge_distiller_kd/storage/**
+alwaysApply: false
+---
+  - 使用 `loguru` 记录关键操作和异常，格式：
+      [YYYY-MM-DD HH:MM:SS] [LEVEL] module:function – message { context_vars }
+  - 在块合并、语义分析、数据库读写等步骤，必须记录上下文变量：
+      block_id、threshold、file_path、db_transaction_id。
+  - 明确指出要在哪个模块和方法添加或修改日志，并说明此日志的目的和测试方法。

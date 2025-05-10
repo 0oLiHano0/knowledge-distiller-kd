@@ -1,0 +1,10 @@
+---
+description: 
+globs: knowledge_distiller_kd/ui/**
+alwaysApply: false
+---
+  - 使用 `argparse` 实现 CLI，所有命令和子命令必须带 `--help` 描述。
+  - 所有用户可见输出（进度、错误、反馈）必须支持中文（专有名词可保留英文）。
+  - 统一通过 `ui/printer.py` 接口打印。
+  - 在建议中明确指出要修改或新增的 ui/printer.py 文件和 argparse 配置函数名。
+  - 兼顾用户友好与中文支持
