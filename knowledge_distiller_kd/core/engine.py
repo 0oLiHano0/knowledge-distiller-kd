@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Union, Any, Tuple, Set, DefaultDict
 from collections import defaultdict
 import uuid # Import uuid for generating block IDs if needed
 import re
+import time
 
 # Import internal project modules (using relative paths)
 from . import constants
@@ -55,11 +56,13 @@ class KnowledgeDistillerEngine:
         decision_file: Optional[Union[str, Path]] = None, # Config path name remains for consistency
         output_dir: Optional[Union[str, Path]] = None,  # Config path name remains for consistency
         skip_semantic: bool = False,
+        skip_prefilter: bool = False,
         similarity_threshold: float = constants.DEFAULT_SIMILARITY_THRESHOLD
     ):
         logger.info("Initializing KnowledgeDistillerEngine...")
         self.storage: StorageInterface = storage
 
+        # 初始化输入目录属性
         self.input_dir: Optional[Path] = None
         if input_dir:
             try:
@@ -76,6 +79,7 @@ class KnowledgeDistillerEngine:
         self.output_dir_config_path: Path = Path(output_dir or constants.DEFAULT_OUTPUT_DIR).resolve()
 
         self.skip_semantic: bool = skip_semantic
+        self.skip_prefilter: bool = skip_prefilter
         self.similarity_threshold: float = max(0.0, min(1.0, similarity_threshold))
 
         # Internal state for analysis run
@@ -128,6 +132,103 @@ class KnowledgeDistillerEngine:
         except Exception as e:
             handle_error(e, "setting input directory"); print(f"[Error] Unexpected error setting input directory: {e}"); return False
     
+    def run_prefilter_only(self) -> Tuple[int, List[Path], List[List[Path]]]:
+        """
+        仅运行预过滤步骤，并返回统计信息。
+        
+        Returns:
+            Tuple[int, List[Path], List[List[Path]]]: 
+                - 扫描的总文件数
+                - 唯一文件列表
+                - 重复文件组列表
+        """
+        if not self.input_dir:
+            logger.error("预过滤无法执行：输入目录未设置")
+            raise ConfigurationError("Input directory not set.")
+
+        logger.info(f"执行预过滤: {self.input_dir}")
+        
+        try:
+            # 导入CzkawkaAdapter，仅用于预过滤
+            from ..prefilter.czkawka_adapter import CzkawkaAdapter
+            
+            adapter = CzkawkaAdapter()
+            logger.info(f"使用扩展名过滤 ['.md', '.doc', '.docx'] 扫描目录 {self.input_dir}")
+            
+            # 记录开始时间
+            start_time = time.monotonic()
+            
+            # 执行预过滤
+            unique_files, duplicate_groups = adapter.filter_unique_files(
+                self.input_dir,
+                extensions=[".md", ".doc", ".docx"]
+            )
+            
+            # 计算结束时间和耗时
+            end_time = time.monotonic()
+            elapsed_ms = int((end_time - start_time) * 1000)
+            
+            # 计算总文件数
+            total_files = len(unique_files) + sum(len(group) for group in duplicate_groups)
+            filtered_count = sum(len(group) - 1 for group in duplicate_groups)
+            unique_count = len(unique_files)
+            
+            # 使用logger输出统计信息
+            logger.info(f"[Prefilter] Scanned {total_files} files, filtered {filtered_count} duplicates → {unique_count} remain. (耗时: {elapsed_ms}ms)")
+            
+            # 结构化日志记录
+            try:
+                if hasattr(logger, "bind"):
+                    # 如果使用loguru，使用结构化日志
+                    logger.bind(
+                        total_files=total_files,
+                        filtered_count=filtered_count,
+                        unique_count=unique_count,
+                        elapsed_ms=elapsed_ms
+                    ).info("prefilter_summary")
+                else:
+                    # 使用标准日志格式
+                    logger.info(f"prefilter_summary: total_files={total_files}, filtered_count={filtered_count}, unique_count={unique_count}, elapsed_ms={elapsed_ms}")
+            except Exception as log_err:
+                # 如果日志记录失败，使用警告记录错误但不中断流程
+                logger.warning(f"结构化日志记录失败: {log_err}")
+            
+            return total_files, unique_files, duplicate_groups
+            
+        except Exception as e:
+            logger.error(f"预过滤执行失败: {e}", exc_info=True)
+            raise AnalysisError(f"预过滤失败: {e}") from e
+
+    def _gather_input_files(self, input_dir: Path) -> List[Path]:
+        """
+        收集输入目录中的所有处理目标文件。
+        
+        Args:
+            input_dir: 输入目录路径
+        
+        Returns:
+            List[Path]: 收集到的文件路径列表
+        """
+        if not input_dir or not input_dir.is_dir():
+            logger.error(f"_gather_input_files: 无效的输入目录: {input_dir}")
+            return []
+            
+        try:
+            logger.info(f"正在收集目录 {input_dir} 中的所有文件...")
+            # 设置要处理的文件扩展名
+            extensions = [".md", ".doc", ".docx"]
+            
+            # 收集所有匹配的文件
+            all_files = []
+            for ext in extensions:
+                all_files.extend(list(input_dir.glob(f"**/*{ext}")))
+                
+            logger.info(f"收集完成，共找到 {len(all_files)} 个文件")
+            return all_files
+        except Exception as e:
+            logger.error(f"收集文件时发生错误: {e}", exc_info=True)
+            return []
+
     def run_analysis(self) -> bool:
         """
         Orchestrates the full analysis workflow. Returns True if successful, False otherwise.
@@ -141,11 +242,77 @@ class KnowledgeDistillerEngine:
 
         self._reset_state()
         analysis_successful = True
+        
+        # 存储要处理的文件列表
+        files_to_process = []
 
         try:
+            # 执行预过滤步骤
+            if not self.skip_prefilter:
+                print("\n[*] Step 0: 正在执行预过滤...")
+                try:
+                    # 导入CzkawkaAdapter，仅用于预过滤
+                    from ..prefilter.czkawka_adapter import CzkawkaAdapter
+                    
+                    adapter = CzkawkaAdapter()
+                    logger.info(f"使用扩展名过滤 ['.md', '.doc', '.docx'] 扫描目录 {self.input_dir}")
+                    
+                    # 记录开始时间
+                    start_time = time.monotonic()
+                    
+                    # 执行预过滤
+                    unique_files, duplicate_groups = adapter.filter_unique_files(
+                        self.input_dir,
+                        extensions=[".md", ".doc", ".docx"]
+                    )
+                    
+                    # 计算结束时间和耗时
+                    end_time = time.monotonic()
+                    elapsed_ms = int((end_time - start_time) * 1000)
+                    
+                    # 计算总文件数和重复文件数
+                    total_files = len(unique_files) + sum(len(group) for group in duplicate_groups)
+                    filtered_count = sum(len(group) - 1 for group in duplicate_groups)
+                    unique_count = len(unique_files)
+                    
+                    # 设置要处理的文件为唯一文件
+                    files_to_process = unique_files
+                    
+                    # 使用logger输出统计信息
+                    logger.info(f"[Prefilter] Scanned {total_files} files, filtered {filtered_count} duplicates → {unique_count} remain. (耗时: {elapsed_ms}ms)")
+                    
+                    # 结构化日志记录
+                    try:
+                        if hasattr(logger, "bind"):
+                            # 如果使用loguru，使用结构化日志
+                            logger.bind(
+                                total_files=total_files,
+                                filtered_count=filtered_count,
+                                unique_count=unique_count,
+                                elapsed_ms=elapsed_ms
+                            ).info("prefilter_summary")
+                        else:
+                            # 使用标准日志格式
+                            logger.info(f"prefilter_summary: total_files={total_files}, filtered_count={filtered_count}, unique_count={unique_count}, elapsed_ms={elapsed_ms}")
+                    except Exception as log_err:
+                        # 如果日志记录失败，使用警告记录错误但不中断流程
+                        logger.warning(f"结构化日志记录失败: {log_err}")
+                    
+                    print(f"[*] 预过滤完成: 扫描了 {total_files} 个文件, 过滤了 {filtered_count} 个重复文件, 剩余 {unique_count} 个唯一文件。(耗时: {elapsed_ms}ms)")
+                except Exception as e:
+                    logger.warning(f"预过滤步骤失败: {e}, 将处理所有文件")
+                    print(f"[警告] 预过滤步骤失败: {e}, 将处理所有文件")
+                    # 预过滤失败时，获取所有文件
+                    files_to_process = self._gather_input_files(self.input_dir)
+            else:
+                print("\n[*] 跳过预过滤步骤, 处理所有文件...")
+                # 跳过预过滤时，获取所有文件
+                files_to_process = self._gather_input_files(self.input_dir)
+
             print("\n[*] Step 1: Processing documents & saving initial blocks...")
-            # _process_documents now returns False if critical errors occur
-            if not self._process_documents():
+            # 将预过滤后的文件列表传递给处理方法
+            processing_successful = self._process_documents(files_to_process)
+            if not processing_successful:
                  # Error already logged in _process_documents
                  raise AnalysisError("Document processing failed critically.")
             if not self.blocks_data:
@@ -249,18 +416,48 @@ class KnowledgeDistillerEngine:
         logger.info(f"Semantic filtering: Kept {len(blocks_to_analyze)}. Skipped: Headings={skipped_headings}, Deleted={skipped_deleted}, NoPath={skipped_no_path}.")
         return blocks_to_analyze
 
-    def _process_documents(self) -> bool:
+    def _process_documents(self, files_to_process: Optional[List[Path]] = None) -> bool:
         """
         Processes documents, converts to DTOs, saves to storage, updates internal state.
         Version 7: Robust DTO conversion, corrected Enum usage, adjusted return logic.
         Returns False only if processing critically fails for all files.
+        
+        Args:
+            files_to_process: 可选的要处理的文件列表，如果为None则处理整个输入目录
         """
         if not self.input_dir: logger.error("Input dir not set."); return False
         logger.info(f"Processing documents in directory: {self.input_dir}")
 
         try:
-            results: Dict[str, List[OldContentBlock]] = process_directory(self.input_dir, recursive=True)
-            if not results: logger.warning(f"No processable files found in {self.input_dir}."); self.blocks_data.clear(); return True
+            # 如果提供了具体的文件列表，则只处理这些文件，否则处理整个目录
+            if files_to_process:
+                logger.info(f"Processing {len(files_to_process)} specific files...")
+                # 创建一个临时字典存储每个文件的处理结果
+                results = {}
+                for file_path in files_to_process:
+                    if not file_path.is_file():
+                        logger.warning(f"Skipping non-file path: {file_path}")
+                        continue
+                    
+                    # 对单个文件进行处理
+                    logger.debug(f"Processing file: {file_path}")
+                    try:
+                        # 注意：process_directory函数期望一个目录，不能直接传递文件路径
+                        # 我们需要调用它，并告诉它处理特定的文件
+                        file_dir = file_path.parent
+                        file_name = file_path.name
+                        file_results = process_directory(file_dir, recursive=False, 
+                                                        file_patterns=[file_name])
+                        # 合并结果
+                        results.update(file_results)
+                    except Exception as e:
+                        logger.error(f"Error processing file {file_path}: {e}")
+            else:
+                # 处理整个目录
+                logger.info(f"Processing all files in directory: {self.input_dir}")
+                results: Dict[str, List[OldContentBlock]] = process_directory(self.input_dir, recursive=True)
+                
+            if not results: logger.warning(f"No processable files found."); self.blocks_data.clear(); return True
 
             self.blocks_data.clear()
             all_processed_dtos: List[ContentBlockDTO] = []
@@ -490,22 +687,6 @@ class KnowledgeDistillerEngine:
         else: logger.error(f"Errors saving decisions. Blocks needing save: {blocks_requiring_save_count}, File save errors: {save_errors}, Total errors: {total_errors}."); print(f"[Error] Failed to save decisions. Errors: {total_errors}")
         return save_successful
 
-# --- 在 engine.py 文件中 ---
-    # 确保文件顶部有这些 import:
-    # import re # 可能需要引入 re 来解析标题级别
-    # from pathlib import Path
-    # from .utils import logger, create_decision_key
-    # from .models import BlockType, FileRecordDTO, DECISION_KEEP, DECISION_DELETE, DECISION_UNDECIDED
-    # from . import constants
-    import re # <--- 添加这个 import
-
-# --- 在 engine.py 文件中 ---
-    # 确保文件顶部有这些 import:
-    # from pathlib import Path
-    # from .utils import logger, create_decision_key
-    # from .models import BlockType, FileRecordDTO, DECISION_KEEP, DECISION_DELETE, DECISION_UNDECIDED
-    # from . import constants
-
     def apply_decisions(self) -> Dict[Path, str]:
         """
         Applies decisions stored in the engine's memory map (`self.block_decisions`),
@@ -618,308 +799,6 @@ class KnowledgeDistillerEngine:
                     error_files.append(original_path.name)
                     continue
 
-        except FileOperationError as storage_list_e:
-            logger.error(f"Storage error listing files: {storage_list_e}")
-            print(f"[Error] Storage list error: {storage_list_e}")
-            return {}
-        except Exception as outer_e:
-            logger.error(f"Unexpected error applying decisions: {outer_e}", exc_info=True)
-            print(f"[Error] Applying decisions: {outer_e}")
-            return {}
-
-        logger.info(f"Decision application complete. Processed {processed_files_count}/{len(all_files)} files. Generated content for {generated_files_count}.")
-        print(f"\n[*] Decision application complete: Content generated for {generated_files_count} files.")
-        if error_files:
-            print(f"[Warning] Errors processing files: {', '.join(error_files)}")
-        return output_content_map
-        """
-        Applies decisions stored in the engine's memory map (`self.block_decisions`),
-        generating output content for blocks that are not marked DELETE.
-        Attempts to restore basic Markdown formatting including heading levels.
-        """
-        logger.info(f"Applying decisions to generate output content...")
-        print(f"[*] Applying decisions...")
-        output_content_map: Dict[Path, str] = {}
-        processed_files_count = 0
-        generated_files_count = 0
-        error_files: List[str] = []
-        all_files: List[FileRecordDTO] = []
-
-        if not self.block_decisions:
-             logger.warning("In-memory decision map (self.block_decisions) is empty. Output might include all blocks or be empty.")
-
-        try:
-            all_files = self.storage.list_files()
-            if not all_files:
-                logger.warning("No files registered in storage.")
-                return {}
-            total_files = len(all_files)
-            logger.info(f"Found {total_files} registered files.")
-
-            for i, file_record in enumerate(all_files):
-                original_path_str = file_record.original_path
-                file_id = file_record.file_id
-                original_path: Optional[Path] = None
-                resolved_original_path: Optional[str] = None
-
-                try:
-                    if not original_path_str or not isinstance(original_path_str, str):
-                        raise ValueError("Missing/invalid original_path in file record")
-                    original_path = Path(original_path_str)
-                    resolved_original_path = str(original_path.resolve())
-                except Exception as path_err:
-                    logger.error(f"Invalid path '{original_path_str}' for file {file_id}: {path_err}. Skipping file.")
-                    error_files.append(f"FileID:{file_id}(InvalidPath)")
-                    continue
-
-                logger.debug(f"Processing file {i+1}/{total_files}: {original_path.name} (ID: {file_id})")
-                output_lines_for_file: List[str] = []
-
-                try:
-                    blocks_in_file = self.storage.get_blocks_by_file(file_id)
-                    if not blocks_in_file:
-                        logger.info(f"No blocks found for {original_path.name} in storage.")
-                        processed_files_count += 1
-                        continue
-
-                    for block_dto in blocks_in_file:
-                        decision = DECISION_UNDECIDED
-                        try:
-                            key = create_decision_key(resolved_original_path, block_dto.block_id, block_dto.block_type.value)
-                            decision = self.block_decisions.get(key, DECISION_UNDECIDED)
-                        except Exception as key_err:
-                            logger.error(f"Error creating/getting decision key for block {block_dto.block_id}: {key_err}. Treating as UNDECIDED.")
-                            decision = DECISION_UNDECIDED
-
-                        if decision != DECISION_DELETE:
-                            text = block_dto.text
-                            # --- 增强格式化 ---
-                    # ... (在 apply_decisions 方法内部) ...
-                        elif block_dto.block_type == BlockType.HEADING:
-                            logger.debug(f"--- Processing HEADING block {block_dto.block_id} ---") # 日志块开始
-                            level = 1 # 默认级别
-                            original_elem_type_str = block_dto.metadata.get('block_type', 'Heading') # 获取原始类型字符串
-                            category_depth = block_dto.metadata.get('element_metadata', {}).get('category_depth')
-                            logger.debug(f"  Initial level: {level}")
-                            logger.debug(f"  Original element type string: '{original_elem_type_str}' (type: {type(original_elem_type_str)})")
-                            logger.debug(f"  Category depth: {category_depth} (type: {type(category_depth)})")
-
-                            if isinstance(original_elem_type_str, str):
-                                logger.debug("  original_elem_type_str is a string. Checking content...")
-                                if "Title" in original_elem_type_str:
-                                    level = 1
-                                    logger.debug(f"  'Title' found in original type string. Set level to: {level}")
-                                else:
-                                    logger.debug("  'Title' NOT found. Checking for Header-N pattern...")
-                                    # 尝试从 "Header-2", "Heading-3" 等提取数字
-                                    match = re.search(r'[-_](\d+)$', original_elem_type_str)
-                                    if match:
-                                        logger.debug(f"  Found pattern like Header-N. Match group 1: {match.group(1)}")
-                                        try:
-                                            level = int(match.group(1))
-                                            logger.debug(f"  Set level from regex: {level}")
-                                        except ValueError:
-                                            level = 2 # 提取失败，默认二级
-                                            logger.debug(f"  Regex number conversion failed. Set level to default: {level}")
-                                    # 如果没有数字，但有 category_depth，可以尝试使用它
-                                    elif category_depth is not None:
-                                        logger.debug(f"  Header-N pattern NOT found, but category_depth exists: {category_depth}")
-                                        try:
-                                            # category_depth 通常从0开始，对应 H1 可能是 1 或 0？需测试
-                                            # 假设 depth 0/1 是 H1, 2 是 H2 ...
-                                            level = max(1, int(category_depth)) # 至少一级
-                                            logger.debug(f"  Set level from category_depth ({category_depth}): {level}")
-                                        except ValueError:
-                                            level = 2 # 转换失败，默认二级
-                                            logger.debug(f"  Category depth conversion failed. Set level to default: {level}")
-                                    else:
-                                        level = 2 # 其他情况默认二级标题
-                                        logger.debug(f"  No Title, no Header-N, no category_depth. Set level to default: {level}")
-                            else:
-                                logger.debug("  original_elem_type_str is NOT a string.")
-
-                            level = max(1, min(6, level)) # 限制在 1-6 级
-                            prefix = "#" * level
-                            logger.debug(f"  Final level: {level}, Prefix: '{prefix}'") # 最终级别
-                            output_lines_for_file.append(f"{prefix} {text}")
-                            logger.debug(f"--- Finished processing HEADING block {block_dto.block_id} ---") # 日志块结束
-                        elif block_dto.block_type == BlockType.CODE:
-                            code_lang = block_dto.metadata.get("code_language", "") # 尝试获取语言（可能仍然没有）
-                            output_lines_for_file.append(f"```{code_lang}\n{text}\n```")
-                        elif block_dto.block_type == BlockType.LIST_ITEM:
-                                # 仍然是简单的无序列表处理
-                            output_lines_for_file.append(f"- {text}")
-                        else: # Default for TEXT, TABLE, UNKNOWN etc.
-                            output_lines_for_file.append(text)
-                            # --- 结束增强格式化 ---
-
-                    # ... (后续确定输出路径和保存文件的逻辑不变) ...
-                    if output_lines_for_file:
-                        output_sub_dir = self.output_dir_config_path
-                        if self.input_dir and original_path.is_absolute() and self.input_dir.is_absolute():
-                             try: relative_parent = original_path.parent.relative_to(self.input_dir); output_sub_dir = self.output_dir_config_path / relative_parent
-                             except ValueError: logger.warning(f"Path {original_path} not relative to {self.input_dir}. Using default output dir.")
-                             except Exception as rel_path_err: logger.error(f"Error calculating relative path for {original_path}: {rel_path_err}. Using default output dir.")
-                        elif self.input_dir: logger.warning(f"Input dir or original path not absolute. Using default output dir.")
-
-                        output_suffix = ".md"
-                        if hasattr(constants, 'DEFAULT_OUTPUT_SUFFIX'): output_suffix = constants.DEFAULT_OUTPUT_SUFFIX + output_suffix
-                        output_filename = original_path.stem + output_suffix
-                        output_filepath = output_sub_dir / output_filename
-
-                        output_content_map[output_filepath] = '\n\n'.join(output_lines_for_file)
-                        logger.info(f"Generated content for {output_filepath} ({len(output_lines_for_file)} blocks kept)")
-                        generated_files_count += 1
-                    else:
-                        logger.info(f"No content kept for {original_path.name}.")
-
-                    processed_files_count += 1
-
-                except FileOperationError as storage_e:
-                    # ... (处理存储错误) ...
-                    continue
-                except Exception as file_proc_e:
-                    # ... (处理文件处理错误) ...
-                    continue
-
-        # ... (方法末尾的异常处理和日志保持不变) ...
-        except FileOperationError as storage_list_e:
-            logger.error(f"Storage error listing files: {storage_list_e}")
-            print(f"[Error] Storage list error: {storage_list_e}")
-            return {}
-        except Exception as outer_e:
-            logger.error(f"Unexpected error applying decisions: {outer_e}", exc_info=True)
-            print(f"[Error] Applying decisions: {outer_e}")
-            return {}
-
-        logger.info(f"Decision application complete. Processed {processed_files_count}/{len(all_files)} files. Generated content for {generated_files_count}.")
-        print(f"\n[*] Decision application complete: Content generated for {generated_files_count} files.")
-        if error_files:
-            print(f"[Warning] Errors processing files: {', '.join(error_files)}")
-        return output_content_map
-        
-        logger.info(f"Applying decisions to generate output content...")
-        print(f"[*] Applying decisions...")
-        output_content_map: Dict[Path, str] = {}
-        processed_files_count = 0
-        generated_files_count = 0
-        error_files: List[str] = []
-        all_files: List[FileRecordDTO] = []
-
-        # 检查内存中的决策映射是否存在
-        if not self.block_decisions:
-             logger.warning("In-memory decision map (self.block_decisions) is empty. Output might include all blocks or be empty.")
-             # 可以考虑如果决策映射为空是否应该返回空字典，取决于期望行为
-             # return {}
-
-        try:
-            # 1. 获取所有已注册的文件记录
-            all_files = self.storage.list_files()
-            if not all_files:
-                logger.warning("No files registered in storage.")
-                return {}
-            total_files = len(all_files)
-            logger.info(f"Found {total_files} registered files.")
-
-            # 2. 遍历每个文件
-            for i, file_record in enumerate(all_files):
-                original_path_str = file_record.original_path
-                file_id = file_record.file_id
-                original_path: Optional[Path] = None
-                resolved_original_path: Optional[str] = None # 用于生成 key
-
-                # 安全地处理和解析路径
-                try:
-                    if not original_path_str or not isinstance(original_path_str, str):
-                        raise ValueError("Missing/invalid original_path in file record")
-                    original_path = Path(original_path_str)
-                    resolved_original_path = str(original_path.resolve()) # 解析一次路径
-                except Exception as path_err:
-                    logger.error(f"Invalid path '{original_path_str}' for file {file_id}: {path_err}. Skipping file.")
-                    error_files.append(f"FileID:{file_id}(InvalidPath)")
-                    continue
-
-                logger.debug(f"Processing file {i+1}/{total_files}: {original_path.name} (ID: {file_id})")
-                output_lines_for_file: List[str] = [] # 存储此文件最终输出的行
-
-                try:
-                    # 3. 获取该文件的所有块
-                    blocks_in_file = self.storage.get_blocks_by_file(file_id)
-                    # 注意：这里的顺序可能依赖于存储的实现。如果需要严格按原文顺序，
-                    # 可能需要在处理文档时（_process_documents）记录并存储块的顺序信息。
-                    # 目前假设 get_blocks_by_file 返回的顺序大致正确。
-
-                    if not blocks_in_file:
-                        logger.info(f"No blocks found for {original_path.name} in storage.")
-                        processed_files_count += 1
-                        continue
-
-                    # 4. 遍历文件中的每个块
-                    for block_dto in blocks_in_file:
-                        decision = DECISION_UNDECIDED # 默认值
-
-                        # 5. 获取该块的决策 (核心修改!)
-                        try:
-                            # 使用之前解析好的 resolved_original_path
-                            key = create_decision_key(resolved_original_path, block_dto.block_id, block_dto.block_type.value)
-                            # 从内存映射 self.block_decisions 获取决策
-                            decision = self.block_decisions.get(key, DECISION_UNDECIDED)
-                        except Exception as key_err:
-                            logger.error(f"Error creating/getting decision key for block {block_dto.block_id}: {key_err}. Treating as UNDECIDED.")
-                            decision = DECISION_UNDECIDED
-
-                        # 6. 如果决策不是 DELETE，则处理并格式化
-                        if decision != DECISION_DELETE:
-                            text = block_dto.text
-                            # 7. 尝试还原基本 Markdown 格式 (核心修改!)
-                            if block_dto.block_type == BlockType.HEADING:
-                                # 简单处理：假设所有标题都是一级标题
-                                output_lines_for_file.append(f"# {text}")
-                            elif block_dto.block_type == BlockType.CODE:
-                                # 简单处理：使用通用代码块标记。
-                                # 未来可优化：从元数据读取语言信息 (如果存储了的话)
-                                code_lang = block_dto.metadata.get("code_language", "") # 尝试获取语言
-                                output_lines_for_file.append(f"```{code_lang}\n{text}\n```")
-                            elif block_dto.block_type == BlockType.LIST_ITEM:
-                                # 简单处理：假设是无序列表项
-                                output_lines_for_file.append(f"- {text}")
-                            else: # 其他类型 (TEXT, TABLE, UNKNOWN 等) 直接添加文本
-                                output_lines_for_file.append(text)
-
-                    # 8. 如果此文件有内容需要输出
-                    if output_lines_for_file:
-                        # 确定输出路径 (保持原有逻辑)
-                        output_sub_dir = self.output_dir_config_path
-                        if self.input_dir and original_path.is_absolute() and self.input_dir.is_absolute():
-                             try: relative_parent = original_path.parent.relative_to(self.input_dir); output_sub_dir = self.output_dir_config_path / relative_parent
-                             except ValueError: logger.warning(f"Path {original_path} not relative to {self.input_dir}. Using default output dir.")
-                             except Exception as rel_path_err: logger.error(f"Error calculating relative path for {original_path}: {rel_path_err}. Using default output dir.")
-                        elif self.input_dir: logger.warning(f"Input dir or original path not absolute. Using default output dir.")
-
-                        output_suffix = ".md"
-                        if hasattr(constants, 'DEFAULT_OUTPUT_SUFFIX'): output_suffix = constants.DEFAULT_OUTPUT_SUFFIX + output_suffix
-                        output_filename = original_path.stem + output_suffix
-                        output_filepath = output_sub_dir / output_filename
-
-                        # 使用双换行连接各块内容
-                        output_content_map[output_filepath] = '\n\n'.join(output_lines_for_file)
-                        logger.info(f"Generated content for {output_filepath} ({len(output_lines_for_file)} blocks kept)")
-                        generated_files_count += 1
-                    else:
-                        logger.info(f"No content kept for {original_path.name}.")
-
-                    processed_files_count += 1
-
-                except FileOperationError as storage_e:
-                    logger.error(f"Storage error processing blocks for {original_path.name}: {storage_e}")
-                    error_files.append(original_path.name)
-                    continue
-                except Exception as file_proc_e:
-                    logger.error(f"Failed processing blocks/generating output for {original_path.name}: {file_proc_e}", exc_info=True)
-                    error_files.append(original_path.name)
-                    continue
-
-        # ... (方法末尾的异常处理和日志保持不变) ...
         except FileOperationError as storage_list_e:
             logger.error(f"Storage error listing files: {storage_list_e}")
             print(f"[Error] Storage list error: {storage_list_e}")

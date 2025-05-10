@@ -11,13 +11,29 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any, Union, Generator, Set
 
+# 导入loguru
+try:
+    from loguru import logger as loguru_logger
+    LOGURU_AVAILABLE = True
+except ImportError:
+    LOGURU_AVAILABLE = False
+
 # 导入常量模块 (使用相对导入)
 from . import constants
 from .error_handler import handle_error, FileOperationError
 
 # --- 日志设置 ---
 # 使用常量中定义的 Logger 名称
-logger = logging.getLogger(constants.LOGGER_NAME)
+if LOGURU_AVAILABLE:
+    # 使用loguru作为日志记录器
+    logger = loguru_logger
+    # 移除默认处理器
+    logger.remove()
+    # 添加控制台处理器
+    logger.add(sys.stdout, format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
+else:
+    # 使用标准logging作为日志记录器
+    logger = logging.getLogger(constants.LOGGER_NAME)
 
 def setup_logger(
     log_level: int = logging.INFO,
@@ -32,48 +48,96 @@ def setup_logger(
         log_file: 可选的日志文件名。如果未提供，则使用默认文件名。
         log_dir: 日志文件存放目录。
     """
-    # 移除现有的 handlers，防止重复添加
-    # 获取 logger 实例进行操作
-    current_logger = logging.getLogger(constants.LOGGER_NAME)
-    for handler in current_logger.handlers[:]:
-        current_logger.removeHandler(handler)
-        handler.close()
+    # 首先检查logger是否是loguru logger（是否有remove方法）
+    global logger
+    is_loguru_logger = hasattr(logger, "remove")
+    
+    if LOGURU_AVAILABLE and is_loguru_logger:
+        # 移除所有现有处理器
+        logger.remove()
+        
+        # 添加控制台处理器
+        logger.add(
+            sys.stdout, 
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+            level=logging.getLevelName(log_level)
+        )
+        
+        # 添加文件处理器
+        if log_dir:
+            log_dir_path = Path(log_dir)
+            try:
+                log_dir_path.mkdir(parents=True, exist_ok=True)
+                # 确定最终日志文件路径
+                if log_file:
+                    log_file_path = log_dir_path / Path(log_file).name
+                else:
+                    log_file_path = log_dir_path / constants.DEFAULT_LOG_FILE
+                
+                logger.add(
+                    str(log_file_path),
+                    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+                    level=logging.getLevelName(log_level),
+                    rotation="10 MB",  # 日志文件大小达到10MB时轮转
+                    encoding=constants.DEFAULT_ENCODING
+                )
+                logger.info(f"日志将记录到文件: {log_file_path}")
+            except OSError as e:
+                logger.error(f"无法创建日志目录或文件 '{log_dir_path}' 或 '{log_file_path}': {e}")
+            except Exception as e:
+                logger.error(f"设置文件日志处理器时发生意外错误: {e}")
+        else:
+            logger.info("未配置日志文件，日志仅输出到控制台。")
+        
+        logger.info(f"日志级别设置为: {logging.getLevelName(log_level)}")
+    else:
+        # 使用标准logging
+        # 移除现有的 handlers，防止重复添加
+        # 获取 logger 实例进行操作
+        current_logger = logging.getLogger(constants.LOGGER_NAME)
+        for handler in current_logger.handlers[:]:
+            current_logger.removeHandler(handler)
+            handler.close()
 
-    current_logger.setLevel(log_level)
-    formatter = logging.Formatter(constants.LOG_FORMAT, datefmt=constants.LOG_DATE_FORMAT)
+        current_logger.setLevel(log_level)
+        formatter = logging.Formatter(constants.LOG_FORMAT, datefmt=constants.LOG_DATE_FORMAT)
 
-    # 控制台处理器
-    ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(log_level)
-    ch.setFormatter(formatter)
-    current_logger.addHandler(ch)
+        # 控制台处理器
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(log_level)
+        ch.setFormatter(formatter)
+        current_logger.addHandler(ch)
 
-    # 文件处理器 (如果需要)
-    log_file_path: Optional[Path] = None
-    if log_dir:
-        log_dir_path = Path(log_dir)
-        try:
-            log_dir_path.mkdir(parents=True, exist_ok=True)
-            # 确定最终日志文件路径
-            if log_file:
-                 log_file_path = log_dir_path / Path(log_file).name
-            else:
-                 log_file_path = log_dir_path / constants.DEFAULT_LOG_FILE
+        # 文件处理器 (如果需要)
+        log_file_path: Optional[Path] = None
+        if log_dir:
+            log_dir_path = Path(log_dir)
+            try:
+                log_dir_path.mkdir(parents=True, exist_ok=True)
+                # 确定最终日志文件路径
+                if log_file:
+                    log_file_path = log_dir_path / Path(log_file).name
+                else:
+                    log_file_path = log_dir_path / constants.DEFAULT_LOG_FILE
 
-            fh = logging.FileHandler(log_file_path, encoding=constants.DEFAULT_ENCODING)
-            fh.setLevel(log_level)
-            fh.setFormatter(formatter)
-            current_logger.addHandler(fh)
-            current_logger.info(f"日志将记录到文件: {log_file_path}") # 使用 current_logger
-        except OSError as e:
-            current_logger.error(f"无法创建日志目录或文件 '{log_dir_path}' 或 '{log_file_path}': {e}", exc_info=True)
-        except Exception as e:
-             current_logger.error(f"设置文件日志处理器时发生意外错误: {e}", exc_info=True)
+                fh = logging.FileHandler(log_file_path, encoding=constants.DEFAULT_ENCODING)
+                fh.setLevel(log_level)
+                fh.setFormatter(formatter)
+                current_logger.addHandler(fh)
+                current_logger.info(f"日志将记录到文件: {log_file_path}") # 使用 current_logger
+            except OSError as e:
+                current_logger.error(f"无法创建日志目录或文件 '{log_dir_path}' 或 '{log_file_path}': {e}", exc_info=True)
+            except Exception as e:
+                current_logger.error(f"设置文件日志处理器时发生意外错误: {e}", exc_info=True)
 
-    current_logger.propagate = False
-    current_logger.info(f"日志级别设置为: {logging.getLevelName(log_level)}")
-    if not log_file_path:
-         current_logger.info("未配置日志文件，日志仅输出到控制台。")
+        current_logger.propagate = False
+        current_logger.info(f"日志级别设置为: {logging.getLevelName(log_level)}")
+        if not log_file_path:
+            current_logger.info("未配置日志文件，日志仅输出到控制台。")
+            
+        # 如果全局logger不是loguru logger，则更新它为standard logger
+        if not is_loguru_logger:
+            logger = current_logger
 
 
 # --- 决策键处理 ---

@@ -8,4 +8,5 @@ markdown>=3.4.0
 PyYAML>=6.0.0
 colorama>=0.4.6 
 unstructured>=0.10.0
-unstructured[docx]>=0.10.0 
+unstructured[docx]>=0.10.0
+loguru>=0.7.0 
