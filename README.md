@@ -3,25 +3,52 @@
 
 ## 项目概述
 Knowledge Distiller (KD) 是一个强大的文档内容分析工具，采用分层架构设计(UI, Core, Analysis, Processing, Storage)，使用先进的语义分析技术，能够：
-- 通过Czkawka进行文件级预过滤
-- 实现MD5 → SimHash → SBERT三层内容去重
-- 支持SQLite作为核心数据存储
+- 通过Czkawka进行文件级预过滤（待嵌入流程）
+- 实现MD5 → SimHash（开发中） → SBERT三层内容去重
+- 支持SQLite作为核心数据存储（开发中）
 - 提供灵活的命令行交互界面
+- 提供UI界面(开发中)
 
-## 主要特性
+## 分层架构
 
-- **精确重复检测**： 使用 MD5 哈希算法检测完全相同的内容块（默认跳过标题块）。
-- **语义相似度分析**： 使用 Sentence Transformers 进行语义相似度计算（默认跳过标题块）。
-- **文档解析**： 使用 `unstructured` 库解析多种文档格式（当前主要测试 Markdown），提取内容块。
-- **代码块合并**： 自动合并 Markdown 代码块的碎片（起始围栏、内容、结束围栏），以便进行更准确的分析和预览。
-- **交互式决策**： 提供友好的命令行界面 (`CLI`) 进行内容处理决策。
-- **持久化决策**： 将用户决策保存到 JSON 文件中。
-- **去重输出**： 根据用户决策生成去重后的 Markdown 文件。
-- **模块化设计**： 清晰的分层架构 (UI, Core Engine, Analysis, Processing, Storage)，易于维护和扩展。
-- **文件级预过滤**：集成Czkawka工具检测重复文件
-- **三层去重检测**：MD5(精确) → SimHash(近似) → SBERT(语义)
-- **SQLite存储**：核心数据持久化方案，支持高效查询
-- **决策管理**：统一的决策管理接口
+Knowledge Distiller (KD) 采用清晰的六层架构设计，各层职责分明，易于维护与扩展：
+
+1. **Prefilter（预过滤层）**  
+   - 目录：`knowledge_distiller_kd/prefilter/`  
+   - 功能：基于 Czkawka 对整个文档或文件集合进行快速、文件级重复检测，剔除高度重复或无效文件。  
+   - 主要模块：  
+     - `czkawka_adapter.py`（Czkawka 集成适配器）
+
+2. **Processing（处理层）**  
+   - 目录：`knowledge_distiller_kd/processing/`  
+   - 功能：从预过滤层获取**不重复**的文档列表进行内容分割与结构化：  
+     - `document_processor.py`：其中`process_file`函数调用 `unstructured` 库，将原始文档（Markdown、PDF、Office 等）切分成结构化的原始块列表，包装成ContentBlock对象。
+     - `block_merger.py`：`block_merger`模块在`process_file`返回的原始块列表基础上进行合并操作（如将连续的代码块合并），避免信息碎片化带来的语义缺失。输出合并后的块列表`List[ContentBlock]`
+
+3.  **Analysis（分析层）**  
+   - 目录：`knowledge_distiller_kd/analysis/`  
+   - 功能：针对同一文档的内容块执行多维度相似度评估：  
+     - `md5_analyzer.py`：对精准哈希比对  
+     - `simhash_analyzer.py`：近似重复识别  
+     - `semantic_analyzer.py`：基于 SBERT 的语义相似度计算
+
+4. **Core（核心引擎层）**  
+   - 目录：`knowledge_distiller_kd/core/`  
+   - 功能：整体流程调度与协调各层逻辑，提供统一的程序接口。  
+   - 主要组件：  
+     - `engine.py`（`KnowledgeDistillerEngine`）
+
+5. **Storage（存储层）**  
+   - 目录：`knowledge_distiller_kd/storage/`  
+   - 功能：持久化分析结果与用户决策，支持多种存储后端。  
+     - `sqlite_storage.py`：SQLite 数据库存取  
+     - `file_storage.py`：JSON 文件读写  
+
+6. **UI（用户交互层）**  
+   - 目录：`knowledge_distiller_kd/ui/`  
+   - 功能：提供命令行界面，供用户交互式审阅重复/相似项并做出决策。  
+   - 主要模块：  
+     - `cli_interface.py`
 
 ## 安装指南
 
