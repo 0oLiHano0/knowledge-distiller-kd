@@ -8,6 +8,7 @@ flake8>=6.1.0
 mypy>=1.7.0
 pylint>=3.0.0
 coverage>=7.3.0
+alembic>=1.10.0
 
 # 项目依赖
 sentence-transformers>=2.2.2

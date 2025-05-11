@@ -14,6 +14,13 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, model_validator
 
+# SQLAlchemy ORM 基础组件
+from sqlalchemy import Column, String, Float, Boolean, Integer, Text, DateTime, ForeignKey, Table
+from sqlalchemy.orm import relationship, declarative_base
+
+# 创建SQLAlchemy Base类
+Base = declarative_base()
+
 logger = logging.getLogger(__name__)
 
 # --- Enumerations ---
@@ -278,3 +285,85 @@ class DuplicateFileGroupDTO(BaseModel):
 class CzkawkaConfigDTO(BaseModel):
     czkawka_cli_path: str = "czkawka_cli"
     default_args: List[str] = ["duplicates", "--json", "-d"]
+
+# --- SQLAlchemy ORM Models ---
+
+class FileEntity(Base):
+    """文件记录的SQLAlchemy ORM实体"""
+    __tablename__ = "files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    file_id = Column(String(36), unique=True, nullable=False)
+    original_path = Column(String(512), nullable=False)
+    registration_time = Column(DateTime, nullable=False)
+    
+    # 关系
+    blocks = relationship("BlockEntity", back_populates="file")
+    
+    def __repr__(self) -> str:
+        return f"<FileEntity file_id={self.file_id}, path={self.original_path}>"
+
+
+class BlockEntity(Base):
+    """内容块的SQLAlchemy ORM实体"""
+    __tablename__ = "blocks"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    block_id = Column(String(36), unique=True, nullable=False)
+    file_id = Column(String(36), ForeignKey("files.file_id"), nullable=False)
+    text = Column(Text, nullable=False)
+    block_type = Column(String(50), nullable=False)
+    
+    # 关系
+    file = relationship("FileEntity", back_populates="blocks")
+    analysis_results_1 = relationship(
+        "AnalysisResultEntity", 
+        foreign_keys="AnalysisResultEntity.block_id_1",
+        back_populates="block_1"
+    )
+    analysis_results_2 = relationship(
+        "AnalysisResultEntity", 
+        foreign_keys="AnalysisResultEntity.block_id_2",
+        back_populates="block_2"
+    )
+    
+    def __repr__(self) -> str:
+        return f"<BlockEntity block_id={self.block_id}, type={self.block_type}>"
+
+
+class AnalysisResultEntity(Base):
+    """分析结果的SQLAlchemy ORM实体"""
+    __tablename__ = "analysis_results"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    result_id = Column(String(36), unique=True, nullable=False)
+    block_id_1 = Column(String(36), ForeignKey("blocks.block_id"), nullable=False)
+    block_id_2 = Column(String(36), ForeignKey("blocks.block_id"), nullable=False)
+    analysis_type = Column(String(50), nullable=False)
+    score = Column(Float, nullable=True)
+    
+    # 关系
+    block_1 = relationship("BlockEntity", foreign_keys=[block_id_1], back_populates="analysis_results_1")
+    block_2 = relationship("BlockEntity", foreign_keys=[block_id_2], back_populates="analysis_results_2")
+    decision = relationship("UserDecisionEntity", back_populates="analysis_result", uselist=False)
+    
+    def __repr__(self) -> str:
+        return f"<AnalysisResultEntity result_id={self.result_id}, type={self.analysis_type}>"
+
+
+class UserDecisionEntity(Base):
+    """用户决策的SQLAlchemy ORM实体"""
+    __tablename__ = "user_decisions"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    decision_id = Column(String(36), unique=True, nullable=False)
+    result_id = Column(String(36), ForeignKey("analysis_results.result_id"), nullable=False, unique=True)
+    decision = Column(String(50), nullable=False, default="undecided")  
+    timestamp = Column(DateTime, nullable=False)
+    notes = Column(Text, nullable=True)
+    
+    # 关系
+    analysis_result = relationship("AnalysisResultEntity", back_populates="decision")
+    
+    def __repr__(self) -> str:
+        return f"<UserDecisionEntity decision_id={self.decision_id}, decision={self.decision}>"

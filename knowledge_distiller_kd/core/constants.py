@@ -47,6 +47,12 @@ DEFAULT_BATCH_SIZE = 32 # 语义模型编码批处理大小
 VECTOR_CACHE_FILE = "cache/vector_cache.pkl" # 向量缓存文件路径 (如果使用持久化缓存)
 CACHE_DIR = "cache" # 缓存目录
 
+# --- 数据库相关 ---
+DEFAULT_DB_DIR = "data"
+DEFAULT_DB_NAME = "kd_tool.db"
+DATABASE_URL = f"sqlite:///./{DEFAULT_DB_DIR}/{DEFAULT_DB_NAME}"
+TEST_DATABASE_URL = "sqlite:///:memory:"  # 测试用内存数据库
+
 # --- 错误代码 ---
 ERROR_CODES = {
     "FILE_NOT_FOUND": 1001,
