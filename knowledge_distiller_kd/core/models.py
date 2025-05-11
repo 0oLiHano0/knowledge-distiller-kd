@@ -61,6 +61,15 @@ class ContentBlock:
 
     block_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     metadata: Dict[str, Any] = field(default_factory=dict)
+    file_path: str = ""  # 添加 file_path 属性，默认为空字符串
+    analysis_text: str = ""  # 添加 analysis_text 属性，默认与 text 相同
+
+    def __post_init__(self):
+        """初始化后处理：如果analysis_text为空，默认使用text值"""
+        if not self.analysis_text:
+            self.analysis_text = self.text
+        if 'original_path' in self.metadata and not self.file_path:
+            self.file_path = self.metadata['original_path']
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -69,6 +78,8 @@ class ContentBlock:
             "text": self.text,
             "block_type": self.block_type.value,
             "metadata": self.metadata,
+            "file_path": self.file_path,
+            "analysis_text": self.analysis_text,
         }
 
     @classmethod
@@ -87,6 +98,8 @@ class ContentBlock:
             text=data["text"],
             block_type=block_type,
             metadata=data.get("metadata", {}),
+            file_path=data.get("file_path", ""),
+            analysis_text=data.get("analysis_text", data["text"]),
         )
 
 
