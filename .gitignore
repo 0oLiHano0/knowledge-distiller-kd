@@ -117,3 +117,39 @@ requirements/*.txt
 /.kd_cache/
 
 /.cursor/
+
+### 数据库相关 ###
+# 数据库实例目录及文件
+/instance/
+/instance/*
+!/instance/.gitkeep
+# 数据库文件
+*.sqlite
+*.sqlite3
+*.db
+
+### 数据库迁移相关 ###
+# Alembic版本控制文件
+/alembic/versions/*_test_script.py
+/alembic/versions/*_merge_*.py
+/alembic/versions/__pycache__/
+# 保留基础版本文件
+!/alembic/versions/1a2b3c4d5e6f_initial_tables.py
+!/alembic/versions/e5851bc0270a_init_tables.py
+!/alembic/versions/f20a2b7cc75c_drop_raw_element_type_from_blocks.py
+# 迁移目录下的缓存和临时文件
+/migrations/__pycache__/
+/migrations/*.pyc
+# 数据库备份文件
+*.sqlite.bak
+*.db.bak
+
+### 可能的重复文件 ###
+# 重复的engine.py文件
+/knowledge_distiller_kd/engine.py
+# 其他可能的重复文件
+*_backup.*
+*_old.*
+*_duplicate.*
+*_copy.*
+*_temp.*
