@@ -70,6 +70,7 @@ class ContentBlock:
     file_path: str = ""
     analysis_text: str = ""
     original_text: str = field(init=False)
+    content_hash: str = field(init=False)  # 新增字段：内容的MD5哈希值
     
     # 新增字段
     created_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
@@ -99,6 +100,10 @@ class ContentBlock:
         # 计算字符数和词数
         self.char_count = len(self.text)
         self.token_count = len(self.text.split())
+        
+        # 计算内容哈希值
+        import hashlib
+        self.content_hash = hashlib.md5(self.text.encode('utf-8')).hexdigest()
 
     def to_dict(self) -> Dict[str, Any]:
         """将 ContentBlock 序列化为字典"""
@@ -111,6 +116,7 @@ class ContentBlock:
             "file_path": self.file_path,
             "analysis_text": self.analysis_text,
             "original_text": self.original_text,
+            "content_hash": self.content_hash,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
             "status": self.status,
@@ -179,6 +185,10 @@ class ContentBlock:
         # 如果字典中有original_text，使用它；否则默认使用text
         if "original_text" in data:
             instance.original_text = data["original_text"]
+            
+        # 如果字典中有content_hash，使用它；否则会在__post_init__中计算
+        if "content_hash" in data:
+            instance.content_hash = data["content_hash"]
             
         return instance
 

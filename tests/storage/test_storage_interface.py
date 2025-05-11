@@ -128,6 +128,35 @@ def test_analysis_results(storage):
 
 def test_user_decisions(storage):
     """测试用户决策的保存和获取。"""
+    # 先注册文件
+    file_id = storage.register_file("test.md")
+    
+    # 创建并保存测试块
+    block1 = ContentBlock(
+        block_id="block1",
+        file_id=file_id,
+        text="Test content 1",
+        block_type=BlockType.TEXT
+    )
+    block2 = ContentBlock(
+        block_id="block2",
+        file_id=file_id,
+        text="Test content 2",
+        block_type=BlockType.TEXT
+    )
+    storage.save_blocks(file_id, [block1, block2])
+    
+    # 创建分析结果
+    results = [
+        AnalysisResult(
+            analysis_type=AnalysisType.SEMANTIC_SIMILARITY,
+            block_id_1="block1",
+            block_id_2="block2",
+            score=0.8
+        )
+    ]
+    storage.save_analysis_result(AnalysisType.SEMANTIC_SIMILARITY, results)
+    
     # 创建决策
     decision = UserDecision(
         analysis_type=AnalysisType.SEMANTIC_SIMILARITY,

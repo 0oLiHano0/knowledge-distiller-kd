@@ -125,8 +125,9 @@ def main() -> None:
 
     try:
         # 1. 初始化存储层 (Storage)
-        storage = ORMStorage()
-        logger.info("ORMStorage initialized successfully")
+        storage = ORMStorage(database_url=constants.DATABASE_URL)
+        storage.init_db()
+        logger.info(f"✅ ORMStorage initialized at {constants.DATABASE_URL}")
 
         # 2. 初始化核心引擎 (Engine)
         # 直接将参数传递给引擎的构造函数

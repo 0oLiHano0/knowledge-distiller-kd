@@ -1,211 +1,321 @@
-import os
+"""
+测试 ORM 模型的注册和基本操作。
+"""
+
 import pytest
-from sqlalchemy.orm import Session
-
-# 导入将要创建的模型
-# 现在导入这些模型会导致导入错误，因为文件尚未创建
+from datetime import datetime
+from uuid import uuid4
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.orm import sessionmaker
 from knowledge_distiller_kd.storage.models_sqlalchemy import Base, Document, Block, Analysis, Decision
-from knowledge_distiller_kd.storage.sqlite_storage import engine, SessionLocal, init_db
 
+# 测试数据库 URL
+TEST_DB_URL = "sqlite:///:memory:"
 
-@pytest.fixture(scope="function")
-def setup_test_db():
-    """
-    设置测试数据库，每个测试函数执行前都会重置数据库
-    """
-    # 设置测试环境变量
-    os.environ["TESTING"] = "1"
-    
-    # 创建所有表
-    Base.metadata.create_all(bind=engine)
-    
-    # 提供会话给测试
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        # 清理：删除所有表
-        Base.metadata.drop_all(bind=engine)
-        db.close()
+@pytest.fixture
+def engine():
+    """创建测试数据库引擎"""
+    engine = create_engine(TEST_DB_URL)
+    Base.metadata.create_all(engine)
+    return engine
 
+@pytest.fixture
+def session(engine):
+    """创建测试会话"""
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    yield session
+    session.close()
 
-def test_document_model_crud(setup_test_db):
-    """
-    测试Document模型的CRUD操作
-    """
-    session = setup_test_db
-    
-    # 创建测试Document对象
+def test_document_model_crud(session):
+    """测试文档模型的 CRUD 操作"""
+    # 创建文档
+    file_id = str(uuid4())
     doc = Document(
-        path="/test/path/document.md",
+        file_id=file_id,
+        path="/test/path/doc.md",
         file_hash="abc123",
         type="markdown",
         size=1024,
-        status="processed"
+        ctime=datetime.utcnow(),
+        mtime=datetime.utcnow()
     )
-    
-    # 添加到数据库
     session.add(doc)
     session.commit()
-    
-    # 查询并验证
-    queried_doc = session.query(Document).filter(Document.path == "/test/path/document.md").first()
-    assert queried_doc is not None
-    assert queried_doc.file_hash == "abc123"
-    assert queried_doc.type == "markdown"
-    assert queried_doc.size == 1024
-    assert queried_doc.status == "processed"
 
+    # 查询文档
+    saved_doc = session.query(Document).filter_by(file_id=file_id).first()
+    assert saved_doc is not None
+    assert saved_doc.path == "/test/path/doc.md"
+    assert saved_doc.file_hash == "abc123"
 
-def test_block_model_crud(setup_test_db):
-    """
-    测试Block模型的CRUD操作
-    """
-    session = setup_test_db
-    
-    # 首先创建一个Document
+    # 更新文档
+    saved_doc.status = "processed"
+    session.commit()
+    updated_doc = session.query(Document).filter_by(file_id=file_id).first()
+    assert updated_doc.status == "processed"
+
+    # 删除文档
+    session.delete(updated_doc)
+    session.commit()
+    deleted_doc = session.query(Document).filter_by(file_id=file_id).first()
+    assert deleted_doc is None
+
+def test_block_model_crud(session):
+    """测试内容块模型的 CRUD 操作"""
+    # 创建文档
+    file_id = str(uuid4())
     doc = Document(
-        path="/test/path/document.md",
+        file_id=file_id,
+        path="/test/path/doc.md",
         file_hash="abc123"
     )
     session.add(doc)
     session.commit()
-    
-    # 创建关联的Block
+
+    # 创建内容块
+    block_id = str(uuid4())
     block = Block(
-        file_id=doc.id,
-        block_id="def456",
-        content_hash="def456",
-        text="这是测试文本块",
-        block_type="paragraph",
-        processing_status="processed",
-        meta_data={"source": "test", "position": 1}
+        block_id=block_id,
+        file_id=file_id,
+        content_hash=f"hash_{block_id}",
+        text="Test content",
+        block_type="text"
     )
-    
-    # 添加到数据库
     session.add(block)
     session.commit()
-    
-    # 查询并验证
-    queried_block = session.query(Block).filter(Block.content_hash == "def456").first()
-    assert queried_block is not None
-    assert queried_block.text == "这是测试文本块"
-    assert queried_block.block_type == "paragraph"
-    assert queried_block.file_id == doc.id
-    assert queried_block.meta_data["source"] == "test"
 
+    # 查询内容块
+    saved_block = session.query(Block).filter_by(block_id=block_id).first()
+    assert saved_block is not None
+    assert saved_block.text == "Test content"
+    assert saved_block.block_type == "text"
 
-def test_analysis_model_crud(setup_test_db):
-    """
-    测试Analysis模型的CRUD操作
-    """
-    session = setup_test_db
-    
-    # 创建Document和Block
-    doc = Document(path="/test/doc.md", file_hash="abc")
+    # 更新内容块
+    saved_block.processing_status = "processed"
+    session.commit()
+    updated_block = session.query(Block).filter_by(block_id=block_id).first()
+    assert updated_block.processing_status == "processed"
+
+    # 删除内容块
+    session.delete(updated_block)
+    session.commit()
+    deleted_block = session.query(Block).filter_by(block_id=block_id).first()
+    assert deleted_block is None
+
+def test_analysis_model_crud(session):
+    """测试分析结果模型的 CRUD 操作"""
+    # 创建文档和内容块
+    file_id = str(uuid4())
+    doc = Document(
+        file_id=file_id,
+        path="/test/path/doc.md",
+        file_hash="abc123"
+    )
     session.add(doc)
     session.commit()
-    
-    block = Block(file_id=doc.id, block_id="def", content_hash="def", text="测试文本")
+
+    block_id = str(uuid4())
+    block = Block(
+        block_id=block_id,
+        file_id=file_id,
+        content_hash=f"hash_{block_id}",
+        text="Test content",
+        block_type="text"
+    )
     session.add(block)
     session.commit()
-    
-    # 创建Analysis
+
+    # 创建分析结果
+    result_id = str(uuid4())
     analysis = Analysis(
-        block_id=block.id,
+        result_id=result_id,
+        block_id_1=block.block_id,
+        block_id_2=block.block_id,  # 自己与自己比较
+        block_id=block.id,  # 兼容旧代码
         analysis_type="semantic_similarity",
-        score={"similarity": 0.95},
-        details={"method": "cosine", "vector": [0.1, 0.2, 0.3]}
+        score=0.95,
+        details={"method": "test"}
     )
-    
-    # 添加到数据库
     session.add(analysis)
     session.commit()
-    
-    # 查询并验证
-    queried_analysis = session.query(Analysis).filter(
-        Analysis.block_id == block.id, 
-        Analysis.analysis_type == "semantic_similarity"
-    ).first()
-    
-    assert queried_analysis is not None
-    assert queried_analysis.score == {"similarity": 0.95}
-    assert queried_analysis.details["method"] == "cosine"
 
+    # 查询分析结果
+    retrieved = session.query(Analysis).filter_by(result_id=result_id).first()
+    assert retrieved is not None
+    assert retrieved.score == 0.95
+    assert retrieved.block_id == block.id
 
-def test_decision_model_crud(setup_test_db):
-    """
-    测试Decision模型的CRUD操作
-    """
-    session = setup_test_db
-    
-    # 创建Document和两个Block
-    doc = Document(path="/test/doc.md", file_hash="abc")
+    # 修改分析结果
+    retrieved.score = 0.85
+    session.commit()
+
+    # 验证更新
+    updated = session.query(Analysis).filter_by(result_id=result_id).first()
+    assert updated.score == 0.85
+
+    # 删除分析结果
+    session.delete(updated)
+    session.commit()
+    assert session.query(Analysis).filter_by(result_id=result_id).first() is None
+
+def test_decision_model_crud(session):
+    """测试用户决策模型的 CRUD 操作"""
+    # 创建文档和内容块
+    file_id = str(uuid4())
+    doc = Document(
+        file_id=file_id,
+        path="/test/path/doc.md",
+        file_hash="abc123"
+    )
     session.add(doc)
     session.commit()
-    
-    block1 = Block(file_id=doc.id, block_id="def1", content_hash="def1", text="文本1")
-    block2 = Block(file_id=doc.id, block_id="def2", content_hash="def2", text="文本2")
-    session.add_all([block1, block2])
-    session.commit()
-    
-    # 创建Decision
-    decision = Decision(
-        block_id=block1.id,
-        decision_type="duplicate",
-        duplicate_of_block_id=block2.id,
-        comment="这是一个重复块"
+
+    block_id = str(uuid4())
+    block = Block(
+        block_id=block_id,
+        file_id=file_id,
+        content_hash=f"hash_{block_id}",
+        text="Test content",
+        block_type="text"
     )
-    
-    # 添加到数据库
+    session.add(block)
+    session.commit()
+
+    # 创建分析结果
+    result_id = str(uuid4())
+    analysis = Analysis(
+        result_id=result_id,
+        block_id_1=block.block_id,
+        block_id_2=block.block_id,  # 自己与自己比较
+        block_id=block.id,
+        analysis_type="semantic_similarity",
+        score=0.9,
+        details={}
+    )
+    session.add(analysis)
+    session.commit()
+
+    # 创建用户决策
+    decision_id = str(uuid4())
+    decision = Decision(
+        decision_id=decision_id,
+        result_id=result_id,
+        block_id=block.id,
+        decision_type="keep",
+        comment="This is a test decision"
+    )
     session.add(decision)
     session.commit()
-    
-    # 查询并验证
-    queried_decision = session.query(Decision).filter(
-        Decision.block_id == block1.id
-    ).first()
-    
-    assert queried_decision is not None
-    assert queried_decision.decision_type == "duplicate"
-    assert queried_decision.duplicate_of_block_id == block2.id
-    assert queried_decision.comment == "这是一个重复块"
 
+    # 查询决策
+    retrieved = session.query(Decision).filter_by(decision_id=decision_id).first()
+    assert retrieved is not None
+    assert retrieved.decision_type == "keep"
+    assert retrieved.result_id == result_id
 
-def test_relationships(setup_test_db):
-    """
-    测试模型间的关系
-    """
-    session = setup_test_db
-    
-    # 创建Document
-    doc = Document(path="/test/doc.md", file_hash="abc")
+    # 修改决策
+    retrieved.decision_type = "merge"
+    session.commit()
+
+    # 验证更新
+    updated = session.query(Decision).filter_by(decision_id=decision_id).first()
+    assert updated.decision_type == "merge"
+
+    # 删除决策
+    session.delete(updated)
+    session.commit()
+    assert session.query(Decision).filter_by(decision_id=decision_id).first() is None
+
+def test_relationships(session):
+    """测试模型之间的关系"""
+    # 创建文档
+    file_id = str(uuid4())
+    doc = Document(
+        file_id=file_id,
+        path="/test/path/doc.md",
+        file_hash="hash123",
+        type="markdown",
+        size=1000,
+        status="processed"
+    )
     session.add(doc)
-    session.commit()
-    
-    # 创建Block
-    block = Block(file_id=doc.id, block_id="def", content_hash="def", text="测试文本")
+    session.flush()
+
+    # 创建块
+    block = Block(
+        file_id=doc.id,
+        block_id="block123",
+        content_hash="hash456",
+        text="Test content",
+        block_type="text",
+        processing_status="processed"
+    )
     session.add(block)
-    session.commit()
-    
-    # 创建Analysis
+    session.flush()
+
+    # 创建分析结果
+    result_id = str(uuid4())
     analysis = Analysis(
+        result_id=result_id,
+        block_id_1=block.block_id,
+        block_id_2=block.block_id,
         block_id=block.id,
-        analysis_type="semantic_similarity",
-        score={"similarity": 0.95}
+        analysis_type="md5_duplicate",
+        score=1.0,
+        details={"duplicate_of": 2}
     )
     session.add(analysis)
-    session.commit()
-    
-    # 验证关系
-    # 通过Document获取其Blocks
+    session.flush()
+
+    # 创建决策
+    decision_id = str(uuid4())
+    decision = Decision(
+        decision_id=decision_id,
+        result_id=result_id,
+        block_id=block.id,
+        decision_type="merge",
+        comment="Test decision"
+    )
+    session.add(decision)
+    session.flush()
+
+    # 测试关系
+    # 文档 -> 块
     assert len(doc.blocks) == 1
-    assert doc.blocks[0].content_hash == "def"
-    
-    # 通过Block获取其Document和Analyses
-    assert block.document.path == "/test/doc.md"
-    assert len(block.analyses) == 1
-    assert block.analyses[0].analysis_type == "semantic_similarity"
-    
-    # 通过Analysis获取其Block
-    assert analysis.block.text == "测试文本" 
+    assert doc.blocks[0].id == block.id
+
+    # 块 -> 文档
+    assert block.document.id == doc.id
+
+    # 块 -> 分析结果
+    assert len(block.analysis_results) == 1
+    assert block.analysis_results[0].id == analysis.id
+
+    # 分析结果 -> 块
+    assert analysis.block.id == block.id
+
+    # 分析结果 -> 决策
+    assert len(analysis.decisions) == 1
+    assert analysis.decisions[0].id == decision.id
+
+    # 决策 -> 分析结果
+    assert decision.analysis_result.id == analysis.id
+
+    # 决策 -> 块
+    assert decision.block.id == block.id
+
+    # 块 -> 决策
+    assert len(block.decisions) == 1
+    assert block.decisions[0].id == decision.id
+
+    session.commit()
+
+def test_table_names(engine):
+    """测试表名是否正确"""
+    inspector = inspect(engine)
+    tables = inspector.get_table_names()
+    assert "files" in tables
+    assert "blocks" in tables
+    assert "analysis_results" in tables
+    assert "user_decisions" in tables 

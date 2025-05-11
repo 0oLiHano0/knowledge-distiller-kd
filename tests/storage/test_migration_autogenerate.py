@@ -86,7 +86,7 @@ def test_migration_model_structure():
     # 验证关键列
     columns_files = [col['name'] for col in inspector.get_columns('files')]
     columns_blocks = [col['name'] for col in inspector.get_columns('blocks')]
-    columns_analyses = [col['name'] for col in inspector.get_columns('analysis_results')]
+    columns_analysis_results = [col['name'] for col in inspector.get_columns('analysis_results')]
     columns_decisions = [col['name'] for col in inspector.get_columns('user_decisions')]
     
     # 验证files表的列
@@ -100,10 +100,10 @@ def test_migration_model_structure():
     assert "content_hash" in columns_blocks
     assert "text" in columns_blocks
     
-    # 验证analyses表的列
-    assert "id" in columns_analyses
-    assert "block_id" in columns_analyses
-    assert "analysis_type" in columns_analyses
+    # 验证analysis_results表的列
+    assert "id" in columns_analysis_results
+    assert "block_id" in columns_analysis_results
+    assert "analysis_type" in columns_analysis_results
     
     # 验证decisions表的列
     assert "id" in columns_decisions
@@ -112,14 +112,14 @@ def test_migration_model_structure():
     
     # 验证外键约束
     fk_blocks = inspector.get_foreign_keys('blocks')
-    fk_analyses = inspector.get_foreign_keys('analysis_results')
+    fk_analysis_results = inspector.get_foreign_keys('analysis_results')
     fk_decisions = inspector.get_foreign_keys('user_decisions')
     
     # 验证blocks表的外键指向files表
     assert any(fk['referred_table'] == 'files' for fk in fk_blocks), "blocks缺少到files的外键约束"
     
-    # 验证analyses表的外键指向blocks表
-    assert any(fk['referred_table'] == 'blocks' for fk in fk_analyses), "analyses缺少到blocks的外键约束"
+    # 验证analysis_results表的外键指向blocks表
+    assert any(fk['referred_table'] == 'blocks' for fk in fk_analysis_results), "analysis_results缺少到blocks的外键约束"
     
     # 验证decisions表的外键指向blocks表
     assert any(fk['referred_table'] == 'blocks' for fk in fk_decisions), "decisions缺少到blocks的外键约束"

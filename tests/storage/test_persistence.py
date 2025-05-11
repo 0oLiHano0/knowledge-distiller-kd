@@ -8,6 +8,7 @@ import pytest
 import tempfile
 from pathlib import Path
 from unittest.mock import patch, MagicMock
+from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
@@ -77,28 +78,30 @@ class TestPersistence:
             assert len(blocks) > 0
             
             # 检查是否生成了分析结果
-            analyses = session.query(Analysis).all()
-            assert len(analyses) >= 0  # 可能没有分析结果，因为我们只有一个文件
+            analysis_results = session.query(Analysis).all()
+            assert len(analysis_results) >= 0  # 可能没有分析结果，因为我们只有一个文件
 
     def test_save_results_transaction(self, mock_storage):
         """测试save_results方法的事务处理功能"""
         # 准备测试数据
+        file_id1 = str(uuid4())
+        file_id2 = str(uuid4())
         analysis_results = {
             "documents": [
-                {"path": "/test/doc1.txt", "file_hash": "abcd1234", "type": "text", "size": 1000},
-                {"path": "/test/doc2.txt", "file_hash": "efgh5678", "type": "text", "size": 2000}
+                {"file_id": file_id1, "path": "/test/doc1.txt", "file_hash": "abcd1234", "type": "text", "size": 1000},
+                {"file_id": file_id2, "path": "/test/doc2.txt", "file_hash": "efgh5678", "type": "text", "size": 2000}
             ],
             "blocks": [
-                {"file_id": 1, "block_id": "hash1", "content_hash": "hash1", "text": "Block 1", "block_type": "text"},
-                {"file_id": 1, "block_id": "hash2", "content_hash": "hash2", "text": "Block 2", "block_type": "code"}
+                {"file_id": file_id1, "block_id": "hash1", "content_hash": "hash1", "text": "Block 1", "block_type": "text"},
+                {"file_id": file_id1, "block_id": "hash2", "content_hash": "hash2", "text": "Block 2", "block_type": "code"}
             ],
-            "analyses": [
-                {"block_id": 1, "analysis_type": "md5_duplicate", "score": 1.0, "details": {"duplicate_of": 2}}
+            "analysis_results": [
+                {"block_id": "hash1", "analysis_type": "md5_duplicate", "score": 1.0, "details": {"duplicate_of": "hash2"}}
             ]
         }
         
         decisions = [
-            {"block_id": 1, "decision_type": DECISION_KEEP, "comment": "Keep this block"}
+            {"block_id": "hash1", "decision_type": DECISION_KEEP, "comment": "Keep this block"}
         ]
         
         # 测试正常保存
@@ -115,16 +118,17 @@ class TestPersistence:
     def test_save_results_rollback(self, mock_storage):
         """测试save_results在异常情况下是否正确回滚事务"""
         # 准备测试数据
+        file_id = str(uuid4())
         analysis_results = {
             "documents": [
-                {"path": "/test/doc3.txt", "file_hash": "abcd1234", "type": "text", "size": 1000}
+                {"file_id": file_id, "path": "/test/doc3.txt", "file_hash": "abcd1234", "type": "text", "size": 1000}
             ],
             "blocks": [
-                {"file_id": 1, "block_id": "hash1", "content_hash": "hash1", "text": "Block 1", "block_type": "text"}
+                {"file_id": file_id, "block_id": "hash1", "content_hash": "hash1", "text": "Block 1", "block_type": "text"}
             ],
-            "analyses": [
+            "analysis_results": [
                 # 这里故意创建一个无效的分析结果，引用不存在的block_id
-                {"block_id": 999, "analysis_type": "md5_duplicate", "score": 1.0}
+                {"block_id": "non_existent", "analysis_type": "md5_duplicate", "score": 1.0}
             ]
         }
         
@@ -145,24 +149,27 @@ class TestPersistence:
     def test_duplicate_path_handling(self, mock_storage):
         """测试处理重复文件路径的情况"""
         # 准备测试数据，包含重复的路径
+        file_id1 = str(uuid4())
+        file_id2 = str(uuid4())
+        file_id3 = str(uuid4())
         analysis_results = {
             "documents": [
-                {"path": "/test/duplicate.txt", "file_hash": "hash1", "type": "text", "size": 1000},
-                {"path": "/test/duplicate.txt", "file_hash": "hash2", "type": "text", "size": 2000},  # 重复路径
-                {"path": "/test/unique.txt", "file_hash": "hash3", "type": "text", "size": 3000}     # 唯一路径
+                {"file_id": file_id1, "path": "/test/duplicate.txt", "file_hash": "hash1", "type": "text", "size": 1000},
+                {"file_id": file_id2, "path": "/test/duplicate.txt", "file_hash": "hash2", "type": "text", "size": 2000},  # 重复路径
+                {"file_id": file_id3, "path": "/test/unique.txt", "file_hash": "hash3", "type": "text", "size": 3000}     # 唯一路径
             ],
             "blocks": [
-                {"file_id": 1, "block_id": "block1", "content_hash": "hash1", "text": "Block 1", "block_type": "text"},
-                {"file_id": 2, "block_id": "block2", "content_hash": "hash2", "text": "Block 2", "block_type": "text"},
-                {"file_id": 3, "block_id": "block3", "content_hash": "hash3", "text": "Block 3", "block_type": "text"}
+                {"file_id": file_id1, "block_id": "block1", "content_hash": "hash1", "text": "Block 1", "block_type": "text"},
+                {"file_id": file_id1, "block_id": "block2", "content_hash": "hash2", "text": "Block 2", "block_type": "text"},
+                {"file_id": file_id3, "block_id": "block3", "content_hash": "hash3", "text": "Block 3", "block_type": "text"}
             ],
-            "analyses": [
-                {"block_id": 1, "analysis_type": "md5_duplicate", "score": 1.0, "details": {"duplicate_of": 2}}
+            "analysis_results": [
+                {"block_id": "block1", "analysis_type": "md5_duplicate", "score": 1.0, "details": {"duplicate_of": "block2"}}
             ]
         }
         
         decisions = [
-            {"block_id": 1, "decision_type": DECISION_KEEP, "comment": "Keep this block"}
+            {"block_id": "block1", "decision_type": DECISION_KEEP, "comment": "Keep this block"}
         ]
         
         # 测试保存包含重复路径的数据

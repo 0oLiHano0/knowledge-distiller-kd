@@ -7,64 +7,87 @@ import os
 from typing import Optional, Generator
 
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, scoped_session
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.pool import QueuePool
 
-from knowledge_distiller_kd.core.constants import DATABASE_URL, DEFAULT_DB_DIR, TEST_DATABASE_URL
+from knowledge_distiller_kd.core.constants import DEFAULT_DB_DIR, TEST_DATABASE_URL
 from knowledge_distiller_kd.storage.models_sqlalchemy import Base, Document, Block, Analysis, Decision
 
+# 获取项目根目录
+PROJECT_ROOT = Path(__file__).parent.parent.parent
 
-# 确定数据库URL，如果是测试环境则使用内存数据库
+# 创建SQLite数据库文件存储目录
+INSTANCE_DIR = PROJECT_ROOT / "instance"
+
+def ensure_db_directory():
+    """
+    确保数据库目录存在
+    
+    如果是测试环境，则使用内存数据库，不需要创建目录
+    """
+    if "TESTING" in os.environ:
+        return
+    
+    os.makedirs(INSTANCE_DIR, exist_ok=True)
+
 def get_database_url() -> str:
     """
-    获取数据库URL，根据环境确定是使用生产数据库还是测试数据库。
+    获取数据库URL
     
-    测试环境下使用内存数据库，生产环境使用文件数据库。
+    如果是测试环境，返回内存数据库URL
+    否则返回文件数据库URL
     
     Returns:
         str: 数据库URL
     """
-    if os.environ.get("TESTING") == "1":
+    if "TESTING" in os.environ:
         return TEST_DATABASE_URL
-    return DATABASE_URL
-
+    
+    return f"sqlite:///{INSTANCE_DIR}/kd_database.sqlite"
 
 # 确保数据库目录存在
-def ensure_db_directory() -> None:
-    """
-    确保数据库目录存在，如果不存在则创建。
-    
-    只有在非内存数据库模式下才会执行创建目录操作。
-    """
-    if "memory" not in get_database_url():
-        db_dir = Path(DEFAULT_DB_DIR)
-        db_dir.mkdir(exist_ok=True, parents=True)
-
-
-# 初始化数据库引擎
 ensure_db_directory()
+
+# 数据库URL
+DATABASE_URL = get_database_url()
+
+# 创建engine，启用外键约束
 engine = create_engine(
-    get_database_url(),
+    DATABASE_URL,
     connect_args={"check_same_thread": False},
-    echo=False  # 设置为True可以查看SQL语句执行情况，用于调试
+    poolclass=QueuePool,
+    pool_pre_ping=True,
+    pool_recycle=3600
 )
 
-# 创建会话工厂
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+# 创建session工厂
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
-def init_db() -> None:
+def init_db():
     """
-    初始化数据库，创建所有定义的表。
-    
-    如果表已存在，则不会重复创建。
+    初始化数据库，创建所有表
+    如果数据库结构与模型定义不一致，会自动应用迁移
     """
-    # 创建所有在Base中注册的表
+    # 创建表结构
     Base.metadata.create_all(bind=engine)
+    
+    # 延迟导入以避免循环引用
+    try:
+        # 使用标志变量来防止递归调用
+        if not getattr(init_db, "_is_running", False):
+            init_db._is_running = True
+            try:
+                from knowledge_distiller_kd.storage.utils.db_init import ensure_database_structure
+                ensure_database_structure()
+            finally:
+                init_db._is_running = False
+    except ImportError:
+        # 如果还没有实现迁移功能，只创建表结构
+        pass
 
+# 初始化标志
+init_db._is_running = False
 
 def get_db() -> Generator[Session, None, None]:
     """
