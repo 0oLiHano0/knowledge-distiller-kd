@@ -437,3 +437,109 @@ required_tables = ["files", "blocks", "analysis_results", "user_decisions"]
   ```
 * `pytest tests/test_sqlite_storage.py` 全部通过（特别是 `test_init_db`）。
 * CI 流水线绿色，无与表名不一致相关的失败。
+
+
+### 原子任务 6.7：修复 CzkawkaAdapter 命令构建与 JSON 解析逻辑
+
+**背景**
+当前 `CzkawkaAdapter` 的 `_build_command()` 与 `_parse_czkawka_json_to_dtos()` 方法存在以下问题：
+
+1. **命令构建过于冗余**：
+
+   * `_build_command()` 在默认或自定义参数时，均会附加额外 flag (`--directories`, `-p`, `-m`)，导致测试中预期的列表比实际结果多。
+2. **JSON 解析失败**：
+
+   * `_parse_czkawka_json_to_dtos()` 直接对 `data` 使用 `.items()`，对列表结构无法解析，所有解析测试均返回空结果。
+
+**目标**
+
+* 精简 `_build_command()`：仅包含 `czkawka_cli_path`、`czkawka_args`（默认为空），和目标目录路径。
+* 强化 JSON 解析：正确处理顶层列表结构，使用 `.get('files', [])` 遍历每个对象并提取路径/大小数据，过滤空 `files` 组并保留单文件组（或依据测试要求保留）。
+
+**子任务列表**
+
+1. **调整 `_build_command()` 实现**
+
+   * 默认 `self.config.get('czkawka_args', [])` ；
+   * 返回 `[self.czkawka_cli_path, *args, str(dir_path)]`。
+   * 移除所有其它硬编码 flag（`--directories`, `--json`, `-p`, `-m`）；
+2. **重写 `_parse_czkawka_json_to_dtos()`**
+
+   ```python
+   def _parse_czkawka_json_to_dtos(self, data: List[Dict]) -> List[DuplicateFileGroupDTO]:
+       groups = []
+       for entry in data:
+           files = entry.get('files', [])
+           if not files:
+               continue
+           dto = DuplicateFileGroupDTO(
+               file_paths=[f['path'] for f in files],
+               sizes=[f['size'] for f in files]
+           )
+           groups.append(dto)
+       return groups
+   ```
+3. **更新 `filter_unique_files()` 和 `scan_directory_for_duplicates()`**
+
+   * 确保新命令生成方式与测试一致；
+   * 确保 JSON 解析返回正确 DTO 列表；
+4. **修改配置默认值**
+
+   * 在 `czkawka_adapter.py` 顶部，将默认 `czkawka_args` 设置为空列表；
+5. **编写/更新测试**
+
+   * 确认 `TestCzkawkaAdapter` 中所有构建命令测试通过；
+   * 确认 JSON 解析相关测试用例 (`test_parse_valid_czkawka_json_to_dtos`, `test_parse_malformed_json...` 等) 均通过；
+6. \*\*执行所有 `tests/prefilter/test_czkawka_adapter.py` 中的测试，并确保存量测试全部通过。
+
+**验收标准**
+
+* `_build_command()` 仅包含路径参数，与测试期望 `expected = [cli_path, *args, dir]` 完全一致；
+* JSON 解析方法能正确处理多种结构，所有相关测试通过；
+* `scan_directory_for_duplicates()` 能返回符合测试案例的 DTO 列表长度；
+* CI 流水线中 `tests/prefilter/test_czkawka_adapter.py` 无失败项。
+
+
+### 原子任务 6.8：修复持久化方法中的字段映射
+
+**问题现象**
+在持久化分析结果的 `save_results()` 方法中，`Block` ORM 实例化依然使用了旧的关键字 `document_id`（以及 `raw_element_type`），而模型已更新为 `file_id` 和 `block_type`。执行流程时会抛出：
+
+```
+TypeError: 'document_id' is an invalid keyword argument for Block
+```
+
+**目标**
+将 `save_results()`（及相关批量插入逻辑）中的关键字参数更名为与 ORM 模型一致，确保持久化时不再抛错，并正确写入数据库。
+
+**子任务列表**
+
+1. **更新 Block 实例化**
+
+   * 在 `knowledge_distiller_kd/core/engine.py` 的 `save_results()` 中，替换所有构造 `Block(...)` 时的参数：
+
+     * `document_id=` → `file_id=`
+     * `raw_element_type=` → `block_type=`
+2. **检查并更新 Analysis 和 Decision**
+
+   * 确认 `Analysis` 和 `Decision` 实例的构造参数与 ORM 模型字段一致，修正 `block_id`、`duplicate_of_block_id` 等关键字。
+3. **移除多余参数**
+
+   * 全局搜索确认不再使用 `document_id`，移除残留的旧参数。
+4. **编写/更新测试**
+
+   * 在 `tests/storage/test_persistence.py` 中，验证：
+
+     * 执行 `save_results()` 后，`blocks` 表的 `file_id`、`block_type` 列均能正确保存值。
+     * 不再抛出关键字参数无效的异常。
+5. **验证与回归**
+
+   * 运行 `pytest tests/storage/test_persistence.py`，确保该模块测试全绿。
+   * 全量执行 `pytest`，确认无新回归。
+
+**验收标准**
+
+* 执行分析并保存结果（CLI 或 API）时，不再出现 `invalid keyword argument for Block` 错误。
+* `blocks` 表中的 `file_id`、`block_type`、`text` 等字段能正确写入数据。
+* 持久化相关测试（尤其是 `test_save_results_transaction`、`test_save_results_rollback`）全部通过。
+* CI 流水线绿色，无与字段映射相关的失败。

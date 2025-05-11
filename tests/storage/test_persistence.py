@@ -89,8 +89,8 @@ class TestPersistence:
                 {"path": "/test/doc2.txt", "file_hash": "efgh5678", "type": "text", "size": 2000}
             ],
             "blocks": [
-                {"document_id": 1, "content_hash": "hash1", "text": "Block 1", "raw_element_type": "text"},
-                {"document_id": 1, "content_hash": "hash2", "text": "Block 2", "raw_element_type": "code"}
+                {"file_id": 1, "content_hash": "hash1", "text": "Block 1", "block_type": "text"},
+                {"file_id": 1, "content_hash": "hash2", "text": "Block 2", "block_type": "code"}
             ],
             "analyses": [
                 {"block_id": 1, "analysis_type": "md5_duplicate", "score": 1.0, "details": {"duplicate_of": 2}}
@@ -120,7 +120,7 @@ class TestPersistence:
                 {"path": "/test/doc3.txt", "file_hash": "abcd1234", "type": "text", "size": 1000}
             ],
             "blocks": [
-                {"document_id": 1, "content_hash": "hash1", "text": "Block 1", "raw_element_type": "text"}
+                {"file_id": 1, "content_hash": "hash1", "text": "Block 1", "block_type": "text"}
             ],
             "analyses": [
                 # 这里故意创建一个无效的分析结果，引用不存在的block_id

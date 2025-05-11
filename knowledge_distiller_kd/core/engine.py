@@ -458,13 +458,13 @@ class KnowledgeDistillerEngine:
         for block in self.blocks_data:
             # 查找对应的文档索引
             doc_index = file_id_to_doc_index.get(block.file_id, 0)
-            # 构建块记录，document_id从1开始
+            # 构建块记录，file_id从1开始
             blocks.append({
-                "document_id": doc_index + 1,  # 数据库ID从1开始
+                "file_id": doc_index + 1,  # 数据库ID从1开始，使用file_id字段名与ORM模型一致
                 "content_hash": block.block_id,
                 "simhash": block.metadata.get("simhash", ""),
                 "text": block.text,
-                "raw_element_type": block.block_type.value,
+                "block_type": block.block_type.value,
                 "processing_status": "processed",
                 "meta_data": block.metadata
             })
@@ -567,15 +567,15 @@ class KnowledgeDistillerEngine:
                 block_objs = []
                 for blk in analysis_results.get("blocks", []):
                     # 查找对应的文档ID
-                    document_id = blk["document_id"]
-                    if document_id <= len(document_objs):
-                        document = document_objs[document_id - 1]
+                    file_id = blk["file_id"]
+                    if file_id <= len(document_objs):
+                        document = document_objs[file_id - 1]
                         block = Block(
-                            document_id=document.id,
+                            file_id=document.id,  # 使用ORM模型中的file_id字段
                             content_hash=blk["content_hash"],
                             simhash=blk.get("simhash", ""),
                             text=blk["text"],
-                            raw_element_type=blk["raw_element_type"],
+                            block_type=blk["block_type"],
                             processing_status=blk.get("processing_status", "processed"),
                             meta_data=blk.get("meta_data", {})
                         )
@@ -583,7 +583,7 @@ class KnowledgeDistillerEngine:
                         block_objs.append(block)
                     else:
                         # 将警告升级为错误，确保在异常测试中能触发回滚
-                        error_msg = f"Invalid document_id {document_id}, skipping block"
+                        error_msg = f"Invalid file_id {file_id}, skipping block"
                         logger.error(error_msg)
                         raise ValueError(error_msg)
                 
