@@ -15,6 +15,9 @@ from collections import defaultdict
 import uuid # Import uuid for generating block IDs if needed
 import re
 import time
+import json
+import datetime
+from rich.console import Console
 
 # Import internal project modules (using relative paths)
 from . import constants
@@ -42,6 +45,9 @@ DECISION_DELETE = 'delete'
 DECISION_UNDECIDED = 'undecided'
 METADATA_DECISION_KEY = 'kd_processing_status'
 
+# 新增：引入数据库相关导入
+from knowledge_distiller_kd.storage.sqlite_storage import init_db, SessionLocal
+from knowledge_distiller_kd.storage.models_sqlalchemy import Document, Block, Analysis, Decision
 
 class KnowledgeDistillerEngine:
     """
@@ -248,6 +254,10 @@ class KnowledgeDistillerEngine:
         logger.info(f"--- Starting analysis for folder: {self.input_dir} ---")
         print(f"\n[*] Starting analysis for folder: {self.input_dir}")
 
+        # 初始化数据库
+        logger.info("Initializing database...")
+        init_db()
+
         self._reset_state()
         analysis_successful = True
         
@@ -388,6 +398,19 @@ class KnowledgeDistillerEngine:
             logger.info("Analysis process completed successfully.")
             print("\n[*] Analysis workflow completed.")
 
+            # 保存分析结果到数据库
+            logger.info("Persisting analysis results to database...")
+            print("[*] Saving results to database...")
+            
+            # 收集分析结果
+            analysis_results = self._collect_analysis_results()
+            decisions = self._collect_decisions()
+            
+            # 保存结果
+            self.save_results(analysis_results, decisions)
+            logger.info("Analysis results persisted to database successfully.")
+            print("[*] Results saved to database successfully.")
+
         except AnalysisError as ae:
             logger.error(f"Analysis process failed: {ae}", exc_info=False)
             print(f"\n[Error] Analysis failed: {ae}")
@@ -399,6 +422,217 @@ class KnowledgeDistillerEngine:
 
         return analysis_successful
 
+    def _collect_analysis_results(self) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        收集分析结果，准备持久化到数据库。
+        
+        Returns:
+            Dict[str, List[Dict[str, Any]]]: 包含documents、blocks和analyses的字典。
+        """
+        logger.debug("Collecting analysis results for database persistence")
+        
+        # 收集文档信息
+        documents = []
+        file_paths = set()
+        file_id_to_doc_index = {}  # 用于映射file_id到文档索引
+        
+        # 首先收集所有文档信息
+        for i, block in enumerate(self.blocks_data):
+            # 从block的file_id获取文件路径
+            file_path = block.metadata.get("original_path", "")
+            if file_path and file_path not in file_paths:
+                file_paths.add(file_path)
+                # 构建文档记录
+                doc_index = len(documents)
+                file_id_to_doc_index[block.file_id] = doc_index
+                documents.append({
+                    "path": file_path,
+                    "file_hash": block.file_id,  # 使用file_id作为文件哈希
+                    "type": block.metadata.get("file_type", ""),
+                    "size": block.metadata.get("file_size", 0),
+                    "status": "processed"
+                })
+        
+        # 收集块信息
+        blocks = []
+        for block in self.blocks_data:
+            # 查找对应的文档索引
+            doc_index = file_id_to_doc_index.get(block.file_id, 0)
+            # 构建块记录，document_id从1开始
+            blocks.append({
+                "document_id": doc_index + 1,  # 数据库ID从1开始
+                "content_hash": block.block_id,
+                "simhash": block.metadata.get("simhash", ""),
+                "text": block.text,
+                "raw_element_type": block.block_type.value,
+                "processing_status": "processed",
+                "meta_data": block.metadata
+            })
+        
+        # 收集分析结果
+        analyses = []
+        # 收集MD5重复组
+        for group in self.md5_duplicates:
+            if len(group) > 1:
+                # 取第一个作为主块，其余作为重复块
+                primary_block = group[0]
+                for duplicate_block in group[1:]:
+                    analyses.append({
+                        "block_id": self.blocks_data.index(duplicate_block) + 1,  # 简化处理
+                        "analysis_type": "md5_duplicate",
+                        "score": 1.0,  # MD5重复是100%匹配
+                        "details": {
+                            "duplicate_of": self.blocks_data.index(primary_block) + 1
+                        }
+                    })
+        
+        # 收集语义相似度结果
+        for block1, block2, score in self.semantic_duplicates:
+            analyses.append({
+                "block_id": self.blocks_data.index(block1) + 1,  # 简化处理
+                "analysis_type": "semantic_similarity",
+                "score": float(score),
+                "details": {
+                    "similar_to": self.blocks_data.index(block2) + 1
+                }
+            })
+        
+        return {
+            "documents": documents,
+            "blocks": blocks,
+            "analyses": analyses
+        }
+
+    def _collect_decisions(self) -> List[Dict[str, Any]]:
+        """
+        收集用户决策，准备持久化到数据库。
+        
+        Returns:
+            List[Dict[str, Any]]: 决策记录列表。
+        """
+        logger.debug("Collecting user decisions for database persistence")
+        
+        decisions = []
+        for block_id, decision in self.block_decisions.items():
+            if decision != DECISION_UNDECIDED:
+                # 查找对应的块索引
+                block_index = next((i+1 for i, b in enumerate(self.blocks_data) 
+                                   if b.block_id == block_id), None)
+                if block_index:
+                    decisions.append({
+                        "block_id": block_index,
+                        "decision_type": decision,
+                        "comment": f"Decision from analysis run: {decision}"
+                    })
+        
+        return decisions
+
+    def save_results(self, analysis_results: Dict[str, List[Dict[str, Any]]], decisions: List[Dict[str, Any]]) -> bool:
+        """
+        将分析结果和决策保存到数据库中，使用事务确保数据一致性。
+        
+        Args:
+            analysis_results (Dict[str, List[Dict[str, Any]]]): 包含documents、blocks和analyses的字典。
+            decisions (List[Dict[str, Any]]): 决策记录列表。
+            
+        Returns:
+            bool: 保存是否成功。
+            
+        Raises:
+            Exception: 如果在保存过程中发生错误。
+        """
+        logger.info(f"Saving analysis results to database: {len(analysis_results.get('documents', []))} documents, "
+                    f"{len(analysis_results.get('blocks', []))} blocks, {len(analysis_results.get('analyses', []))} analyses")
+        
+        session = SessionLocal()
+        try:
+            with session.begin():
+                # 1. 保存文档
+                document_objs = []
+                for doc in analysis_results.get("documents", []):
+                    document = Document(
+                        path=doc["path"],
+                        file_hash=doc["file_hash"],
+                        type=doc.get("type", ""),
+                        size=doc.get("size", 0),
+                        status=doc.get("status", "processed")
+                    )
+                    session.add(document)
+                    document_objs.append(document)
+                
+                # 提交文档以获取ID
+                session.flush()
+                
+                # 2. 保存块
+                block_objs = []
+                for blk in analysis_results.get("blocks", []):
+                    # 查找对应的文档ID
+                    document_id = blk["document_id"]
+                    if document_id <= len(document_objs):
+                        document = document_objs[document_id - 1]
+                        block = Block(
+                            document_id=document.id,
+                            content_hash=blk["content_hash"],
+                            simhash=blk.get("simhash", ""),
+                            text=blk["text"],
+                            raw_element_type=blk["raw_element_type"],
+                            processing_status=blk.get("processing_status", "processed"),
+                            meta_data=blk.get("meta_data", {})
+                        )
+                        session.add(block)
+                        block_objs.append(block)
+                    else:
+                        # 将警告升级为错误，确保在异常测试中能触发回滚
+                        error_msg = f"Invalid document_id {document_id}, skipping block"
+                        logger.error(error_msg)
+                        raise ValueError(error_msg)
+                
+                # 提交块以获取ID
+                session.flush()
+                
+                # 3. 保存分析结果
+                for an in analysis_results.get("analyses", []):
+                    block_id = an["block_id"]
+                    if block_id <= len(block_objs):
+                        block = block_objs[block_id - 1]
+                        analysis = Analysis(
+                            block_id=block.id,
+                            analysis_type=an["analysis_type"],
+                            score=an.get("score", {}),
+                            details=an.get("details", {})
+                        )
+                        session.add(analysis)
+                    else:
+                        # 将警告升级为错误，确保在异常测试中能触发回滚
+                        error_msg = f"Invalid block_id {block_id}, analysis cannot be saved"
+                        logger.error(error_msg)
+                        raise ValueError(error_msg)
+                
+                # 4. 保存决策
+                for dec in decisions:
+                    block_id = dec["block_id"]
+                    if block_id <= len(block_objs):
+                        block = block_objs[block_id - 1]
+                        decision = Decision(
+                            block_id=block.id,
+                            decision_type=dec["decision_type"],
+                            comment=dec.get("comment", "")
+                        )
+                        session.add(decision)
+                    else:
+                        # 将警告升级为错误
+                        error_msg = f"Invalid block_id {block_id}, decision cannot be saved"
+                        logger.error(error_msg)
+                        raise ValueError(error_msg)
+            
+            # 事务提交会在with块结束时自动执行
+            logger.info("Successfully saved all analysis results to database")
+            return True
+        
+        except Exception as e:
+            # 事务回滚会在with块发生异常时自动执行
+            logger.error(f"Failed to save analysis results: {e}", exc_info=True)
+            raise
 
     def _model_loaded_successfully(self) -> bool:
         """Checks if the semantic model is loaded and ready."""

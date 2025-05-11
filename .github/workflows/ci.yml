@@ -9,17 +9,29 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ github.workspace }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.12'
+
+      - name: Install Poetry
+        run: pip install poetry
+
       - name: Install dependencies
         run: |
-          pip install poetry
           poetry install --no-interaction --no-ansi
+
       - name: Run tests
-        run: poetry run pytest -q
+        run: |
+          poetry run pytest -q
+
       - name: Run Alembic migrations
-        run: alembic upgrade head
+        run: |
+          alembic upgrade head
