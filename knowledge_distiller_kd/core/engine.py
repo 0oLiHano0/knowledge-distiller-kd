@@ -572,6 +572,7 @@ class KnowledgeDistillerEngine:
                         document = document_objs[file_id - 1]
                         block = Block(
                             file_id=document.id,  # 使用ORM模型中的file_id字段
+                            block_id=blk["content_hash"],  # 使用content_hash作为block_id
                             content_hash=blk["content_hash"],
                             simhash=blk.get("simhash", ""),
                             text=blk["text"],

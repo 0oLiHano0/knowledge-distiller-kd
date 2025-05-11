@@ -134,7 +134,7 @@ def test_sqlite_db_creation_with_alembic(test_db_path):
         tables = [row[0] for row in cursor.fetchall()]
         
         # 验证表是否存在
-        for table_name in ["documents", "blocks", "analyses", "decisions", "alembic_version"]:
+        for table_name in ["files", "blocks", "analysis_results", "user_decisions", "alembic_version"]:
             assert table_name in tables, f"数据库中缺少表 {table_name}"
         
         conn.close()

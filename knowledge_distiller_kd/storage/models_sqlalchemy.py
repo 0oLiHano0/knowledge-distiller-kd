@@ -48,7 +48,6 @@ class Block(Base):
     simhash = Column(String)
     text = Column(Text)
     block_type = Column(String)
-    raw_element_type = Column(String)
     processing_status = Column(String)
     meta_data = Column(JSON)  # 改名为meta_data，避免与SQLAlchemy的metadata冲突
     

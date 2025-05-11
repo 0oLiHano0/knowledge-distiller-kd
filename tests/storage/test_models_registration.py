@@ -73,10 +73,11 @@ def test_block_model_crud(setup_test_db):
     
     # 创建关联的Block
     block = Block(
-        document_id=doc.id,
+        file_id=doc.id,
+        block_id="def456",
         content_hash="def456",
         text="这是测试文本块",
-        raw_element_type="paragraph",
+        block_type="paragraph",
         processing_status="processed",
         meta_data={"source": "test", "position": 1}
     )
@@ -89,8 +90,8 @@ def test_block_model_crud(setup_test_db):
     queried_block = session.query(Block).filter(Block.content_hash == "def456").first()
     assert queried_block is not None
     assert queried_block.text == "这是测试文本块"
-    assert queried_block.raw_element_type == "paragraph"
-    assert queried_block.document_id == doc.id
+    assert queried_block.block_type == "paragraph"
+    assert queried_block.file_id == doc.id
     assert queried_block.meta_data["source"] == "test"
 
 
@@ -105,7 +106,7 @@ def test_analysis_model_crud(setup_test_db):
     session.add(doc)
     session.commit()
     
-    block = Block(document_id=doc.id, content_hash="def", text="测试文本")
+    block = Block(file_id=doc.id, block_id="def", content_hash="def", text="测试文本")
     session.add(block)
     session.commit()
     
@@ -143,8 +144,8 @@ def test_decision_model_crud(setup_test_db):
     session.add(doc)
     session.commit()
     
-    block1 = Block(document_id=doc.id, content_hash="def1", text="文本1")
-    block2 = Block(document_id=doc.id, content_hash="def2", text="文本2")
+    block1 = Block(file_id=doc.id, block_id="def1", content_hash="def1", text="文本1")
+    block2 = Block(file_id=doc.id, block_id="def2", content_hash="def2", text="文本2")
     session.add_all([block1, block2])
     session.commit()
     
@@ -183,7 +184,7 @@ def test_relationships(setup_test_db):
     session.commit()
     
     # 创建Block
-    block = Block(document_id=doc.id, content_hash="def", text="测试文本")
+    block = Block(file_id=doc.id, block_id="def", content_hash="def", text="测试文本")
     session.add(block)
     session.commit()
     
