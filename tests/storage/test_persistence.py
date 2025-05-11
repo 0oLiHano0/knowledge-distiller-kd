@@ -140,4 +140,52 @@ class TestPersistence:
         # 验证事务已回滚，数据库中没有部分写入的数据
         with SessionLocal() as session:
             # 确保这个测试中没有新增记录
-            assert session.query(Document).filter(Document.path == "/test/doc3.txt").count() == 0 
+            assert session.query(Document).filter(Document.path == "/test/doc3.txt").count() == 0
+
+    def test_duplicate_path_handling(self, mock_storage):
+        """测试处理重复文件路径的情况"""
+        # 准备测试数据，包含重复的路径
+        analysis_results = {
+            "documents": [
+                {"path": "/test/duplicate.txt", "file_hash": "hash1", "type": "text", "size": 1000},
+                {"path": "/test/duplicate.txt", "file_hash": "hash2", "type": "text", "size": 2000},  # 重复路径
+                {"path": "/test/unique.txt", "file_hash": "hash3", "type": "text", "size": 3000}     # 唯一路径
+            ],
+            "blocks": [
+                {"file_id": 1, "block_id": "block1", "content_hash": "hash1", "text": "Block 1", "block_type": "text"},
+                {"file_id": 2, "block_id": "block2", "content_hash": "hash2", "text": "Block 2", "block_type": "text"},
+                {"file_id": 3, "block_id": "block3", "content_hash": "hash3", "text": "Block 3", "block_type": "text"}
+            ],
+            "analyses": [
+                {"block_id": 1, "analysis_type": "md5_duplicate", "score": 1.0, "details": {"duplicate_of": 2}}
+            ]
+        }
+        
+        decisions = [
+            {"block_id": 1, "decision_type": DECISION_KEEP, "comment": "Keep this block"}
+        ]
+        
+        # 测试保存包含重复路径的数据
+        engine = KnowledgeDistillerEngine(storage=mock_storage, skip_prefilter=True, skip_semantic=True)
+        engine.save_results(analysis_results, decisions)
+        
+        # 验证结果
+        with SessionLocal() as session:
+            # 检查文档数量（应该只有2个，因为重复路径被忽略）
+            docs = session.query(Document).all()
+            assert len(docs) == 2
+            
+            # 验证重复路径只保存了第一条记录
+            duplicate_docs = session.query(Document).filter(Document.path == "/test/duplicate.txt").all()
+            assert len(duplicate_docs) == 1
+            assert duplicate_docs[0].file_hash == "hash1"  # 应该保存第一条记录
+            
+            # 验证唯一路径正常保存
+            unique_docs = session.query(Document).filter(Document.path == "/test/unique.txt").all()
+            assert len(unique_docs) == 1
+            assert unique_docs[0].file_hash == "hash3"
+            
+            # 验证其他相关数据也正确保存
+            assert session.query(Block).count() == 3
+            assert session.query(Analysis).count() == 1
+            assert session.query(Decision).count() == 1 

@@ -4,7 +4,7 @@ SQLAlchemy ORM模型定义，用于知识库的数据结构。
 """
 
 from sqlalchemy.orm import declarative_base, relationship
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, func
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON, func, Index
 
 # 声明基类
 Base = declarative_base()
@@ -26,6 +26,11 @@ class Document(Base):
     mtime = Column(DateTime)
     ingest_time = Column(DateTime, server_default=func.now())
     status = Column(String)
+    
+    # 添加唯一索引，使用 IGNORE 策略
+    __table_args__ = (
+        Index('ix_files_path', 'path', unique=True, sqlite_where=None),
+    )
     
     # 关系：一个Document可以有多个Block
     blocks = relationship('Block', back_populates='document', cascade='all, delete-orphan')

@@ -18,6 +18,7 @@ import time
 import json
 import datetime
 from rich.console import Console
+from sqlalchemy.exc import IntegrityError
 
 # Import internal project modules (using relative paths)
 from . import constants
@@ -550,6 +551,12 @@ class KnowledgeDistillerEngine:
                 # 1. 保存文档
                 document_objs = []
                 for doc in analysis_results.get("documents", []):
+                    # 插入前判断是否已存在
+                    existing = session.query(Document).filter_by(path=doc["path"]).one_or_none()
+                    if existing:
+                        logger.warning(f"[去重] 文件路径已存在，跳过插入: {doc['path']}")
+                        document_objs.append(existing)
+                        continue
                     document = Document(
                         path=doc["path"],
                         file_hash=doc["file_hash"],
@@ -558,11 +565,8 @@ class KnowledgeDistillerEngine:
                         status=doc.get("status", "processed")
                     )
                     session.add(document)
+                    session.flush()  # 立即获取ID
                     document_objs.append(document)
-                
-                # 提交文档以获取ID
-                session.flush()
-                
                 # 2. 保存块
                 block_objs = []
                 for blk in analysis_results.get("blocks", []):

@@ -63,6 +63,7 @@ class ContentBlock:
     metadata: Dict[str, Any] = field(default_factory=dict)
     file_path: str = ""  # 添加 file_path 属性，默认为空字符串
     analysis_text: str = ""  # 添加 analysis_text 属性，默认与 text 相同
+    original_text: str = field(init=False)  # 添加 original_text 属性，初始化后设置
 
     def __post_init__(self):
         """初始化后处理：如果analysis_text为空，默认使用text值"""
@@ -70,6 +71,8 @@ class ContentBlock:
             self.analysis_text = self.text
         if 'original_path' in self.metadata and not self.file_path:
             self.file_path = self.metadata['original_path']
+        # 添加 original_text 的初始化
+        self.original_text = self.text
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -80,6 +83,7 @@ class ContentBlock:
             "metadata": self.metadata,
             "file_path": self.file_path,
             "analysis_text": self.analysis_text,
+            "original_text": self.original_text,  # 添加 original_text 到字典
         }
 
     @classmethod
@@ -92,7 +96,7 @@ class ContentBlock:
             logger.warning(f"Invalid BlockType '{data.get('block_type')}', defaulting to UNKNOWN.")
             block_type = BlockType.UNKNOWN
 
-        return cls(
+        instance = cls(
             block_id=data.get("block_id", str(uuid.uuid4())),
             file_id=data["file_id"],
             text=data["text"],
@@ -101,6 +105,10 @@ class ContentBlock:
             file_path=data.get("file_path", ""),
             analysis_text=data.get("analysis_text", data["text"]),
         )
+        # 如果字典中有original_text，使用它；否则默认使用text
+        if "original_text" in data:
+            instance.original_text = data["original_text"]
+        return instance
 
 
 @dataclass

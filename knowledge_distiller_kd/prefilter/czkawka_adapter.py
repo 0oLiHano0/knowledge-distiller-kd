@@ -153,36 +153,21 @@ class CzkawkaAdapter:
             if time.time() - cache_time < self._cache_ttl:
                 return result
         
-        # 准备参数       
-        args = ["dup", "--json"]  # 基本参数
-        
-        # 添加文件类型过滤
+        # 只通过czkawka_args配置参数，不再硬编码
+        args = ["dup"]
         if patterns:
             for pattern in patterns:
                 if pattern.startswith("*."):
-                    args.extend(["-x", pattern[2:]])  # 去掉 "*.md" 中的 "*."
-        
-        # 创建临时 JSON 输出文件路径
-        json_output_file = Path(".czkawka_output.json")
-        
-        # 添加 JSON 输出参数和最小文件大小
-        args.extend([
-            "-p", str(json_output_file),
-            "-m", str(self.config.get("min_file_size", 1))
-        ])
-        
+                    args.extend(["-x", pattern[2:]])
+        # 允许用户通过config自定义参数
+        args += self.config.get("czkawka_args", [])
         # 保存原始配置并临时设置命令行参数
         original_args = self.config.get("czkawka_args", [])
         self.config["czkawka_args"] = args
-        
         try:
             start_time = time.time()
-            
-            # 使用_build_command构建命令
             cmd = self._build_command(target_directory)
             self.logger.debug(f"执行命令: {' '.join(cmd)}")
-            
-            # 执行命令
             result = subprocess.run(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -191,38 +176,16 @@ class CzkawkaAdapter:
                 check=False,
                 timeout=self.config.get("timeout", 300),
             )
-            
-            # 恢复原始配置
             self.config["czkawka_args"] = original_args
-            
             if result.returncode == 0:
-                # 尝试从JSON输出文件读取结果，如果不存在则尝试从stdout读取
                 data = None
-                
-                if json_output_file.exists():
-                    try:
-                        with open(json_output_file, 'r') as f:
-                            data = json.load(f)
-                        # 删除临时文件
-                        try:
-                            json_output_file.unlink()
-                        except Exception as e:
-                            self.logger.debug(f"删除临时文件失败: {e}")
-                    except:
-                        self.logger.warning("无法读取JSON输出文件，尝试从stdout解析")
-                
-                # 如果没有数据尝试从stdout解析（用于测试）
-                if data is None and result.stdout:
-                    try:
-                        data = json.loads(result.stdout)
-                    except:
-                        self.logger.error("无法解析stdout中的JSON数据")
-                        return []
-                
+                try:
+                    data = json.loads(result.stdout)
+                except Exception:
+                    self.logger.error("无法解析stdout中的JSON数据")
+                    return []
                 if data:
-                    # 解析结果
                     parsed_result = self._parse_czkawka_json_to_dtos(data)
-                    # 更新缓存
                     self._scan_cache[cache_key] = (time.time(), parsed_result)
                     self._log_performance("scan", start_time)
                     return parsed_result
@@ -234,7 +197,6 @@ class CzkawkaAdapter:
                     f"Czkawka 返回错误码 {result.returncode}: {result.stderr}"
                 )
                 return []
-                
         except json.JSONDecodeError as e:
             self.logger.error(f"无法解析 Czkawka 输出的 JSON: {e}")
             return []
@@ -248,7 +210,7 @@ class CzkawkaAdapter:
             self.logger.error(f"权限错误无法执行 Czkawka: {e}")
             return []
         except Exception as e:
-            self.logger.error(f"执行 Czkawka 时发生意外错误: {e}")
+            self.logger.error(f"未知错误: {e}")
             return []
 
     def filter_unique_files(

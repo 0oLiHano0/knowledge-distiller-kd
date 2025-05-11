@@ -102,4 +102,29 @@ def test_content_block_from_dict_defaults():
     assert cb.text == "这是测试文本"
     assert cb.block_type == BlockType.UNKNOWN  # 应该默认为 UNKNOWN
     assert cb.file_path == ""
-    assert cb.analysis_text == "这是测试文本"  # 应该默认与 text 相同 
+    assert cb.analysis_text == "这是测试文本"  # 应该默认与 text 相同
+
+
+def test_original_text_field():
+    """测试ContentBlock是否具有original_text属性，并确保它在初始化时值为text的值"""
+    # 基本测试
+    text_value = "这是测试文本"
+    cb = ContentBlock(
+        file_id="test_file_id",
+        text=text_value,
+        block_type=BlockType.TEXT
+    )
+    
+    # 验证original_text属性存在并且有正确的值
+    assert hasattr(cb, "original_text")
+    assert cb.original_text == text_value
+    
+    # 测试序列化和反序列化后original_text属性是否正确保留
+    cb_dict = cb.to_dict()
+    assert "original_text" in cb_dict
+    assert cb_dict["original_text"] == text_value
+    
+    # 从字典创建实例后验证属性
+    deserialized_cb = ContentBlock.from_dict(cb_dict)
+    assert hasattr(deserialized_cb, "original_text")
+    assert deserialized_cb.original_text == text_value 

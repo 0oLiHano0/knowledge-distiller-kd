@@ -543,3 +543,152 @@ TypeError: 'document_id' is an invalid keyword argument for Block
 * `blocks` 表中的 `file_id`、`block_type`、`text` 等字段能正确写入数据。
 * 持久化相关测试（尤其是 `test_save_results_transaction`、`test_save_results_rollback`）全部通过。
 * CI 流水线绿色，无与字段映射相关的失败。
+
+
+### 原子任务 6.10：为 `ContentBlock` 补充 `original_text` 属性，用于 CLI 预览显示
+
+**问题现象**
+在 CLI 的 `review_md5_duplicates()` 方法中，代码尝试访问 `ContentBlock.original_text`，但该属性在类定义中不存在，导致运行时 `AttributeError`：
+
+```
+AttributeError: 'ContentBlock' object has no attribute 'original_text'
+```
+
+**目标**
+
+* 在 `ContentBlock` 类中添加 `original_text` 属性，并在实例化时赋值为内容块的完整文本，以便 CLI 能正确显示预览。
+
+**子任务列表**
+
+1. **更新 `ContentBlock` 定义**
+
+   * 在 `knowledge_distiller_kd/core/models.py`（或统一的 `ContentBlock` 类定义处），为 `ContentBlock` 添加 `original_text: str` 字段：
+
+     ```python
+     @dataclass
+     class ContentBlock:
+         text: str
+         file_path: str
+         analysis_text: str
+         original_text: str = field(init=False)
+
+         def __post_init__(self):
+             # original_text 存储未处理的原始文本
+             self.original_text = self.text
+     ```
+
+2. **同步更新处理层**
+
+   * 在创建 `ContentBlock` 的地方（`processing/document_processor.py`），确保 `text` 参数传入的是完整原始文本，`original_text` 会自动继承。
+
+3. **CLI 调整（如有必要）**
+
+   * 在 `cli_interface.py` 中确认 `review_md5_duplicates()` 使用的 `block.original_text` 即为 `text` 内容，无需进一步修改。
+
+4. **编写单元测试**
+
+   * 在 `tests/core/test_content_block.py` 中增加：
+
+     ```python
+     def test_original_text_field():
+         cb = ContentBlock(text='hello world', file_path='x', analysis_text='hello world')
+         assert hasattr(cb, 'original_text')
+         assert cb.original_text == 'hello world'
+     ```
+
+**验收标准**
+
+* 重新运行 CLI 查看重复项时，不再因缺少 `original_text` 报错，能正确展示前 `PREVIEW_LENGTH` 字符。
+* 新增测试用例通过，CI 全绿。
+
+
+### 原子任务 6.11：修正生产环境的 CzkawkaAdapter 命令构建逻辑
+
+**问题现象**
+在 Smoke Test 和真实 CLI 运行时，`filter_unique_files()` 调用的 Czkawka 命令仍含不受支持的标志（如 `--json`），导致执行失败：
+
+```
+error: unexpected argument '--json' found
+```
+
+尽管在测试过程中我们已优化了 `_build_command()`，但生产模式下似乎仍调用老逻辑，或者调用时未使用简洁版。
+
+**目标**
+
+* 确保生产环境中所有 CzkawkaAdapter 调用均使用统一的、简洁的 `_build_command()` 版本；
+* 移除任何硬编码传参（`--json`、`-p`、`-m`、`--directories` 等），仅保留：
+
+  ```bash
+  <czkawka_cli_path> [<czkawka_args>...] <directory>
+  ```
+
+**子任务列表**
+
+1. **检查并删除老逻辑**
+
+   * 在 `knowledge_distiller_kd/prefilter/czkawka_adapter.py` 中，确保 `filter_unique_files()` 完全依赖于 `self._build_command()`。
+   * 删除或注释掉任何对 `--json`, `-p`, `-m`, `--directories` 等 flag 的额外拼接。
+2. **统一构建函数调用**
+
+   * 在所有触发 Czkawka 外部命令的地方（包括测试和 CLI 预过滤链），仅通过 `cmd = self._build_command(dir_path)` 获取命令列表。
+3. **同步更新默认配置**
+
+   * 确认 `config['czkawka_args']` 默认值为空列表，生产环境无额外默认参数。
+4. **回归测试**
+
+   * 运行 `pytest tests/prefilter/test_czkawka_adapter.py`，确保旧版命令测试及 Smoke Test 中的预过滤通过。
+   * 本地实际运行 `python -m knowledge_distiller_kd.cli --non-interactive -i input/`，确认不再出现 `--json` 报错。
+
+**验收标准**
+
+* Smoke Test `test_default_mode` 中不再报 `unexpected argument '--json'`；
+* 所有 `TestCzkawkaAdapter` 相关测试继续通过；
+* 本地生产流程中预过滤阶段执行成功，无异常输出。
+
+
+### 原子任务 6.12：处理 `files.path` 唯一约束冲突
+
+**问题现象**
+在真实执行流程中，`save_results()` 方法批量插入文件记录时，如果重复插入同一路径，会触发：
+
+```
+sqlalchemy.exc.IntegrityError: UNIQUE constraint failed: files.path
+```
+
+这会导致整个事务回滚，影响后续分析数据持久化。
+
+**目标**
+
+* 在持久化阶段优雅地处理路径重复：
+
+  * 对于已存在的 `files.path`，跳过插入，或使用数据库的 `ON CONFLICT IGNORE` 机制，
+  * 保证事务不会因单条记录冲突而整体失败。
+
+**子任务列表**
+
+1. **在 ORM 模型层面设置冲突策略**
+
+   * 在 `storage/models_sqlalchemy.py` 中，为 `FileEntity` 的 `path` 列添加：
+
+     ```python
+     path = Column(String, unique=True, sqlite_on_conflict='IGNORE')
+     ```
+   * 或者使用 `Index(..., sqlite_on_conflict='IGNORE')`。
+2. **更新 `save_results()` 行为**
+
+   * 确保在插入 `FileEntity` 对象时，不会因重复路径引发异常；
+   * 可选：在插入前 `session.query(FileEntity).filter_by(path=...).one_or_none()`，若已存在则跳过创建。
+3. **编写/更新测试**
+
+   * 在 `tests/storage/test_persistence.py` 增加场景：向同一事务中两次保存同一路径，确保不会抛出 `IntegrityError`，并且数据库只存储一条记录。
+4. **回归测试与验证**
+
+   * 运行完整 smoke 测试，确保 `test_default_mode` 返回码为 0；
+   * 确保 `SELECT COUNT(*) FROM files` 与预期结果一致（无重复）。
+
+**验收标准**
+
+* 重复插入文件路径不再抛出异常；
+* 数据库中 `files` 表中同一路径仅存一条记录；
+* 事务在存在路径冲突时仍能继续写入其他表数据；
+* CI 流水线全绿，无路径冲突相关失败。
