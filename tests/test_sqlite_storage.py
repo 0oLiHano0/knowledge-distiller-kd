@@ -75,6 +75,9 @@ def test_session_creation(setup_test_env):
 
 def test_init_db(setup_test_env):
     """测试数据库初始化功能，验证是否创建了所有定义的表"""
+    # 删除所有现有表，确保干净的环境
+    Base.metadata.drop_all(bind=engine)
+    
     # 调用初始化方法
     init_db()
     

@@ -366,3 +366,74 @@ CRUD：创建 Document，关联 Block、Analysis、Decision 并查询
 * `save_results()` 在正常和异常场景均能正确提交或回滚
 * 新增测试 `tests/storage/test_persistence.py` 全部通过
 * CI 流水线绿色，无回归错误
+
+
+### 原子任务 6.6：对齐表名与测试预期
+
+**问题现象**
+现有的 SQLite 核心表在迁移脚本和 ORM 模型中定义为：
+
+* `documents`
+* `blocks`
+* `analyses`
+* `decisions`
+
+但单元测试（`tests/test_sqlite_storage.py`）检查的是：
+
+```python
+required_tables = ["files", "blocks", "analysis_results", "user_decisions"]
+```
+
+导致初始化测试 `test_init_db` 断言失败，提示表 `files`, `analysis_results`, `user_decisions` 未被创建。
+
+**目标**
+
+* 将核心表名修改为与测试一致：
+
+  * `documents`   → `files`
+  * `analyses`    → `analysis_results`
+  * `decisions`   → `user_decisions`
+  * 保留 `blocks` 不变
+* 同步更新 ORM 模型、Alembic 迁移脚本以及任何引用表名的代码。
+
+**子任务列表**
+
+1. **更新 ORM 模型**
+
+   * 在 `storage/models_sqlalchemy.py`（或相应模型文件）中修改：
+
+     ```python
+     class Document(Base):
+         __tablename__ = 'files'
+         # ...
+
+     class Analysis(Base):
+         __tablename__ = 'analysis_results'
+         # ...
+
+     class Decision(Base):
+         __tablename__ = 'user_decisions'
+         # ...
+     ```
+2. **更新 Alembic 初始迁移脚本**
+
+   * 在 `alembic/versions/<initial>_initial_tables.py` 中，将 `documents`, `analyses`, `decisions` 的 `op.create_table()` 调整为新表名。
+3. **添加兼容性迁移（如需）**
+
+   * 如果已有线上数据，可编写新的迁移脚本将旧表重命名为新表。若仅为开发环境，直接修改初始脚本即可。
+4. **更新存储层引用**
+
+   * 在 `sqlite_storage.py`、查询/inspect 相关代码中，保证对新表名的访问一致。
+5. **修改测试用例（如必要）**
+
+   * 确保 `test_init_db` 中的 `required_tables` 与新表名一致；如有硬编码字段名，也一并更新。
+
+**验收标准**
+
+* `init_db()` 创建的表名为：
+
+  ```text
+  files, blocks, analysis_results, user_decisions
+  ```
+* `pytest tests/test_sqlite_storage.py` 全部通过（特别是 `test_init_db`）。
+* CI 流水线绿色，无与表名不一致相关的失败。

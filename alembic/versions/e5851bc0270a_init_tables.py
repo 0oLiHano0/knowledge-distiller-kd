@@ -22,18 +22,20 @@ def upgrade() -> None:
     """Upgrade schema."""
     # 这个迁移脚本不再创建表，因为表已经在前一个迁移中创建
     # 相反，我们添加一些有用的索引
-    op.create_index('idx_documents_file_hash', 'documents', ['file_hash'])
+    op.create_index('idx_files_file_hash', 'files', ['file_hash'])
     op.create_index('idx_blocks_content_hash', 'blocks', ['content_hash'])
-    op.create_index('idx_blocks_document_id', 'blocks', ['document_id'])
-    op.create_index('idx_analyses_block_id', 'analyses', ['block_id'])
-    op.create_index('idx_decisions_block_id', 'decisions', ['block_id'])
+    op.create_index('idx_blocks_file_id', 'blocks', ['file_id'])
+    op.create_index('idx_blocks_block_id', 'blocks', ['block_id'])
+    op.create_index('idx_analysis_results_block_id', 'analysis_results', ['block_id'])
+    op.create_index('idx_user_decisions_block_id', 'user_decisions', ['block_id'])
 
 
 def downgrade() -> None:
     """Downgrade schema."""
     # 删除添加的索引
-    op.drop_index('idx_decisions_block_id', 'decisions')
-    op.drop_index('idx_analyses_block_id', 'analyses')
-    op.drop_index('idx_blocks_document_id', 'blocks')
+    op.drop_index('idx_user_decisions_block_id', 'user_decisions')
+    op.drop_index('idx_analysis_results_block_id', 'analysis_results')
+    op.drop_index('idx_blocks_file_id', 'blocks')
+    op.drop_index('idx_blocks_block_id', 'blocks')
     op.drop_index('idx_blocks_content_hash', 'blocks')
-    op.drop_index('idx_documents_file_hash', 'documents')
+    op.drop_index('idx_files_file_hash', 'files')

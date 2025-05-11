@@ -15,7 +15,7 @@ class Document(Base):
     文档模型，代表一个被处理的文件。
     存储文件路径、哈希值、文件类型、大小等基本信息。
     """
-    __tablename__ = 'documents'
+    __tablename__ = 'files'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     path = Column(String, unique=True, nullable=False)
@@ -42,10 +42,12 @@ class Block(Base):
     __tablename__ = 'blocks'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
-    document_id = Column(Integer, ForeignKey('documents.id', ondelete='CASCADE'), nullable=False)
+    block_id = Column(String, nullable=False)
+    file_id = Column(Integer, ForeignKey('files.id', ondelete='CASCADE'), nullable=False)
     content_hash = Column(String)
     simhash = Column(String)
     text = Column(Text)
+    block_type = Column(String)
     raw_element_type = Column(String)
     processing_status = Column(String)
     meta_data = Column(JSON)  # 改名为meta_data，避免与SQLAlchemy的metadata冲突
@@ -56,7 +58,7 @@ class Block(Base):
     analyses = relationship('Analysis', back_populates='block', cascade='all, delete-orphan')
     
     def __repr__(self) -> str:
-        return f"Block(id={self.id}, document_id={self.document_id}, type='{self.raw_element_type}')"
+        return f"Block(id={self.id}, file_id={self.file_id}, type='{self.block_type}')"
 
 
 class Analysis(Base):
@@ -64,7 +66,7 @@ class Analysis(Base):
     分析结果模型，存储对Block的各种分析数据。
     可以包含相似度评分、重复检测结果等。
     """
-    __tablename__ = 'analyses'
+    __tablename__ = 'analysis_results'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     block_id = Column(Integer, ForeignKey('blocks.id', ondelete='CASCADE'), nullable=False)
@@ -84,7 +86,7 @@ class Decision(Base):
     决策模型，记录对Block的处理决策。
     例如标记为重复、删除、保留等决策。
     """
-    __tablename__ = 'decisions'
+    __tablename__ = 'user_decisions'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
     block_id = Column(Integer, ForeignKey('blocks.id', ondelete='CASCADE'), nullable=False)
