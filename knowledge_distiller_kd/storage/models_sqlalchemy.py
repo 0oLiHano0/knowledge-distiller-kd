@@ -18,6 +18,7 @@ class Document(Base):
     __tablename__ = 'files'
     
     id = Column(Integer, primary_key=True, autoincrement=True)
+    file_id = Column(String, unique=True, nullable=False)
     path = Column(String, unique=True, nullable=False)
     file_hash = Column(String, nullable=False)
     type = Column(String)
@@ -36,7 +37,7 @@ class Document(Base):
     blocks = relationship('Block', back_populates='document', cascade='all, delete-orphan')
     
     def __repr__(self) -> str:
-        return f"Document(id={self.id}, path='{self.path}', status='{self.status}')"
+        return f"Document(id={self.id}, file_id='{self.file_id}', path='{self.path}', status='{self.status}')"
 
 
 class Block(Base):

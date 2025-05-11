@@ -1,5 +1,11 @@
 # knowledge_distiller_kd/storage/file_storage.py
 """
+DEPRECATED: This module is deprecated and will be removed in future versions.
+保留此文件仅作为参考，请使用 ORMStorage 替代。
+
+This module provides file-based storage implementation using JSON files.
+It is being phased out in favor of SQLite-based storage.
+
 Implements the StorageInterface using the local file system,
 persisting data as JSON files. Uses pathlib for path manipulation
 and core.models DTOs for data exchange.

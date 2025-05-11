@@ -445,8 +445,8 @@ def test_cli_pre_filter_only(mock_stdout, mock_exit, mock_engine: MagicMock):
                     cli_instance = MagicMock()
                     mock_cli_class.return_value = cli_instance
                     
-                    # 模拟 FileStorage
-                    with patch('knowledge_distiller_kd.cli.FileStorage') as mock_storage:
+                    # 模拟 ORMStorage
+                    with patch('knowledge_distiller_kd.cli.ORMStorage') as mock_storage:
                         mock_storage_instance = MagicMock()
                         mock_storage.return_value = mock_storage_instance
                         
@@ -499,8 +499,8 @@ def test_cli_skip_prefilter(mock_run_analysis, mock_engine: MagicMock):
                 # 设置模拟类返回我们的模拟实例
                 mock_engine_class.return_value = engine_instance
                 
-                # 直接替换 cli.py 中的 FileStorage 实例化
-                with patch('knowledge_distiller_kd.cli.FileStorage') as mock_storage:
+                # 直接替换 cli.py 中的 ORMStorage 实例化
+                with patch('knowledge_distiller_kd.cli.ORMStorage') as mock_storage:
                     mock_storage_instance = MagicMock()
                     mock_storage.return_value = mock_storage_instance
                     

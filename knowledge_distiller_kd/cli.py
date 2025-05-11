@@ -17,7 +17,7 @@ from .core import constants
 from .core.engine import KnowledgeDistillerEngine
 from .core.error_handler import ConfigurationError, handle_error
 from .core.utils import logger, setup_logger # 使用 utils 中配置好的 logger
-from .storage.file_storage import FileStorage
+from .storage.orm_storage import ORMStorage
 from .ui.cli_interface import CliInterface
 
 def parse_args() -> argparse.Namespace:
@@ -125,12 +125,8 @@ def main() -> None:
 
     try:
         # 1. 初始化存储层 (Storage)
-        # 为 FileStorage 提供 base_path 参数
-        # 使用 .kd_cache 作为基础路径
-        storage_path = Path(constants.DEFAULT_CACHE_BASE_DIR)
-        storage_path.mkdir(exist_ok=True)
-        storage = FileStorage(base_path=storage_path)
-        logger.info(f"FileStorage initialized with base path: {storage_path}")
+        storage = ORMStorage()
+        logger.info("ORMStorage initialized successfully")
 
         # 2. 初始化核心引擎 (Engine)
         # 直接将参数传递给引擎的构造函数

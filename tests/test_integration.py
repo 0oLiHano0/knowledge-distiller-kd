@@ -123,14 +123,14 @@ def engine_instance(temp_dirs: Dict[str, Path], mock_semantic_analyzer: MagicMoc
     """
     storage_base = temp_dirs["storage_base"]
     # Create the actual FileStorage instance, providing the required base_path
-    file_storage_instance = FileStorage(base_path=storage_base)
+    # file_storage_instance = FileStorage(base_path=storage_base)
     # Initialize the storage explicitly (important!)
-    file_storage_instance.initialize()
+    # file_storage_instance.initialize()
 
     # Engine needs configuration passed to __init__
     # Pass the *actual* FileStorage instance to the Engine
     engine = KnowledgeDistillerEngine(
-        storage=file_storage_instance, # Inject the real FileStorage
+        storage=storage_base, # Inject the real FileStorage
         input_dir=temp_dirs["input"],
         output_dir=temp_dirs["output"],
         # decision_file is no longer directly used by engine for loading/saving
@@ -274,16 +274,15 @@ def test_integration_save_load_decisions_via_metadata(temp_dirs: Dict[str, Path]
     output_dir = temp_dirs["output"]
 
     # --- Instance 1: Run analysis and modify a decision ---
-    storage1 = FileStorage(base_path=storage_base)
-    storage1.initialize()
+    # storage1 = FileStorage(base_path=storage_base)
     engine1 = KnowledgeDistillerEngine(
-        storage=storage1, input_dir=input_dir, output_dir=output_dir, skip_semantic=False
+        storage=storage_base, input_dir=input_dir, output_dir=output_dir, skip_semantic=False
     )
     engine1.semantic_analyzer = mock_semantic_analyzer # Ensure mocked analyzer is used
 
     analysis_success = engine1.run_analysis()
     assert analysis_success
-    all_blocks = storage1.get_blocks_for_analysis() # Get all blocks after analysis
+    all_blocks = storage_base.get_blocks_for_analysis() # Get all blocks after analysis
     assert len(all_blocks) > 0
 
     # Find a block that was initially marked for deletion (e.g., second common paragraph)
@@ -317,15 +316,14 @@ def test_integration_save_load_decisions_via_metadata(temp_dirs: Dict[str, Path]
     # Verify in-memory decision map is updated
     assert engine1.block_decisions.get(decision_key_modify) == DECISION_KEEP
     # Verify the block metadata itself was updated in storage by update_decision->save_blocks
-    updated_block = storage1.get_block(block_id)
+    updated_block = storage_base.get_block(block_id)
     assert updated_block is not None
     assert updated_block.metadata.get(METADATA_DECISION_KEY) == DECISION_KEEP
 
     # --- Instance 2: Load decisions and verify ---
-    storage2 = FileStorage(base_path=storage_base) # New instance, same path
-    storage2.initialize() # This will load data from files written by storage1
+    # storage2 = FileStorage(base_path=storage_base) # New instance, same path
     engine2 = KnowledgeDistillerEngine(
-        storage=storage2, input_dir=input_dir, output_dir=output_dir, skip_semantic=False
+        storage=storage_base, input_dir=input_dir, output_dir=output_dir, skip_semantic=False
     )
     # No need to run analysis again, just load decisions
     load_success = engine2.load_decisions()

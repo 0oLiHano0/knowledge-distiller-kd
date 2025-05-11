@@ -55,26 +55,53 @@ class DecisionType(Enum):
 
 @dataclass
 class ContentBlock:
+    """
+    表示文档中的一个内容块。
+    包含块的基本信息、元数据和状态信息。
+    """
+    # 基本字段
     file_id: str
     text: str
     block_type: BlockType
 
+    # 可选字段
     block_id: str = field(default_factory=lambda: str(uuid.uuid4()))
     metadata: Dict[str, Any] = field(default_factory=dict)
-    file_path: str = ""  # 添加 file_path 属性，默认为空字符串
-    analysis_text: str = ""  # 添加 analysis_text 属性，默认与 text 相同
-    original_text: str = field(init=False)  # 添加 original_text 属性，初始化后设置
+    file_path: str = ""
+    analysis_text: str = ""
+    original_text: str = field(init=False)
+    
+    # 新增字段
+    created_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    updated_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    status: str = "pending"  # pending, processed, deleted
+    parent_block_id: Optional[str] = None
+    version: int = 1
+    tags: List[str] = field(default_factory=list)
+    char_count: int = 0
+    token_count: int = 0
+    processing_status: DecisionType = DecisionType.UNDECIDED
+    duplicate_of_block_id: Optional[str] = None
 
     def __post_init__(self):
-        """初始化后处理：如果analysis_text为空，默认使用text值"""
+        """初始化后处理：设置默认值和计算派生值"""
+        # 设置默认的 analysis_text
         if not self.analysis_text:
             self.analysis_text = self.text
+            
+        # 设置默认的 file_path
         if 'original_path' in self.metadata and not self.file_path:
             self.file_path = self.metadata['original_path']
-        # 添加 original_text 的初始化
+            
+        # 设置 original_text
         self.original_text = self.text
+        
+        # 计算字符数和词数
+        self.char_count = len(self.text)
+        self.token_count = len(self.text.split())
 
     def to_dict(self) -> Dict[str, Any]:
+        """将 ContentBlock 序列化为字典"""
         return {
             "block_id": self.block_id,
             "file_id": self.file_id,
@@ -83,18 +110,51 @@ class ContentBlock:
             "metadata": self.metadata,
             "file_path": self.file_path,
             "analysis_text": self.analysis_text,
-            "original_text": self.original_text,  # 添加 original_text 到字典
+            "original_text": self.original_text,
+            "created_at": self.created_at.isoformat(),
+            "updated_at": self.updated_at.isoformat(),
+            "status": self.status,
+            "parent_block_id": self.parent_block_id,
+            "version": self.version,
+            "tags": self.tags,
+            "char_count": self.char_count,
+            "token_count": self.token_count,
+            "processing_status": self.processing_status.value,
+            "duplicate_of_block_id": self.duplicate_of_block_id
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'ContentBlock':
+        """从字典反序列化为 ContentBlock"""
         if "file_id" not in data or "text" not in data:
             raise ValueError("Missing required fields 'file_id' or 'text'")
+            
         try:
             block_type = BlockType(data.get("block_type", BlockType.UNKNOWN.value))
         except ValueError:
             logger.warning(f"Invalid BlockType '{data.get('block_type')}', defaulting to UNKNOWN.")
             block_type = BlockType.UNKNOWN
+            
+        try:
+            processing_status = DecisionType(data.get("processing_status", DecisionType.UNDECIDED.value))
+        except ValueError:
+            logger.warning(f"Invalid DecisionType '{data.get('processing_status')}', defaulting to UNDECIDED.")
+            processing_status = DecisionType.UNDECIDED
+
+        # 处理时间字段
+        created_at = datetime.datetime.now(datetime.timezone.utc)
+        if "created_at" in data:
+            try:
+                created_at = datetime.datetime.fromisoformat(data["created_at"])
+            except ValueError:
+                logger.warning(f"Invalid created_at format. Using current time.")
+
+        updated_at = datetime.datetime.now(datetime.timezone.utc)
+        if "updated_at" in data:
+            try:
+                updated_at = datetime.datetime.fromisoformat(data["updated_at"])
+            except ValueError:
+                logger.warning(f"Invalid updated_at format. Using current time.")
 
         instance = cls(
             block_id=data.get("block_id", str(uuid.uuid4())),
@@ -104,73 +164,159 @@ class ContentBlock:
             metadata=data.get("metadata", {}),
             file_path=data.get("file_path", ""),
             analysis_text=data.get("analysis_text", data["text"]),
+            created_at=created_at,
+            updated_at=updated_at,
+            status=data.get("status", "pending"),
+            parent_block_id=data.get("parent_block_id"),
+            version=data.get("version", 1),
+            tags=data.get("tags", []),
+            char_count=data.get("char_count", 0),
+            token_count=data.get("token_count", 0),
+            processing_status=processing_status,
+            duplicate_of_block_id=data.get("duplicate_of_block_id")
         )
+        
         # 如果字典中有original_text，使用它；否则默认使用text
         if "original_text" in data:
             instance.original_text = data["original_text"]
+            
         return instance
 
 
 @dataclass
 class AnalysisResult:
+    """
+    表示两个内容块之间的分析结果。
+    包含分析的基本信息、分数和详细信息。
+    """
+    # 基本字段
     block_id_1: str
     block_id_2: str
     analysis_type: AnalysisType
-
     score: Optional[float] = None
+    
+    # 新增字段
+    details: Dict[str, Any] = field(default_factory=dict)
+    confidence: float = 0.0
+    created_at: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
+    analysis_version: str = "1.0.0"
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    status: str = "pending"  # pending, reviewed, archived
+    review_count: int = 0
+    last_reviewed_at: Optional[datetime.datetime] = None
+    last_reviewer_id: Optional[str] = None
+    
+    # 生成字段
     result_id: str = field(init=False)
 
     def __post_init__(self):
+        """生成确定性的 result_id"""
         sorted_ids = sorted([self.block_id_1, self.block_id_2])
         id_string = f"{sorted_ids[0]}_{sorted_ids[1]}_{self.analysis_type.value}"
         namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
         self.result_id = str(uuid.uuid5(namespace, id_string))
 
     def to_dict(self) -> Dict[str, Any]:
+        """将 AnalysisResult 序列化为字典"""
         return {
             "result_id": self.result_id,
             "block_id_1": self.block_id_1,
             "block_id_2": self.block_id_2,
             "analysis_type": self.analysis_type.value,
             "score": self.score,
+            "details": self.details,
+            "confidence": self.confidence,
+            "created_at": self.created_at.isoformat(),
+            "analysis_version": self.analysis_version,
+            "metadata": self.metadata,
+            "status": self.status,
+            "review_count": self.review_count,
+            "last_reviewed_at": self.last_reviewed_at.isoformat() if self.last_reviewed_at else None,
+            "last_reviewer_id": self.last_reviewer_id
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'AnalysisResult':
+        """从字典反序列化为 AnalysisResult"""
         if "block_id_1" not in data or "block_id_2" not in data or "analysis_type" not in data:
             raise ValueError("Missing required fields in AnalysisResult data")
+            
         try:
             analysis_type = AnalysisType(data.get("analysis_type", AnalysisType.UNKNOWN.value))
         except ValueError:
             logger.warning(f"Invalid AnalysisType '{data.get('analysis_type')}', defaulting to UNKNOWN.")
             analysis_type = AnalysisType.UNKNOWN
 
+        # 处理时间字段
+        created_at = datetime.datetime.now(datetime.timezone.utc)
+        if "created_at" in data:
+            try:
+                created_at = datetime.datetime.fromisoformat(data["created_at"])
+            except ValueError:
+                logger.warning(f"Invalid created_at format. Using current time.")
+
+        last_reviewed_at = None
+        if "last_reviewed_at" in data and data["last_reviewed_at"]:
+            try:
+                last_reviewed_at = datetime.datetime.fromisoformat(data["last_reviewed_at"])
+            except ValueError:
+                logger.warning(f"Invalid last_reviewed_at format. Setting to None.")
+
         return cls(
             block_id_1=data["block_id_1"],
             block_id_2=data["block_id_2"],
             analysis_type=analysis_type,
             score=data.get("score"),
+            details=data.get("details", {}),
+            confidence=data.get("confidence", 0.0),
+            created_at=created_at,
+            analysis_version=data.get("analysis_version", "1.0.0"),
+            metadata=data.get("metadata", {}),
+            status=data.get("status", "pending"),
+            review_count=data.get("review_count", 0),
+            last_reviewed_at=last_reviewed_at,
+            last_reviewer_id=data.get("last_reviewer_id")
         )
 
 
 @dataclass
 class UserDecision:
+    """
+    表示用户对分析结果的决策。
+    包含决策的基本信息、状态和审核信息。
+    """
+    # 基本字段
     block_id_1: str
     block_id_2: str
     analysis_type: AnalysisType
-
     decision: DecisionType = DecisionType.UNDECIDED
     timestamp: datetime.datetime = field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc))
     notes: Optional[str] = None
+    
+    # 新增字段
+    user_id: Optional[str] = None
+    reviewed_at: Optional[datetime.datetime] = None
+    reviewer_id: Optional[str] = None
+    decision_reason: Optional[str] = None
+    priority: int = 0  # 0: 普通, 1: 高, 2: 紧急
+    status: str = "pending"  # pending, reviewed, executed
+    execution_time: Optional[datetime.datetime] = None
+    execution_status: Optional[str] = None
+    execution_notes: Optional[str] = None
+    metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    # 生成字段
     decision_id: str = field(init=False)
 
     def __post_init__(self):
+        """生成确定性的 decision_id"""
         sorted_ids = sorted([self.block_id_1, self.block_id_2])
         id_string = f"{sorted_ids[0]}_{sorted_ids[1]}_{self.analysis_type.value}"
         namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
         self.decision_id = str(uuid.uuid5(namespace, id_string))
 
     def to_dict(self) -> Dict[str, Any]:
+        """将 UserDecision 序列化为字典"""
         return {
             "decision_id": self.decision_id,
             "block_id_1": self.block_id_1,
@@ -179,12 +325,24 @@ class UserDecision:
             "decision": self.decision.value,
             "timestamp": self.timestamp.isoformat(),
             "notes": self.notes,
+            "user_id": self.user_id,
+            "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
+            "reviewer_id": self.reviewer_id,
+            "decision_reason": self.decision_reason,
+            "priority": self.priority,
+            "status": self.status,
+            "execution_time": self.execution_time.isoformat() if self.execution_time else None,
+            "execution_status": self.execution_status,
+            "execution_notes": self.execution_notes,
+            "metadata": self.metadata
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'UserDecision':
+        """从字典反序列化为 UserDecision"""
         if "block_id_1" not in data or "block_id_2" not in data or "analysis_type" not in data:
             raise ValueError("Missing required fields in UserDecision data")
+            
         try:
             analysis_type = AnalysisType(data.get("analysis_type", AnalysisType.UNKNOWN.value))
         except ValueError:
@@ -197,17 +355,27 @@ class UserDecision:
             logger.warning(f"Invalid DecisionType '{data.get('decision')}', defaulting to UNDECIDED.")
             decision = DecisionType.UNDECIDED
 
+        # 处理时间字段
         timestamp = datetime.datetime.now(datetime.timezone.utc)
-        ts = data.get("timestamp")
-        if ts:
+        if "timestamp" in data:
             try:
-                if ts.endswith('Z'):
-                    ts = ts[:-1] + '+00:00'
-                timestamp = datetime.datetime.fromisoformat(ts)
-                if timestamp.tzinfo is None:
-                    timestamp = timestamp.replace(tzinfo=datetime.timezone.utc)
+                timestamp = datetime.datetime.fromisoformat(data["timestamp"])
             except ValueError:
-                logger.warning(f"Invalid timestamp '{data.get('timestamp')}', using now().")
+                logger.warning(f"Invalid timestamp format. Using current time.")
+
+        reviewed_at = None
+        if "reviewed_at" in data and data["reviewed_at"]:
+            try:
+                reviewed_at = datetime.datetime.fromisoformat(data["reviewed_at"])
+            except ValueError:
+                logger.warning(f"Invalid reviewed_at format. Setting to None.")
+
+        execution_time = None
+        if "execution_time" in data and data["execution_time"]:
+            try:
+                execution_time = datetime.datetime.fromisoformat(data["execution_time"])
+            except ValueError:
+                logger.warning(f"Invalid execution_time format. Setting to None.")
 
         return cls(
             block_id_1=data["block_id_1"],
@@ -216,6 +384,16 @@ class UserDecision:
             decision=decision,
             timestamp=timestamp,
             notes=data.get("notes"),
+            user_id=data.get("user_id"),
+            reviewed_at=reviewed_at,
+            reviewer_id=data.get("reviewer_id"),
+            decision_reason=data.get("decision_reason"),
+            priority=data.get("priority", 0),
+            status=data.get("status", "pending"),
+            execution_time=execution_time,
+            execution_status=data.get("execution_status"),
+            execution_notes=data.get("execution_notes"),
+            metadata=data.get("metadata", {})
         )
 
 
