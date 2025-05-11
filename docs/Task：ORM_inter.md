@@ -258,3 +258,111 @@ CRUD：创建 Document，关联 Block、Analysis、Decision 并查询
 3. 运行 `alembic upgrade head` 后，数据库中创建了 `documents`, `blocks`, `analyses`, `decisions` 四张表（可使用 SQLite CLI 或 `engine.table_names()`).
 4. `git diff` 中包含 `alembic.ini`、`alembic/env.py` 与空的 `alembic/versions/` 目录结构。
 5. CI 流水线上模拟运行 `alembic upgrade head` 不报错。
+
+
+### 原子任务 6.4：自动生成并验证初版迁移脚本
+
+**文件位置**
+
+* Alembic 目录：`alembic/versions/`
+* 测试目录：`tests/storage/`
+
+**目标**
+
+1. 使用 Alembic 的自动生成功能，创建初始化迁移脚本（包含核心表的创建）
+2. 验证生成的脚本与 ORM 模型一致
+3. 在干净环境下执行迁移，并确认数据库结构正确
+
+**子任务列表**
+
+1. **生成迁移脚本**
+
+   * 在项目根执行：
+
+     ```bash
+     alembic revision --autogenerate -m "init tables"
+     ```
+   * 确认在 `alembic/versions/` 目录下生成了新的 `.py` 文件
+
+2. **审查迁移脚本内容**
+
+   * 打开新生成的脚本，检查 `upgrade()` 函数中包含 `op.create_table('documents', ...)`、`op.create_table('blocks', ...)`、`op.create_table('analyses', ...)`、`op.create_table('decisions', ...)` 四个表的创建语句
+   * 在 `downgrade()` 中对应包含 `op.drop_table(...)` 调用
+
+3. **编写自动化测试**
+
+   * 在 `tests/storage/test_migration_autogenerate.py` 中，编写测试用例：
+
+     ```python
+     def test_autogenerate_migration_creates_tables(tmp_path, monkeypatch):
+         # 设置 ALEMBIC_CONFIG 指向项目 alembic.ini
+         # 调用 alembic.command.revision(autogenerate=True)
+         # 断言 alembic/versions 目录中文件只增多一份
+         # 读取新脚本内容并断言包含核心表名
+     ```
+   * 确保该测试在CI环境中运行，并能通过
+
+4. **执行迁移测试**
+
+   * 在测试或脚本中，执行 `alembic upgrade head`
+   * 使用 SQLAlchemy `engine.table_names()`（或 `inspect(engine).get_table_names()`）断言表列表包含
+
+     ```python
+     ['documents', 'blocks', 'analyses', 'decisions']
+     ```
+
+**验收标准**
+
+* 生成的迁移脚本准确包含四张核心表的 CREATE 语句
+* 自动化测试 `tests/storage/test_migration_autogenerate.py` 在干净环境下通过
+* 执行 `alembic upgrade head` 能在新数据库中创建核心表
+* CI 流水线中相关测试与迁移步骤均绿灯
+
+
+### 原子任务 6.5：在引擎中集成持久化调用
+
+**背景：已完成任务回顾**
+
+* **6.1**：添加了 SQLAlchemy 与 Alembic 依赖，完成了 `sqlite_storage.py` 基础配置和 `init_db()` 初始化功能。
+* **6.2**：定义并注册了 `Document`、`Block`、`Analysis`、`Decision` 四个 ORM 模型，确保 `init_db()` 能创建对应表。
+* **6.3**：配置了 Alembic 环境，生成并验证了初版迁移脚本，确保数据库模式与 ORM 模型同步。
+* **6.4**：使用 Alembic 自动生成功能，优化并验证了迁移脚本，增加了索引，编写了测试和工具脚本以重置/验证数据库。
+
+**目标**
+
+* 将 `run_analysis()` 的内存分析结果持久化到 SQLite 数据库中：
+
+  1. 在分析开始前调用 `init_db()`（若未初始化）
+  2. 批量插入新扫描的 `Document` 记录
+  3. 插入每个 `Block` 及其 `Analysis` 结果
+* 在 `save_results()` 中统一提交事务，并在异常时回滚
+
+**子任务列表**
+
+1. **更新 `KnowledgeDistillerEngine`**
+
+   * 在 `run_analysis()` 开头调用 `init_db()`
+   * 在流程末尾，将内存 `documents`、`blocks`、`analyses` 汇总为 ORM 实例，并通过 `SessionLocal()` 批量 `session.add_all()`
+2. **实现 `save_results()`**
+
+   * 接收 `analysis_results: Dict` 与 `decisions: List`，转换为 ORM 对象
+   * 在一个事务中 `session.begin()` 执行所有插入/更新操作，调用 `session.commit()`
+   * 在 `except` 块中调用 `session.rollback()` 并重新抛出异常
+3. **编写单元测试**
+
+   * 在内存数据库（`sqlite:///:memory:`）上测试：
+
+     ```python
+     # 模拟 run_analysis() 返回内存结果
+     engine = KnowledgeDistillerEngine(input_dir=str(tmp_path), skip_prefilter=True)
+     engine.run_analysis()
+     # 断言 session.query(Document).count() == expected
+     ```
+   * 测试事务回滚：在中途人为抛出异常，验证数据库无部分写入
+
+**验收标准**
+
+* `run_analysis()` 执行后，通过 ORM 查询能在数据库中找到对应记录
+* `save_results()` 在正常和异常场景均能正确提交或回滚
+* 新增测试 `tests/storage/test_persistence.py` 全部通过
+* CI 流水线绿色，无回归错误

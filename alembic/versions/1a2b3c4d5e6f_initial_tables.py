@@ -1,8 +1,8 @@
-"""create tables
+"""initial tables
 
-Revision ID: 0dd513bd763e
-Revises: a8f09560da3e
-Create Date: 2025-05-11 09:00:38.333472
+Revision ID: 1a2b3c4d5e6f
+Revises: 
+Create Date: 2025-05-11 10:00:00.000000
 
 """
 from typing import Sequence, Union
@@ -13,8 +13,8 @@ from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, JSON
 
 
 # revision identifiers, used by Alembic.
-revision: str = '0dd513bd763e'
-down_revision: Union[str, None] = 'a8f09560da3e'
+revision: str = '1a2b3c4d5e6f'
+down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -75,4 +75,4 @@ def downgrade() -> None:
     op.drop_table('decisions')
     op.drop_table('analyses')
     op.drop_table('blocks')
-    op.drop_table('documents')
+    op.drop_table('documents') 
