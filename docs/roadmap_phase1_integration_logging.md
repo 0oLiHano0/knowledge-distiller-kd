@@ -57,21 +57,30 @@
         *   实现了配置和日志器的依赖注入，使 Engine 更加可测试，实现了目标
         *   创建了通用测试夹具，简化测试代码
 
-*   **任务 1.4: 在引擎中集成 `StorageInterface` 调用**
+*   **任务 1.4: 在引擎中集成 `StorageInterface` 调用** [✅已完成]
     *   **目标:** 将 `Engine` 内所有直接的数据持久化操作替换为对注入的 `storage` 对象的调用。
     *   **内容:**
-        *   全面扫描 `engine.py`，识别所有数据库交互或文件系统读写（用于持久化）的代码。
-        *   替换为 `self.storage.method_name(...)` 调用，例如 `save_blocks`, `get_analysis_results`, `register_file` 等。
-        *   确保在引擎和存储层之间传递的数据使用的是 `core.models.py` 中定义的统一 DTO 或 SQLAlchemy 模型。特别关注并解决任何模型不一致问题（如 `processing.ContentBlock` vs `core.models.ContentBlock`）。
-    *   **产出:** `Engine` 不再关心存储的具体实现细节，只通过接口交互。
+        *   ✅ 全面扫描 `engine.py`，识别所有数据库交互或文件系统读写（用于持久化）的代码。
+        *   ✅ 替换为 `self.storage.method_name(...)` 调用，例如 `save_blocks`, `get_analysis_results`, `register_file` 等。
+        *   ✅ 确保在引擎和存储层之间传递的数据使用的是 `core.models.py` 中定义的统一 DTO 或 SQLAlchemy 模型。特别关注并解决任何模型不一致问题（如 `processing.ContentBlock` vs `core.models.ContentBlock`）。
+    *   **产出:** ✅ `Engine` 不再关心存储的具体实现细节，只通过接口交互。
+    *   **遇到的问题:**
+        *   修复了引擎中某些方法的缩进问题
+        *   解决了决策键格式不一致的问题，统一使用常量中定义的分隔符
+        *   编写了全面的测试确保存储接口调用的正确性
 
-*   **任务 1.5: 集成存储生命周期与错误处理**
+*   **任务 1.5: 集成存储生命周期与错误处理** [✅已完成]
     *   **目标:** 确保存储资源被正确管理，并且存储层错误得到健壮处理。
     *   **内容:**
-        *   确保存储初始化逻辑（如 `storage.initialize()`）在应用启动时通过工厂或主程序调用。
-        *   考虑实现并调用 `storage.finalize()`（如果需要，例如显式关闭连接池）在应用退出时。
-        *   在 `engine.py` 中，为所有 `self.storage.*` 调用添加 `try...except` 块。捕获可能由存储层抛出的特定异常（如 `SQLAlchemyError`），记录详细错误信息（使用 logger），并根据需要将其封装为更高层次的领域特定异常（如自定义的 `KDStorageError` 或 `KDCoreError`）后重新抛出或进行处理。
-    *   **产出:** 更可靠的存储操作和更清晰的错误反馈路径。
+        *   ✅ 确保存储初始化逻辑（如 `storage.initialize()`）在应用启动时通过工厂或主程序调用。
+        *   ✅ 考虑实现并调用 `storage.finalize()`（如果需要，例如显式关闭连接池）在应用退出时。
+        *   ✅ 在 `engine.py` 中，为所有 `self.storage.*` 调用添加 `try...except` 块。捕获可能由存储层抛出的特定异常（如 `SQLAlchemyError`），记录详细错误信息（使用 logger），并根据需要将其封装为更高层次的领域特定异常（如自定义的 `KDStorageError` 或 `KDCoreError`）后重新抛出或进行处理。
+    *   **产出:** ✅ 更可靠的存储操作和更清晰的错误反馈路径。
+    *   **遇到的问题:**
+        *   通过引入`KDStorageError`类统一了存储错误处理机制
+        *   使用`atexit`模块在应用退出时自动调用`storage.finalize()`，确保资源正确清理
+        *   添加了全面的测试用例验证存储生命周期管理和错误处理，提高了系统稳定性
+        *   通过依赖注入和工厂模式，简化了存储实例的创建和管理，提高了代码可维护性
 
 ---
 
@@ -79,32 +88,55 @@
 
 *   **总目标:** 将项目日志系统完全切换到 Loguru，利用其结构化日志和便捷配置。
 
-*   **任务 2.1: 通过工厂和配置完成 Loguru 设置**
+*   **任务 2.1: 通过工厂和配置完成 Loguru 设置** [✅已完成]
     *   **目标:** 使用集中配置初始化 Loguru，并通过工厂提供 logger 实例。
     *   **内容:**
-        *   在 `core/factories.py` 中添加创建和配置 `logger` 实例的逻辑。
-        *   该逻辑应读取 `LoggingConfig` (来自 Task 1.1) 中的设置。
-        *   使用 `logger.add()` 配置 sinks：
-            *   一个文件 sink，写入 `LoggingConfig` 指定的路径，使用 JSON 格式 (`serialize=True`)，并配置轮转 (`rotation=`, `retention=`) 和级别 (`level=`)。
-            *   一个控制台 sink (`sys.stderr`)，使用更易读的格式 (`serialize=False`)，级别可单独配置。
-        *   确保工厂能返回配置好的 `logger` 对象。
-    *   **产出:** 可配置、结构化的日志系统实例。
+        *   ✅ 在 `core/factories.py` 中添加创建和配置 `logger` 实例的逻辑。
+        *   ✅ 该逻辑应读取 `LoggingConfig` (来自 Task 1.1) 中的设置。
+        *   ✅ 使用 `logger.add()` 配置 sinks：
+            *   ✅ 一个文件 sink，写入 `LoggingConfig` 指定的路径，使用 JSON 格式 (`serialize=True`)，并配置轮转 (`rotation=`, `retention=`) 和级别 (`level=`)。
+            *   ✅ 一个控制台 sink (`sys.stderr`)，使用更易读的格式 (`serialize=False`)，级别可单独配置。
+        *   ✅ 确保工厂能返回配置好的 `logger` 对象。
+    *   **产出:** ✅ 可配置、结构化的日志系统实例。
+    *   **遇到的问题:**
+        *   测试编写时需要确保模拟对象包含所有必要的属性，最初由于LoggingConfig模拟对象缺少部分属性导致测试失败
+        *   修复了文件目录不存在时的问题，确保自动创建日志目录
+        *   为功能编写了完善的单元测试，验证了各种配置场景
 
-*   **任务 2.2: 全局迁移日志调用**
+*   **任务 2.2: 全局迁移日志调用** [✅已完成]
     *   **目标:** 替换代码库中所有标准 `logging` 模块的使用。
     *   **内容:**
-        *   搜索整个 `knowledge_distiller_kd` 目录，将 `import logging`, `logging.getLogger(...)`, 以及 `logger.*` (标准库 logger) 的调用替换为：
-            *   `from loguru import logger` (在模块顶部)
-            *   直接使用 `logger.*` 调用 (Loguru 的 logger)。
-        *   鼓励使用 `logger.bind(key=value)` 添加上下文信息到日志记录中。
-        *   对于需要显式传递 logger 的类或函数（如 `Engine`），确保从工厂获取并注入。
-    *   **产出:** 整个项目使用统一、功能更强的 Loguru 进行日志记录。
+        *   ✅ 搜索整个 `knowledge_distiller_kd` 目录，将 `import logging`, `logging.getLogger(...)`, 以及 `logger.*` (标准库 logger) 的调用替换为：
+            *   ✅ `from loguru import logger` (在模块顶部)
+            *   ✅ 直接使用 `logger.*` 调用 (Loguru 的 logger)。
+        *   ✅ 鼓励使用 `logger.bind(key=value)` 添加上下文信息到日志记录中。
+        *   ✅ 对于需要显式传递 logger 的类或函数（如 `Engine`），确保从工厂获取并注入。
+    *   **产出:** ✅ 整个项目使用统一、功能更强的 Loguru 进行日志记录。
+    *   **遇到的问题:**
+        *   按照TDD原则首先创建了测试用例，验证关键模块日志迁移情况
+        *   修改Engine初始化参数时发现测试用例中使用了不存在的方法，已修复
+        *   统一了logger参数传递，对需要依赖注入的组件如CzkawkaAdapter进行了适配，使用logger_instance参数
+        *   适配了CLI.py，移除了旧的setup_logger调用，完全使用工厂创建的logger
 
-*   **任务 2.3: 移除旧日志配置代码**
+*   **任务 2.3: 移除旧日志配置代码** [✅已完成]
     *   **目标:** 清理遗留代码，避免配置冲突。
     *   **内容:**
-        *   删除所有 `logging.basicConfig()` 调用以及任何其他标准库 `logging` 的配置代码。
-    *   **产出:** 清洁的日志系统实现。
+        *   ✅ 删除所有 `logging.basicConfig()` 调用以及任何其他标准库 `logging` 的配置代码。
+    *   **产出:** ✅ 清洁的日志系统实现。
+    *   **遇到的问题:**
+        *   修改了项目中多个文件，包括测试配置文件(`conftest.py`)、迁移脚本(`01_update_analysis_decision_tables.py`)和工具模块(`utils.py`)
+        *   删除了`setup_logger`函数中处理标准logging的代码，只保留loguru部分
+        *   修复了测试用例，解决了兼容性问题
+        *   移除了所有对标准logging模块的依赖，使项目完全使用loguru进行日志记录
+        *   测试基础设施也完全迁移到loguru，确保全面一致性
+        *   增强了日志功能测试：
+            * 添加了`test_logger_actual_output`测试实际日志输出和文件写入
+            * 添加了`test_logger_structured_json_output`测试JSON格式日志
+            * 添加了`test_logger_exception_capturing`验证异常捕获功能
+            * 添加了`test_logger_intercept_filter`测试日志过滤功能
+            * 添加了`test_logger_custom_sink_and_format`测试自定义格式和sink
+        *   修复了CzkawkaAdapter中日志捕获和测试问题
+        *   更新了架构设计文档，记录loguru迁移的完整情况
 
 ---
 
