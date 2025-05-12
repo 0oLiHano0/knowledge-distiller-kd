@@ -153,3 +153,6 @@ requirements/*.txt
 *_duplicate.*
 *_copy.*
 *_temp.*
+
+# 环境变量文件
+.env
