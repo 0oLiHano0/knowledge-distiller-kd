@@ -5,7 +5,7 @@ yarn.lock
 composer.lock
 Gemfile.lock
 bun.lockb
-.env*
+env/
 .git/
 .svn/
 .hg/
