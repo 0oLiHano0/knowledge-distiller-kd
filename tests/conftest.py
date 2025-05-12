@@ -9,13 +9,13 @@
 
 import os
 import sys
-import logging
 from pathlib import Path
 from typing import Generator
 
 import pytest
 from unittest.mock import MagicMock, patch
 from typing import Dict, List, Optional, Union
+from loguru import logger
 
 from knowledge_distiller_kd.storage.storage_interface import StorageInterface
 from knowledge_distiller_kd.core.config import AppConfig
@@ -24,15 +24,13 @@ from knowledge_distiller_kd.core.config import AppConfig
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-# 配置日志
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler(Path(__file__).parent / "test.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
-)
+# 配置测试环境的日志 (使用loguru)
+log_file = Path(__file__).parent / "test.log"
+# 移除默认处理器
+logger.remove()
+# 添加文件和控制台处理器
+logger.add(str(log_file), level="DEBUG")
+logger.add(sys.stdout, level="DEBUG")
 
 # 测试数据目录
 TEST_DATA_DIR = Path(__file__).parent / "test_data"

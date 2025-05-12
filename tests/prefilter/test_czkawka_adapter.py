@@ -8,11 +8,13 @@ import pytest
 from io import StringIO
 import tempfile
 import shutil
-import logging
+import sys
+import uuid
 
 from knowledge_distiller_kd.prefilter.czkawka_adapter import CzkawkaAdapter
 from knowledge_distiller_kd.core.models import DuplicateFileInfoDTO, DuplicateFileGroupDTO
 from knowledge_distiller_kd.core.utils import get_bundled_czkawka_path
+from loguru import logger
 
 class TestCzkawkaAdapter(unittest.TestCase):
     def setUp(self):
@@ -237,26 +239,45 @@ class TestCzkawkaAdapter(unittest.TestCase):
     @patch('knowledge_distiller_kd.prefilter.czkawka_adapter.subprocess.run')
     def test_scan_handles_stderr_output(self, mock_run):
         """测试处理标准错误输出"""
+        # 设置stderr有警告信息，并设置returncode为非零值，确保走错误处理逻辑
+        stderr_message = "Warning: Some files could not be scanned"
         mock_run.return_value = subprocess.CompletedProcess(
-            args=[], returncode=0, 
+            args=[], returncode=1, 
             stdout="[]", 
-            stderr="Warning: Some files could not be scanned"
+            stderr=stderr_message
         )
         
         # 使用StringIO捕获日志输出
         log_capture = StringIO()
-        handler = logging.StreamHandler(log_capture)
-        logger = logging.getLogger()
-        logger.addHandler(handler)
         
-        result = self.adapter.scan_directory_for_duplicates(Path("/test"))
-        self.assertEqual(result, [])
+        # 使用loguru临时添加处理器，直接捕获消息文本
+        logger_id = logger.add(log_capture, format="{message}")
         
-        # 检查是否记录了警告
-        log_output = log_capture.getvalue()
-        logger.removeHandler(handler)
-        # 这个断言可能需要根据实际的日志记录方式调整
-        # self.assertIn("Warning", log_output) 
+        # 暂存原始adapter并创建新的实例以隔离测试
+        original_adapter = self.adapter
+        try:
+            # 创建一个新的adapter实例以避免影响其他测试
+            self.adapter = CzkawkaAdapter(
+                czkawka_cli_path="mock_path",
+                config={"czkawka_args": ["mock", "args"]}
+            )
+            
+            # 执行被测函数
+            result = self.adapter.scan_directory_for_duplicates(Path("/test"))
+            
+            # 验证返回值
+            self.assertEqual(result, [])
+            
+            # 检查是否记录了警告信息到日志
+            log_output = log_capture.getvalue()
+            
+            # 验证错误日志中包含stderr输出的内容
+            self.assertIn(stderr_message, log_output, "日志输出应包含stderr中的警告信息")
+            self.assertIn("Czkawka 返回错误码", log_output, "日志应包含错误信息")
+        finally:
+            # 恢复原始adapter和移除logger处理器
+            self.adapter = original_adapter
+            logger.remove(logger_id)
 
     @patch('knowledge_distiller_kd.prefilter.czkawka_adapter.CzkawkaAdapter.scan_directory_for_duplicates')
     def test_filter_unique_files(self, mock_scan):
@@ -397,21 +418,20 @@ class TestCzkawkaAdapter(unittest.TestCase):
             adapter = CzkawkaAdapter()
             
             # 因为测试时不会真的执行替换，我们使用一个更明确的自定义logger来验证
-            test_logger = logging.getLogger("test_logger")
-            adapter.logger = test_logger
+            # 直接使用loguru的logger
+            adapter.logger = logger
             
-            with patch('logging.getLogger'):
-                unique_files, duplicate_groups = adapter.filter_unique_files(
-                    Path("/tmp"), 
-                    extensions=[".md", ".doc", ".docx"]
-                )
-                
-                # 验证结果
-                self.assertEqual(len(unique_files), 2)  # 1个md, 1个docx
-                unique_names = [f.name for f in unique_files]
-                self.assertIn("unique1.md", unique_names)
-                self.assertIn("unique2.docx", unique_names)
-                self.assertEqual(len(duplicate_groups), 1)
+            unique_files, duplicate_groups = adapter.filter_unique_files(
+                Path("/tmp"), 
+                extensions=[".md", ".doc", ".docx"]
+            )
+            
+            # 验证结果
+            self.assertEqual(len(unique_files), 2)  # 1个md, 1个docx
+            unique_names = [f.name for f in unique_files]
+            self.assertIn("unique1.md", unique_names)
+            self.assertIn("unique2.docx", unique_names)
+            self.assertEqual(len(duplicate_groups), 1)
 
     def test_filter_unique_files_real_files(self):
         """使用真实临时文件测试 filter_unique_files 方法"""

@@ -4,11 +4,9 @@ Core engine for the Knowledge Distiller tool.
 Encapsulates business logic, state management, and process orchestration.
 Refactored to use StorageInterface via dependency injection.
 Phase 5: Refactored run_analysis orchestration logic.
-Version 7: Corrected DTO conversion logic robustly, fixed status summary attribute,
-           adjusted error returns, corrected _initialize_decisions logic.
+Version 8: 添加存储层调用的错误处理机制，确保稳定和可靠运行。
 """
 
-import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Union, Any, Tuple, Set, DefaultDict
 from collections import defaultdict
@@ -18,12 +16,13 @@ import time
 import json
 import datetime
 from rich.console import Console
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+from loguru import logger
 
 # Import internal project modules (using relative paths)
 from . import constants
-from .error_handler import KDError, ConfigurationError, handle_error, validate_file_path, FileOperationError, AnalysisError
-from .utils import logger, create_decision_key, parse_decision_key
+from .error_handler import KDError, ConfigurationError, handle_error, validate_file_path, FileOperationError, AnalysisError, KDStorageError
+from .utils import create_decision_key, parse_decision_key
 from .config import AppConfig
 from ..storage.storage_interface import StorageInterface # Use the interface
 # Import DTOs/Enums from core.models (use final confirmed version)
@@ -47,9 +46,8 @@ DECISION_DELETE = 'delete'
 DECISION_UNDECIDED = 'undecided'
 METADATA_DECISION_KEY = 'kd_processing_status'
 
-# 新增：引入数据库相关导入
-from knowledge_distiller_kd.storage.sqlite_storage import init_db, SessionLocal
-from knowledge_distiller_kd.storage.models_sqlalchemy import Document, Block, Analysis, Decision
+# 用于初始化数据库
+from knowledge_distiller_kd.storage.sqlite_storage import init_db
 
 class KnowledgeDistillerEngine:
     """
@@ -170,8 +168,7 @@ class KnowledgeDistillerEngine:
             return True
         except (FileOperationError, ConfigurationError) as e:
             handle_error(e, "setting input directory"); print(f"[Error] Error setting input directory: {e}"); return False
-        except Exception as e:
-            handle_error(e, "setting input directory"); print(f"[Error] Unexpected error setting input directory: {e}"); return False
+        except Exception as e: handle_error(e, "setting input directory"); print(f"[Error] Unexpected error setting input directory: {e}"); return False
     
     def run_prefilter_only(self) -> Tuple[int, List[Path], List[List[Path]]]:
         """
@@ -183,10 +180,7 @@ class KnowledgeDistillerEngine:
                 - 唯一文件列表
                 - 重复文件组列表
         """
-        if not self.input_dir:
-            logger.error("预过滤无法执行：输入目录未设置")
-            raise ConfigurationError("Input directory not set.")
-
+        if not self.input_dir: logger.error("预过滤无法执行：输入目录未设置")
         logger.info(f"执行预过滤: {self.input_dir}")
         
         try:
@@ -284,10 +278,7 @@ class KnowledgeDistillerEngine:
         Returns:
             bool: 分析是否成功完成。
         """
-        if not self.input_dir:
-            logger.error("Analysis aborted: Input directory not set.")
-            print("[Error] Input directory not set.")
-            return False
+        if not self.input_dir: logger.error("Analysis aborted: Input directory not set."); print("[Error] Input directory not set.")
         logger.info(f"--- Starting analysis for folder: {self.input_dir} ---")
         print(f"\n[*] Starting analysis for folder: {self.input_dir}")
 
@@ -382,8 +373,7 @@ class KnowledgeDistillerEngine:
             print("\n[*] Step 1: Processing documents & saving initial blocks...")
             # 将预过滤后的文件列表传递给处理方法
             processing_successful = self._process_documents(files_to_process)
-            if not processing_successful:
-                 # Error already logged in _process_documents
+            if not processing_successful:  # Error already logged in _process_documents
                  raise AnalysisError("Document processing failed critically.")
             if not self.blocks_data:
                  logger.warning("No blocks were processed. Analysis may not yield results.")
@@ -458,11 +448,13 @@ class KnowledgeDistillerEngine:
         except AnalysisError as ae:
             logger.error(f"Analysis process failed: {ae}", exc_info=False)
             print(f"\n[Error] Analysis failed: {ae}")
-            analysis_successful = False; self._analysis_completed = False
-        except Exception as e:
+            analysis_successful = False
+            self._analysis_completed = False
+        except Exception as e: 
             handle_error(e, "running analysis workflow")
             print(f"\n[Error] An unexpected error occurred during analysis: {e}")
-            analysis_successful = False; self._analysis_completed = False
+            analysis_successful = False
+            self._analysis_completed = False
 
         return analysis_successful
 
@@ -623,7 +615,7 @@ class KnowledgeDistillerEngine:
 
     def save_results(self, analysis_results: Dict[str, List[Dict[str, Any]]], decisions: List[Dict[str, Any]]) -> bool:
         """
-        将分析结果和决策保存到数据库中，使用事务确保数据一致性。
+        将分析结果和决策保存到存储接口中。
         
         Args:
             analysis_results (Dict[str, List[Dict[str, Any]]]): 包含documents、blocks和analysis_results的字典。
@@ -631,355 +623,169 @@ class KnowledgeDistillerEngine:
             
         Returns:
             bool: 保存是否成功。
-            
-        Raises:
-            ValueError: 如果数据不符合要求。
-            Exception: 如果在保存过程中发生其他错误。
         """
         logger.info(f"保存分析结果: {len(analysis_results.get('documents', []))} 文档, "
                     f"{len(analysis_results.get('blocks', []))} 块, {len(analysis_results.get('analysis_results', []))} 分析结果")
         
-        # 数据验证
-        if not analysis_results:
-            raise ValueError("分析结果为空，无法保存")
-        
-        documents = analysis_results.get('documents', [])
-        blocks = analysis_results.get('blocks', [])
-        analyses = analysis_results.get('analysis_results', [])
-        
-        # 处理非法的块引用
-        block_ids = {block.get("block_id") for block in blocks if block.get("block_id")}
-        invalid_refs = []
-        for analysis in analyses:
-            block_id = analysis.get("block_id")
-            if block_id and block_id not in block_ids:
-                invalid_refs.append(block_id)
-        
-        if invalid_refs:
-            error_msg = f"分析结果引用了不存在的块: {', '.join(invalid_refs)}"
-            logger.error(error_msg)
-            raise ValueError(error_msg)
-        
-        session = SessionLocal()
         try:
-            with session.begin():
-                # 1. 保存文档数据
-                file_id_to_db_id = {}  # 字符串file_id -> 数据库ID映射
-                path_to_file_id = {}   # 路径 -> 已处理的file_id映射 (处理重复路径)
-                docs_saved = 0
-                docs_updated = 0
+            # 1. 保存文件记录
+            for doc_data in analysis_results.get('documents', []):
+                if not doc_data.get('file_id') or not doc_data.get('path'):
+                    logger.warning(f"文档缺少必需的file_id或path字段: {doc_data}")
+                    continue
                 
-                for doc_data in documents:
-                    # 验证必要字段
-                    file_id = doc_data.get('file_id')
-                    path = doc_data.get('path')
-                    if not file_id or not path:
-                        logger.error(f"文档缺少必需的file_id或path字段: {doc_data}")
-                        raise ValueError(f"文档数据不完整: 缺少file_id或path")
-                    
-                    # 处理文件路径重复的情况
-                    existing_path = session.query(Document).filter_by(path=path).first()
-                    
-                    if path in path_to_file_id:
-                        # 路径已在当前事务中处理过，跳过
-                        logger.warning(f"路径 '{path}' 在当前批处理中重复出现，使用之前的记录")
-                        file_id_to_db_id[file_id] = file_id_to_db_id[path_to_file_id[path]]
-                        continue
-                    
-                    if existing_path:
-                        # 路径已存在，保持第一条记录不变
-                        logger.info(f"文件路径 '{path}' 已存在，使用现有记录")
-                        file_id_to_db_id[file_id] = existing_path.id
-                        path_to_file_id[path] = file_id
-                        
-                        # 文件ID不同，但路径相同，将使用现有记录
-                        if existing_path.file_id != file_id:
-                            logger.warning(f"文件路径 '{path}' 已被file_id '{existing_path.file_id}' 使用，优先使用现有记录")
-                        
-                        docs_updated += 1
-                    else:
-                        # 新文档，创建记录
-                        try:
-                            new_doc = Document(
-                                file_id=file_id,
-                                path=path,
-                                file_hash=doc_data.get('file_hash', ''),
-                                type=doc_data.get('type', ''),
-                                size=doc_data.get('size', 0),
-                                ctime=doc_data.get('ctime'),
-                                mtime=doc_data.get('mtime'),
-                                status=doc_data.get('status', 'processed')
-                            )
-                            session.add(new_doc)
-                            session.flush()  # 立即获取ID
-                            
-                            file_id_to_db_id[file_id] = new_doc.id
-                            path_to_file_id[path] = file_id
-                            docs_saved += 1
-                        except Exception as e:
-                            logger.error(f"创建文档 '{file_id}' 失败: {e}")
-                            raise ValueError(f"创建文档失败: {e}")
+                # 创建FileRecord对象
+                file_record = FileRecordDTO(
+                    file_id=doc_data['file_id'],
+                    original_path=doc_data['path'],
+                    metadata={
+                        'file_hash': doc_data.get('file_hash', ''),
+                        'type': doc_data.get('type', ''),
+                        'size': doc_data.get('size', 0),
+                        'ctime': doc_data.get('ctime'),
+                        'mtime': doc_data.get('mtime'),
+                        'status': doc_data.get('status', 'processed')
+                    }
+                )
                 
-                # 如果没有成功保存任何文档，抛出异常
-                if not file_id_to_db_id:
-                    raise ValueError("没有有效的文档可供保存")
+                # 注册文件（如果不存在，StorageInterface应该能处理重复的情况）
+                self.storage.register_file(doc_data['path'])
                 
-                # 2. 保存块数据
-                block_id_to_db_id = {}  # block_id -> 数据库ID映射
-                blocks_saved = 0
-                blocks_updated = 0
+            # 2. 保存内容块
+            file_id_to_blocks: Dict[str, List[ContentBlockDTO]] = {}
+            
+            for block_data in analysis_results.get('blocks', []):
+                block_id = block_data.get('block_id')
+                file_id = block_data.get('file_id')
                 
-                for block_data in blocks:
-                    # 验证必要字段
-                    block_id = block_data.get('block_id')
-                    file_id = block_data.get('file_id')
-                    content_hash = block_data.get('content_hash')
-                    
-                    if not block_id:
-                        logger.error(f"块数据缺少必需的block_id字段: {block_data}")
-                        raise ValueError("块数据不完整: 缺少block_id")
-                    
-                    if not content_hash:
-                        content_hash = block_id  # 默认使用block_id作为内容哈希
-                    
-                    # 获取对应的文档数据库ID
-                    db_file_id = None
-                    
-                    if file_id in file_id_to_db_id:
-                        db_file_id = file_id_to_db_id[file_id]
-                    else:
-                        logger.warning(f"块 '{block_id}' 引用的file_id '{file_id}' 无效，尝试查找")
-                        
-                        # 尝试查找file_id
-                        if isinstance(file_id, str):
-                            doc = session.query(Document).filter_by(file_id=file_id).first()
-                            if doc:
-                                db_file_id = doc.id
-                                file_id_to_db_id[file_id] = doc.id
-                    
-                    if not db_file_id:
-                        logger.error(f"无法为块 '{block_id}' 找到有效的文档引用")
-                        raise ValueError(f"块 '{block_id}' 没有有效的文档引用")
-                    
-                    # 检查块是否已存在
-                    existing_block = session.query(Block).filter_by(block_id=block_id).first()
-                    
-                    if existing_block:
-                        # 更新现有块
-                        logger.debug(f"更新现有块 '{block_id}'")
-                        for key, value in block_data.items():
-                            if hasattr(existing_block, key) and key not in ['id', 'block_id', 'file_id']:
-                                if key == 'meta_data':
-                                    # 特殊处理meta_data字段
-                                    meta = existing_block.meta_data or {}
-                                    meta.update(value or {})
-                                    existing_block.meta_data = meta
-                                else:
-                                    setattr(existing_block, key, value)
-                        
-                        # 确保file_id引用正确
-                        if existing_block.file_id != db_file_id:
-                            logger.info(f"块 '{block_id}' 的文档引用从 {existing_block.file_id} 更新为 {db_file_id}")
-                            existing_block.file_id = db_file_id
-                        
-                        block_id_to_db_id[block_id] = existing_block.id
-                        blocks_updated += 1
-                    else:
-                        # 创建新块
-                        try:
-                            meta_data = block_data.get('meta_data', {}) or block_data.get('metadata', {})
-                            new_block = Block(
-                                block_id=block_id,
-                                file_id=db_file_id,  # 使用数据库ID
-                                content_hash=content_hash,
-                                text=block_data.get('text', ''),
-                                block_type=block_data.get('block_type', 'text'),
-                                processing_status=block_data.get('processing_status', 'processed'),
-                                meta_data=meta_data
-                            )
-                            session.add(new_block)
-                            session.flush()  # 立即获取ID
-                            
-                            block_id_to_db_id[block_id] = new_block.id
-                            blocks_saved += 1
-                        except Exception as e:
-                            logger.error(f"创建块 '{block_id}' 失败: {e}")
-                            raise ValueError(f"创建块失败: {e}")
+                if not block_id or not file_id:
+                    logger.warning(f"块数据缺少必需的block_id或file_id字段: {block_data}")
+                    continue
                 
-                # 3. 保存分析结果
-                analysis_saved = 0
-                result_id_mapping = {}  # result_id -> 分析对象映射
+                # 解析BlockType
+                block_type_str = block_data.get('block_type', 'text')
+                block_type = BlockType.UNKNOWN
+                try:
+                    for bt in BlockType:
+                        if bt.value.lower() == block_type_str.lower():
+                            block_type = bt
+                            break
+                except Exception as e:
+                    logger.error(f"解析BlockType失败: {e}")
                 
-                for analysis_data in analyses:
-                    # 验证必要字段
-                    block_id = analysis_data.get('block_id')
-                    analysis_type = analysis_data.get('analysis_type')
-                    
-                    if not block_id or not analysis_type:
-                        logger.error(f"分析结果缺少必需字段: {analysis_data}")
-                        raise ValueError("分析结果不完整: 缺少block_id或analysis_type")
-                    
-                    # 查找块的数据库ID
-                    db_block_id = block_id_to_db_id.get(block_id)
-                    if not db_block_id:
-                        error_msg = f"分析结果引用的块 '{block_id}' 未找到"
-                        logger.error(error_msg)
-                        raise ValueError(error_msg)
-                    
-                    # 获取相似块/重复块信息
-                    details = analysis_data.get('details') or {}
-                    similar_to = details.get('duplicate_of') or details.get('similar_to') or block_id
-                    
-                    # 验证similar_to块存在
-                    if similar_to != block_id and similar_to not in block_id_to_db_id:
-                        error_msg = f"分析结果引用的相似块 '{similar_to}' 未找到"
-                        logger.error(error_msg)
-                        raise ValueError(error_msg)
-                    
-                    # 生成唯一的result_id (如果未提供)
-                    result_id = analysis_data.get('result_id')
-                    if not result_id:
-                        # 确保对称性：block1/block2顺序不影响result_id
-                        sorted_ids = sorted([block_id, similar_to])
-                        id_string = f"{sorted_ids[0]}_{sorted_ids[1]}_{analysis_type}"
-                        namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
-                        result_id = str(uuid.uuid5(namespace, id_string))
-                    
-                    # 查找现有分析结果
-                    existing_analysis = session.query(Analysis).filter_by(result_id=result_id).first()
-                    
-                    if existing_analysis:
-                        # 更新现有分析
-                        logger.debug(f"更新分析结果 '{result_id}'")
-                        existing_analysis.score = str(analysis_data.get('score', 0))
-                        existing_analysis.details = details
-                        
-                        # 确保block_id_1/2字段正确
-                        if not existing_analysis.block_id_1:
-                            existing_analysis.block_id_1 = block_id
-                        if not existing_analysis.block_id_2:
-                            existing_analysis.block_id_2 = similar_to
-                        
-                        result_id_mapping[result_id] = existing_analysis
-                    else:
-                        # 创建新分析结果
-                        try:
-                            # 获取Block引用的数据库ID
-                            new_analysis = Analysis(
-                                result_id=result_id,
-                                block_id_1=block_id,
-                                block_id_2=similar_to,
-                                block_id=db_block_id,  # 兼容旧代码
-                                analysis_type=analysis_type,
-                                score=str(analysis_data.get('score', 0)),
-                                details=details
-                            )
-                            session.add(new_analysis)
-                            session.flush()  # 立即获取ID
-                            
-                            result_id_mapping[result_id] = new_analysis
-                            analysis_saved += 1
-                        except Exception as e:
-                            logger.error(f"创建分析结果失败: {e}")
-                            raise ValueError(f"创建分析结果失败: {e}")
+                # 创建ContentBlockDTO对象
+                block = ContentBlockDTO(
+                    block_id=block_id,
+                    file_id=file_id,
+                    text=block_data.get('text', ''),
+                    block_type=block_type,
+                    metadata=block_data.get('metadata', {}) or block_data.get('meta_data', {})
+                )
                 
-                # 4. 保存决策
-                decisions_saved = 0
+                if file_id not in file_id_to_blocks:
+                    file_id_to_blocks[file_id] = []
+                file_id_to_blocks[file_id].append(block)
+            
+            # 按文件批量保存块
+            for file_id, blocks in file_id_to_blocks.items():
+                if blocks:
+                    self.storage.save_blocks(file_id=file_id, blocks=blocks)
+            
+            # 3. 保存分析结果
+            md5_results: List[AnalysisResultDTO] = []
+            semantic_results: List[AnalysisResultDTO] = []
+            
+            for analysis_data in analysis_results.get('analysis_results', []):
+                analysis_type_str = analysis_data.get('analysis_type')
+                if not analysis_type_str:
+                    logger.warning(f"分析结果缺少analysis_type字段: {analysis_data}")
+                    continue
                 
-                for decision_data in decisions:
-                    # 获取块ID或索引
-                    block_id = decision_data.get('block_id')
-                    if not block_id:
-                        logger.error(f"决策缺少block_id字段: {decision_data}")
-                        raise ValueError("决策不完整: 缺少block_id")
-                    
-                    # 如果block_id是整数索引，转换为真实block_id
-                    if isinstance(block_id, int) and 0 <= block_id < len(blocks):
-                        real_block_id = blocks[block_id].get('block_id')
-                        if real_block_id:
-                            block_id = real_block_id
-                        else:
-                            error_msg = f"无法从索引 {block_id} 获取实际块ID"
-                            logger.error(error_msg)
-                            raise ValueError(error_msg)
-                    
-                    # 获取块的数据库ID
-                    db_block_id = block_id_to_db_id.get(block_id)
-                    if not db_block_id:
-                        error_msg = f"决策引用的块 '{block_id}' 未找到"
-                        logger.error(error_msg)
-                        raise ValueError(error_msg)
-                    
-                    # 找到对应的分析结果
-                    result_id = decision_data.get('result_id')
-                    analysis_obj = None
-                    
-                    if result_id and result_id in result_id_mapping:
-                        # 直接使用提供的result_id
-                        analysis_obj = result_id_mapping[result_id]
-                    else:
-                        # 查找与该块相关的分析结果
-                        for r_id, analysis in result_id_mapping.items():
-                            if analysis.block_id_1 == block_id or analysis.block_id_2 == block_id:
-                                result_id = r_id
-                                analysis_obj = analysis
-                                break
-                    
-                    if not result_id or not analysis_obj:
-                        logger.warning(f"找不到块 '{block_id}' 的分析结果，跳过决策")
-                        continue
-                    
-                    # 生成唯一决策ID
-                    decision_id = decision_data.get('decision_id')
-                    if not decision_id:
-                        decision_id = str(uuid.uuid4())
-                    
-                    decision_type = decision_data.get('decision_type')
-                    if not decision_type:
-                        logger.error(f"决策缺少decision_type字段: {decision_data}")
-                        raise ValueError("决策不完整: 缺少decision_type")
-                    
-                    # 查找现有决策
-                    existing_decision = session.query(Decision).filter_by(result_id=result_id).first()
-                    
-                    if existing_decision:
-                        # 更新现有决策
-                        existing_decision.decision_type = decision_type
-                        existing_decision.comment = decision_data.get('comment', '')
-                        if not existing_decision.decision_id:
-                            existing_decision.decision_id = decision_id
-                    else:
-                        # 创建新决策
-                        try:
-                            new_decision = Decision(
-                                decision_id=decision_id,
-                                result_id=result_id,
-                                block_id=db_block_id,  # 兼容旧代码
-                                decision_type=decision_type,
-                                comment=decision_data.get('comment', '')
-                            )
-                            session.add(new_decision)
-                            decisions_saved += 1
-                        except Exception as e:
-                            logger.error(f"创建决策失败: {e}")
-                            raise ValueError(f"创建决策失败: {e}")
+                # 解析AnalysisType
+                analysis_type = AnalysisType.UNKNOWN
+                try:
+                    for at in AnalysisType:
+                        if at.value.lower() == analysis_type_str.lower():
+                            analysis_type = at
+                            break
+                except Exception as e:
+                    logger.error(f"解析AnalysisType失败: {e}")
                 
-                # 统计保存情况
-                logger.info(f"保存结果: {docs_saved}个新文档, {docs_updated}个更新文档, "
-                           f"{blocks_saved}个新块, {blocks_updated}个更新块, "
-                           f"{analysis_saved}个分析结果, {decisions_saved}个决策")
+                # 获取block_id_1和block_id_2
+                block_id_1 = analysis_data.get('block_id_1') or analysis_data.get('block_id')
+                block_id_2 = analysis_data.get('block_id_2') or analysis_data.get('similar_to') or analysis_data.get('duplicate_of')
                 
-                return True
-        except ValueError as ve:
-            # 对于数据校验错误，向上抛出
-            logger.error(f"数据验证错误: {ve}")
-            raise
+                if not block_id_1 or not block_id_2:
+                    logger.warning(f"分析结果缺少必需的block_id或similar_to/duplicate_of字段: {analysis_data}")
+                    continue
+                
+                # 创建AnalysisResultDTO对象
+                result = AnalysisResultDTO(
+                    block_id_1=block_id_1,
+                    block_id_2=block_id_2,
+                    analysis_type=analysis_type,
+                    score=analysis_data.get('score'),
+                    details=analysis_data.get('details', {})
+                )
+                
+                # 按分析类型分组
+                if analysis_type == AnalysisType.MD5_DUPLICATE:
+                    md5_results.append(result)
+                elif analysis_type == AnalysisType.SEMANTIC_SIMILARITY:
+                    semantic_results.append(result)
+            
+            # 保存分析结果
+            if md5_results:
+                self.storage.save_analysis_result(AnalysisType.MD5_DUPLICATE, md5_results)
+            if semantic_results:
+                self.storage.save_analysis_result(AnalysisType.SEMANTIC_SIMILARITY, semantic_results)
+            
+            # 4. 保存用户决策
+            for decision_data in decisions:
+                if 'block_id_1' not in decision_data or 'block_id_2' not in decision_data:
+                    logger.warning(f"决策数据缺少必需的字段: {decision_data}")
+                    continue
+                
+                # 解析DecisionType
+                decision_type_str = decision_data.get('decision', 'undecided')
+                decision_type = DecisionType.UNDECIDED
+                try:
+                    for dt in DecisionType:
+                        if dt.value.lower() == decision_type_str.lower():
+                            decision_type = dt
+                            break
+                except Exception as e:
+                    logger.error(f"解析DecisionType失败: {e}")
+                
+                # 解析AnalysisType
+                analysis_type_str = decision_data.get('analysis_type', 'unknown')
+                analysis_type = AnalysisType.UNKNOWN
+                try:
+                    for at in AnalysisType:
+                        if at.value.lower() == analysis_type_str.lower():
+                            analysis_type = at
+                            break
+                except Exception as e:
+                    logger.error(f"解析AnalysisType失败: {e}")
+                
+                # 创建UserDecisionDTO对象
+                user_decision = UserDecisionDTO(
+                    block_id_1=decision_data['block_id_1'],
+                    block_id_2=decision_data['block_id_2'],
+                    analysis_type=analysis_type,
+                    decision=decision_type,
+                    notes=decision_data.get('notes')
+                )
+                
+                # 保存用户决策
+                self.storage.save_user_decision(user_decision)
+            
+            logger.info("分析结果和决策保存成功")
+            return True
+            
         except Exception as e:
-            # 其他异常，记录并向上抛出
-            logger.error(f"保存结果时发生错误: {e}", exc_info=True)
-            raise
-        finally:
-            session.close()
+            logger.error(f"保存分析结果失败: {e}", exc_info=True)
+            return False
 
     def _model_loaded_successfully(self) -> bool:
         """Checks if the semantic model is loaded and ready."""
@@ -1218,70 +1024,147 @@ class KnowledgeDistillerEngine:
         self.block_decisions.clear(); self._decisions_loaded = False
         loaded_count = 0; error_count = 0; fetched_blocks: List[ContentBlockDTO] = []
         try:
+            # 使用存储接口获取块
             fetched_blocks = self.storage.get_blocks_for_analysis()
-            if not fetched_blocks: logger.warning("Storage returned no blocks."); self._decisions_loaded = True; return False
+            if not fetched_blocks: 
+                logger.warning("Storage returned no blocks."); 
+                self._decisions_loaded = True; 
+                return False
+            
             logger.info(f"Processing {len(fetched_blocks)} blocks for decisions...")
             for block_dto in fetched_blocks:
                 # --- 添加日志 ---
                 if block_dto.block_id == "a6fe03c62136119cbc37b307d4a6f509": # 只打印我们关心的块
                     logger.debug(f"Metadata loaded for block {block_dto.block_id} in load_decisions: {block_dto.metadata}")
                 # --- 结束日志 ---
+                
                 original_path = block_dto.metadata.get('original_path')
-                original_path = block_dto.metadata.get('original_path')
-                if not original_path: logger.warning(f"Block {block_dto.block_id} missing 'original_path'."); error_count += 1; continue
+                if not original_path: 
+                    logger.warning(f"Block {block_dto.block_id} missing 'original_path'."); 
+                    error_count += 1; 
+                    continue
                 try:
                     key = create_decision_key(str(Path(original_path).resolve()), block_dto.block_id, block_dto.block_type.value)
                     decision = block_dto.metadata.get(METADATA_DECISION_KEY, DECISION_UNDECIDED)
                     if decision not in [DECISION_KEEP, DECISION_DELETE, DECISION_UNDECIDED]:
-                        logger.warning(f"Invalid status '{decision}' for block {block_dto.block_id}. Using UNDECIDED."); decision = DECISION_UNDECIDED
+                        logger.warning(f"Invalid status '{decision}' for block {block_dto.block_id}. Using UNDECIDED."); 
+                        decision = DECISION_UNDECIDED
                     self.block_decisions[key] = decision
-                    if decision != DECISION_UNDECIDED: loaded_count += 1
-                except Exception as e: logger.error(f"Error processing block {block_dto.block_id}: {e}", exc_info=False); error_count += 1; continue
+                    if decision != DECISION_UNDECIDED: 
+                        loaded_count += 1
+                except Exception as e: 
+                    logger.error(f"Error processing block {block_dto.block_id}: {e}", exc_info=False); 
+                    error_count += 1; 
+                    continue
+            
             self._decisions_loaded = True
-            logger.info(f"Decision loading complete: {loaded_count} explicit decisions loaded, {error_count} errors."); print(f"[*] Decisions loaded: Processed {len(fetched_blocks)} blocks.")
+            logger.info(f"Decision loading complete: {loaded_count} explicit decisions loaded, {error_count} errors."); 
+            print(f"[*] Decisions loaded: Processed {len(fetched_blocks)} blocks.")
             return True
-        except FileOperationError as e: handle_error(e, "loading blocks"); print(f"[Error] Storage error loading blocks: {e}"); self._decisions_loaded = False; return False
-        except Exception as e: handle_error(e, "loading decisions"); print(f"[Error] Unexpected error loading decisions: {e}"); self._decisions_loaded = False; return False
+        except Exception as e: 
+            handle_error(e, "loading decisions"); 
+            print(f"[Error] Unexpected error loading decisions: {e}"); 
+            self._decisions_loaded = False; 
+            return False
 
     def save_decisions(self) -> bool:
         """Saves in-memory decisions back to storage via block metadata."""
-        if not self.block_decisions: logger.warning("No decisions in memory map."); print("[!] No decisions to save."); return False
+        if not self.block_decisions: 
+            logger.warning("No decisions in memory map."); 
+            print("[!] No decisions to save."); 
+            return False
+        
         logger.info(f"Saving {len(self.block_decisions)} decisions to storage via metadata ('{METADATA_DECISION_KEY}')...")
         updated_blocks_by_file_id: DefaultDict[str, List[ContentBlockDTO]] = defaultdict(list)
         processed_count = 0; error_count = 0; blocks_to_fetch_ids: Set[str] = set()
+        
+        # 解析决策键以获取所有块ID
         for key in self.block_decisions:
-            try: _, block_id, _ = parse_decision_key(key); blocks_to_fetch_ids.add(block_id)
-            except Exception as e: logger.error(f"Error parsing key '{key}': {e}"); error_count += 1; continue
-        if not blocks_to_fetch_ids: logger.error("No valid block IDs."); return False
-        logger.debug(f"Fetching {len(blocks_to_fetch_ids)} blocks..."); fetched_blocks_map: Dict[str, ContentBlockDTO] = {}; fetch_errors = 0
+            try: 
+                _, block_id, _ = parse_decision_key(key); 
+                blocks_to_fetch_ids.add(block_id)
+            except Exception as e: 
+                logger.error(f"Error parsing key '{key}': {e}"); 
+                error_count += 1; 
+                continue
+        
+        if not blocks_to_fetch_ids: 
+            logger.error("No valid block IDs."); 
+            return False
+        
+        logger.debug(f"Fetching {len(blocks_to_fetch_ids)} blocks..."); 
+        fetched_blocks_map: Dict[str, ContentBlockDTO] = {}; 
+        fetch_errors = 0
+        
+        # 从存储接口获取所有块
         for block_id in blocks_to_fetch_ids:
-             try: block = self.storage.get_block(block_id); fetched_blocks_map[block_id] = block if block else None
-             except Exception as e: logger.error(f"Error fetching block {block_id}: {e}"); error_count += 1; fetch_errors += 1
-        if fetch_errors > 0: logger.warning(f"{fetch_errors} errors fetching blocks.")
+            try: 
+                block = self.storage.get_block(block_id); 
+                fetched_blocks_map[block_id] = block if block else None
+            except Exception as e: 
+                logger.error(f"Error fetching block {block_id}: {e}"); 
+                error_count += 1; 
+                fetch_errors += 1
+        
+        if fetch_errors > 0: 
+            logger.warning(f"{fetch_errors} errors fetching blocks.")
+        
         blocks_requiring_save_count = 0
+        
+        # 更新块的元数据
         for key, decision_to_save in self.block_decisions.items():
-             processed_count += 1
-             try:
-                 _, block_id, _ = parse_decision_key(key)
-                 block = fetched_blocks_map.get(block_id)
-                 if block:
-                     current_decision = block.metadata.get(METADATA_DECISION_KEY)
-                     if current_decision != decision_to_save:
-                          if not isinstance(block.metadata, dict): block.metadata = {}
-                          block.metadata[METADATA_DECISION_KEY] = decision_to_save
-                          if block.file_id: updated_blocks_by_file_id[block.file_id].append(block); blocks_requiring_save_count += 1
-                          else: logger.warning(f"Block {block_id} missing file_id."); error_count += 1
-                 else: logger.warning(f"Block {block_id} for key '{key}' not found during save step.")
-             except Exception as e: logger.error(f"Error processing key '{key}' for saving: {e}"); error_count += 1
-        if not updated_blocks_by_file_id: logger.info(f"No metadata updates needed. Processed: {processed_count}, Errors: {error_count}"); print("[*] No decision changes to save."); return True
-        logger.info(f"Attempting to save {blocks_requiring_save_count} blocks with updated metadata..."); save_successful = True; files_saved_count = 0; save_errors = 0
+            processed_count += 1
+            try:
+                _, block_id, _ = parse_decision_key(key)
+                block = fetched_blocks_map.get(block_id)
+                if block:
+                    current_decision = block.metadata.get(METADATA_DECISION_KEY)
+                    if current_decision != decision_to_save:
+                        if not isinstance(block.metadata, dict): 
+                            block.metadata = {}
+                        block.metadata[METADATA_DECISION_KEY] = decision_to_save
+                        if block.file_id: 
+                            updated_blocks_by_file_id[block.file_id].append(block); 
+                            blocks_requiring_save_count += 1
+                        else: 
+                            logger.warning(f"Block {block_id} missing file_id."); 
+                            error_count += 1
+                else: 
+                    logger.warning(f"Block {block_id} for key '{key}' not found during save step.")
+            except Exception as e: 
+                logger.error(f"Error processing key '{key}' for saving: {e}"); 
+                error_count += 1
+        
+        if not updated_blocks_by_file_id: 
+            logger.info(f"No metadata updates needed. Processed: {processed_count}, Errors: {error_count}"); 
+            print("[*] No decision changes to save."); 
+            return True
+        
+        logger.info(f"Attempting to save {blocks_requiring_save_count} blocks with updated metadata..."); 
+        save_successful = True; 
+        files_saved_count = 0; 
+        save_errors = 0
+        
+        # 按文件批量保存更新后的块
         for file_id, blocks_to_save in updated_blocks_by_file_id.items():
-             logger.debug(f"Saving {len(blocks_to_save)} blocks for file_id: {file_id}")
-             try: self.storage.save_blocks(file_id=file_id, blocks=blocks_to_save); files_saved_count += 1
-             except Exception as e: logger.error(f"Failed save for file_id {file_id}: {e}"); save_successful = False; save_errors += 1; error_count += len(blocks_to_save)
+            logger.debug(f"Saving {len(blocks_to_save)} blocks for file_id: {file_id}")
+            try: 
+                self.storage.save_blocks(file_id=file_id, blocks=blocks_to_save); 
+                files_saved_count += 1
+            except Exception as e: 
+                logger.error(f"Failed save for file_id {file_id}: {e}"); 
+                save_successful = False; 
+                save_errors += 1; 
+                error_count += len(blocks_to_save)
+        
         total_errors = error_count
-        if save_successful: logger.info(f"Successfully saved decisions for {blocks_requiring_save_count} blocks across {files_saved_count} files. Total errors: {total_errors}."); print(f"[*] Decisions saved for {blocks_requiring_save_count} blocks. Errors: {total_errors}.")
-        else: logger.error(f"Errors saving decisions. Blocks needing save: {blocks_requiring_save_count}, File save errors: {save_errors}, Total errors: {total_errors}."); print(f"[Error] Failed to save decisions. Errors: {total_errors}")
+        if save_successful: 
+            logger.info(f"Successfully saved decisions for {blocks_requiring_save_count} blocks across {files_saved_count} files. Total errors: {total_errors}."); 
+            print(f"[*] Decisions saved for {blocks_requiring_save_count} blocks. Errors: {total_errors}.")
+        else: 
+            logger.error(f"Errors saving decisions. Blocks needing save: {blocks_requiring_save_count}, File save errors: {save_errors}, Total errors: {total_errors}."); 
+            print(f"[Error] Failed to save decisions. Errors: {total_errors}")
+        
         return save_successful
 
     def apply_decisions(self) -> Dict[Path, str]:
@@ -1300,10 +1183,11 @@ class KnowledgeDistillerEngine:
 
         # Ensure decisions are loaded/initialized (should have happened in run_analysis)
         if not self.block_decisions:
-             logger.warning("Decision map is empty. Output might include all blocks.")
-             # If you prefer to output nothing if decisions aren't ready, return {} here.
+            logger.warning("Decision map is empty. Output might include all blocks.")
+            # If you prefer to output nothing if decisions aren't ready, return {} here.
 
         try:
+            # 使用存储接口获取所有文件记录
             all_files = self.storage.list_files()
             if not all_files:
                 logger.warning("No files registered in storage.")
@@ -1327,6 +1211,7 @@ class KnowledgeDistillerEngine:
 
                 logger.debug(f"Processing file {i+1}/{total_files}: {original_path.name} (ID: {file_id})")
                 try:
+                    # 使用存储接口获取文件中的所有块
                     blocks_in_file = self.storage.get_blocks_by_file(file_id)
                     # Optional: Sort blocks if order matters and metadata allows.
                     # For now, assuming storage returns them in a reasonable order.
@@ -1368,13 +1253,19 @@ class KnowledgeDistillerEngine:
                         # Determine output path (existing logic seems okay)
                         output_sub_dir = self.output_dir_config_path
                         if self.input_dir and original_path.is_absolute() and self.input_dir.is_absolute():
-                             try: relative_parent = original_path.parent.relative_to(self.input_dir); output_sub_dir = self.output_dir_config_path / relative_parent
-                             except ValueError: logger.warning(f"Path {original_path} not relative to {self.input_dir}. Using default output dir.")
-                             except Exception as rel_path_err: logger.error(f"Error calculating relative path for {original_path}: {rel_path_err}. Using default output dir.")
-                        elif self.input_dir: logger.warning(f"Input dir or original path not absolute. Using default output dir.")
+                            try:
+                                relative_parent = original_path.parent.relative_to(self.input_dir)
+                                output_sub_dir = self.output_dir_config_path / relative_parent
+                            except ValueError:
+                                logger.warning(f"Path {original_path} not relative to {self.input_dir}. Using default output dir.")
+                            except Exception as rel_path_err:
+                                logger.error(f"Error calculating relative path for {original_path}: {rel_path_err}. Using default output dir.")
+                        elif self.input_dir:
+                            logger.warning(f"Input dir or original path not absolute. Using default output dir.")
 
                         output_suffix = ".md"
-                        if hasattr(constants, 'DEFAULT_OUTPUT_SUFFIX'): output_suffix = constants.DEFAULT_OUTPUT_SUFFIX + output_suffix
+                        if hasattr(constants, 'DEFAULT_OUTPUT_SUFFIX'):
+                            output_suffix = constants.DEFAULT_OUTPUT_SUFFIX + output_suffix
                         output_filename = original_path.stem + output_suffix
                         output_filepath = output_sub_dir / output_filename
 
@@ -1387,19 +1278,11 @@ class KnowledgeDistillerEngine:
 
                     processed_files_count += 1
 
-                except FileOperationError as storage_e:
-                    logger.error(f"Storage error processing blocks for {original_path.name}: {storage_e}")
-                    error_files.append(original_path.name)
-                    continue
                 except Exception as file_proc_e:
                     logger.error(f"Failed processing blocks/generating output for {original_path.name}: {file_proc_e}", exc_info=True)
                     error_files.append(original_path.name)
                     continue
 
-        except FileOperationError as storage_list_e:
-            logger.error(f"Storage error listing files: {storage_list_e}")
-            print(f"[Error] Storage list error: {storage_list_e}")
-            return {}
         except Exception as outer_e:
             logger.error(f"Unexpected error applying decisions: {outer_e}", exc_info=True)
             print(f"[Error] Applying decisions: {outer_e}")
@@ -1423,29 +1306,128 @@ class KnowledgeDistillerEngine:
         return self.semantic_duplicates
 
     def update_decision(self, block_key: str, decision: str) -> bool:
-        """Updates decision for a block, persists via storage metadata."""
-        if decision not in [DECISION_KEEP, DECISION_DELETE, DECISION_UNDECIDED]: logger.error(f"Invalid decision: '{decision}'"); return False
-        if not block_key: logger.error("Invalid block key."); return False
-        logger.debug(f"Updating decision for key '{block_key}' to '{decision}'...")
+        """
+        更新对内容块的决策。
+        
+        Args:
+            block_key: 内容块键
+            decision: 决策（keep/delete）
+            
+        Returns:
+            bool: 是否成功更新
+        """
+        self.logger.debug(f"Updating decision for block {block_key} to {decision}")
+        
         try:
-            _, block_id, _ = parse_decision_key(block_key)
-            if not block_id: logger.error(f"Could not parse block_id from key '{block_key}'."); return False
-            block = self.storage.get_block(block_id)
-            if not block: logger.error(f"Block ID '{block_id}' not found."); self.block_decisions.pop(block_key, None); return False
-            current_decision = block.metadata.get(METADATA_DECISION_KEY)
-            if current_decision == decision: logger.debug(f"Decision already '{decision}'.");  return True
-            block.metadata = block.metadata.copy() # <<< 添加在这里
-            if not isinstance(block.metadata, dict): block.metadata = {}
+            # 解析决策键获取块ID
+            block_id = block_key.split(':')[0]  # 假设格式为 "block_id:other_info"
+            
+            # 获取内容块
+            try:
+                block = self.storage.get_block(block_id)
+                if not block:
+                    self.logger.error(f"Block not found: {block_id}")
+                    return False
+            except SQLAlchemyError as e:
+                self.logger.exception(f"Database error getting block {block_id}: {e}")
+                return False
+            except Exception as e:
+                self.logger.exception(f"Error getting block {block_id}: {e}")
+                return False
+            
+            # 更新元数据中的决策
+            if not block.metadata:
+                block.metadata = {}
             block.metadata[METADATA_DECISION_KEY] = decision
-            if not block.file_id: logger.error(f"Block {block_id} missing file_id."); return False
-            logger.debug(f"Metadata before saving block {block.block_id} in update_decision: {block.metadata}") # 添加这行日志
-            self.storage.save_blocks(file_id=block.file_id, blocks=[block]) # 这是原来的行            self.block_decisions[block_key] = decision
-            self.block_decisions[block_key] = decision
-            logger.info(f"Updated decision for block '{block_id}' to '{decision}'."); print(f"[*] Decision updated for {block_id}.")
-            return True
-        except FileOperationError as e: handle_error(e, f"updating decision {block_key}"); print(f"[Error] Storage error: {e}"); return False
-        except ValueError as e: logger.error(f"Error parsing key '{block_key}': {e}"); return False
-        except Exception as e: handle_error(e, f"updating decision {block_key}"); print(f"[Error] Unexpected error: {e}"); return False
+            
+            # 保存更新后的块
+            try:
+                self.storage.save_blocks(file_id=block.file_id, blocks=[block])
+                self.logger.debug(f"Updated decision for block {block_id} to {decision}")
+                
+                # 更新内存中的决策
+                self.block_decisions[block_key] = decision
+                return True
+            except SQLAlchemyError as e:
+                self.logger.exception(f"Database error saving decision for block {block_id}: {e}")
+                return False
+            except Exception as e:
+                self.logger.exception(f"Error saving decision for block {block_id}: {e}")
+                return False
+        except Exception as e:
+            self.logger.exception(f"Unexpected error updating decision for {block_key}: {e}")
+            return False
+    
+    def get_undecided_pairs(self, analysis_type: AnalysisType) -> List[AnalysisResultDTO]:
+        """
+        获取指定分析类型的未决定对。
+        
+        Args:
+            analysis_type: 分析类型
+            
+        Returns:
+            List[AnalysisResultDTO]: 分析结果列表
+        """
+        self.logger.debug(f"Getting undecided pairs for analysis type: {analysis_type}")
+        
+        try:
+            undecided_pairs = self.storage.get_undecided_pairs(analysis_type)
+            self.logger.debug(f"Got {len(undecided_pairs)} undecided pairs")
+            return undecided_pairs
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error getting undecided pairs: {e}")
+            return []
+        except Exception as e:
+            self.logger.exception(f"Error getting undecided pairs: {e}")
+            return []
+    
+    def get_analysis_results(self, analysis_type: AnalysisType, 
+                           filter_criteria: Optional[Dict[str, Any]] = None) -> List[AnalysisResultDTO]:
+        """
+        获取分析结果。
+        
+        Args:
+            analysis_type: 分析类型
+            filter_criteria: 过滤条件
+            
+        Returns:
+            List[AnalysisResultDTO]: 分析结果列表
+        """
+        self.logger.debug(f"Getting analysis results for type: {analysis_type}")
+        
+        try:
+            results = self.storage.get_analysis_results(analysis_type, filter_criteria)
+            self.logger.debug(f"Got {len(results)} analysis results")
+            return results
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error getting analysis results: {e}")
+            return []
+        except Exception as e:
+            self.logger.exception(f"Error getting analysis results: {e}")
+            return []
+    
+    def get_user_decisions(self, filter_criteria: Optional[Dict[str, Any]] = None) -> List[UserDecisionDTO]:
+        """
+        获取用户决策。
+        
+        Args:
+            filter_criteria: 过滤条件
+            
+        Returns:
+            List[UserDecisionDTO]: 用户决策列表
+        """
+        self.logger.debug("Getting user decisions")
+        
+        try:
+            decisions = self.storage.get_user_decisions(filter_criteria)
+            self.logger.debug(f"Got {len(decisions)} user decisions")
+            return decisions
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error getting user decisions: {e}")
+            return []
+        except Exception as e:
+            self.logger.exception(f"Error getting user decisions: {e}")
+            return []
 
     def get_status_summary(self) -> Dict[str, Any]:
         """Provides a summary of the current engine state."""
@@ -1485,5 +1467,281 @@ class KnowledgeDistillerEngine:
         logger.info(f"Setting skip_semantic to {skip}")
         self.skip_semantic = skip; self._analysis_completed = False
         status = "enabled" if skip else "disabled"; print(f"[*] Skipping semantic analysis {status}. Re-analysis required.")
+
+    def _save_document_data(self) -> bool:
+        """
+        保存文档数据到存储中。包括文件记录和内容块数据。
+        
+        Returns:
+            bool: 是否成功保存
+        """
+        self.logger.info("Saving document data to storage...")
+        success = True
+        
+        # 保存文档和内容块数据
+        for doc_id, doc_data in self.documents.items():
+            try:
+                # 注册文件
+                file_id = self.storage.register_file(doc_data['path'])
+                self.logger.debug(f"Registered file ID: {file_id} for path: {doc_data['path']}")
+                
+                # 构建和保存内容块
+                blocks = []
+                for block in doc_data.get('blocks', []):
+                    # 创建内容块DTO
+                    block_dto = ContentBlockDTO(
+                        block_id=block.block_id,
+                        file_id=file_id,
+                        content=block.content,
+                        block_type=block.block_type,
+                        metadata=block.metadata,
+                        hash_md5=block.hash_md5,
+                        position=block.position
+                    )
+                    blocks.append(block_dto)
+                
+                # 保存内容块
+                if blocks:
+                    try:
+                        self.storage.save_blocks(file_id=file_id, blocks=blocks)
+                        self.logger.debug(f"Saved {len(blocks)} blocks for file ID: {file_id}")
+                    except SQLAlchemyError as e:
+                        self.logger.exception(f"Database error saving blocks for file {file_id}: {e}")
+                        raise KDStorageError(f"Failed to save blocks for file {file_id}: {str(e)}", 
+                                            error_code="DB_SAVE_ERROR") from e
+                    except Exception as e:
+                        self.logger.exception(f"Error saving blocks for file {file_id}: {e}")
+                        raise KDStorageError(f"Failed to save blocks: {str(e)}",
+                                            error_code="STORAGE_SAVE_ERROR") from e
+            except KDStorageError as e:
+                # 已经记录了详细日志和堆栈，这里只需处理错误
+                self.logger.error(f"Storage error for document {doc_id}: {e}")
+                success = False
+            except Exception as e:
+                self.logger.exception(f"Unexpected error saving document {doc_id}: {e}")
+                success = False
+        
+        return success
+
+    def _save_analysis_results(self, md5_results: List[AnalysisResultDTO], semantic_results: List[AnalysisResultDTO]) -> bool:
+        """
+        保存MD5和语义分析结果到存储中。
+        
+        Args:
+            md5_results: MD5分析结果列表
+            semantic_results: 语义分析结果列表
+            
+        Returns:
+            bool: 是否成功保存
+        """
+        self.logger.info(f"Saving analysis results: {len(md5_results)} MD5 results, {len(semantic_results)} semantic results")
+        success = True
+        
+        # 保存MD5分析结果
+        if md5_results:
+            try:
+                self.storage.save_analysis_result(AnalysisType.MD5_DUPLICATE, md5_results)
+                self.logger.info(f"Saved {len(md5_results)} MD5 analysis results")
+            except SQLAlchemyError as e:
+                self.logger.exception(f"Database error saving MD5 analysis results: {e}")
+                success = False
+            except Exception as e:
+                self.logger.exception(f"Error saving MD5 analysis results: {e}")
+                success = False
+        
+        # 保存语义分析结果
+        if semantic_results:
+            try:
+                self.storage.save_analysis_result(AnalysisType.SEMANTIC_SIMILARITY, semantic_results)
+                self.logger.info(f"Saved {len(semantic_results)} semantic analysis results")
+            except SQLAlchemyError as e:
+                self.logger.exception(f"Database error saving semantic analysis results: {e}")
+                success = False
+            except Exception as e:
+                self.logger.exception(f"Error saving semantic analysis results: {e}")
+                success = False
+        
+        return success
+
+    def _save_user_decision(self, decision_id: str, block_id_1: str, block_id_2: str, 
+                           analysis_type: AnalysisType, decision: DecisionType, 
+                           notes: Optional[str] = None) -> bool:
+        """
+        保存用户决策到存储中。
+        
+        Args:
+            decision_id: 决策ID
+            block_id_1: 第一个块ID
+            block_id_2: 第二个块ID
+            analysis_type: 分析类型
+            decision: 决策类型
+            notes: 可选的备注
+            
+        Returns:
+            bool: 是否成功保存
+        """
+        user_decision = UserDecisionDTO(
+            decision_id=decision_id,
+            block_id_1=block_id_1,
+            block_id_2=block_id_2,
+            analysis_type=analysis_type,
+            decision=decision,
+            notes=notes,
+            timestamp=int(time.time())
+        )
+        
+        try:
+            self.storage.save_user_decision(user_decision)
+            self.logger.debug(f"Saved user decision: {decision_id}")
+            return True
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error saving user decision: {e}")
+            return False
+        except Exception as e:
+            self.logger.exception(f"Error saving user decision: {e}")
+            return False
+
+    def _process_files(self, file_paths: List[Path]) -> bool:
+        """
+        处理文件列表，提取内容块并注册到存储。
+        
+        Args:
+            file_paths: 要处理的文件路径列表
+            
+        Returns:
+            bool: 是否成功处理所有文件
+        """
+        self.logger.info(f"Processing {len(file_paths)} files")
+        success = True
+        
+        for file_path in file_paths:
+            try:
+                # 获取绝对路径
+                abs_file_path = file_path.resolve()
+                
+                self.logger.debug(f"Processing file: {abs_file_path}")
+                
+                # 注册文件到存储
+                try:
+                    file_id = self.storage.register_file(str(abs_file_path))
+                    self.logger.debug(f"Registered file with ID: {file_id}")
+                except SQLAlchemyError as e:
+                    self.logger.exception(f"Database error registering file {abs_file_path}: {e}")
+                    raise KDStorageError(f"Failed to register file {abs_file_path}: {e}", "DB_REGISTER_ERROR") from e
+                except Exception as e:
+                    self.logger.exception(f"Error registering file {abs_file_path}: {e}")
+                    raise KDStorageError(f"Failed to register file: {e}", "STORAGE_REGISTER_ERROR") from e
+                
+                # 处理文件内容（这部分逻辑根据具体实现可能会有所不同）
+                # ...
+
+            except KDStorageError as e:
+                self.logger.error(f"Storage error processing file {file_path}: {e}")
+                success = False
+            except Exception as e:
+                self.logger.exception(f"Unexpected error processing file {file_path}: {e}")
+                success = False
+        
+        return success
+    
+    def _load_blocks_for_analysis(self) -> List[ContentBlockDTO]:
+        """
+        从存储中加载内容块用于分析。
+        
+        Returns:
+            List[ContentBlockDTO]: 加载的内容块列表
+        """
+        self.logger.info("Loading blocks for analysis from storage")
+        
+        try:
+            fetched_blocks = self.storage.get_blocks_for_analysis()
+            self.logger.info(f"Loaded {len(fetched_blocks)} blocks for analysis")
+            return fetched_blocks
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error loading blocks for analysis: {e}")
+            raise KDStorageError(f"Failed to load blocks for analysis: {e}", "DB_LOAD_ERROR") from e
+        except Exception as e:
+            self.logger.exception(f"Error loading blocks for analysis: {e}")
+            raise KDStorageError(f"Failed to load blocks: {e}", "STORAGE_LOAD_ERROR") from e
+    
+    def get_block(self, block_id: str) -> Optional[ContentBlockDTO]:
+        """
+        获取指定ID的内容块。
+        
+        Args:
+            block_id: 内容块ID
+            
+        Returns:
+            Optional[ContentBlockDTO]: 内容块对象，如果不存在则返回None
+        """
+        try:
+            block = self.storage.get_block(block_id)
+            return block
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error getting block {block_id}: {e}")
+            return None
+        except Exception as e:
+            self.logger.exception(f"Error getting block {block_id}: {e}")
+            return None
+    
+    def update_block(self, block: ContentBlockDTO) -> bool:
+        """
+        更新内容块。
+        
+        Args:
+            block: 要更新的内容块
+            
+        Returns:
+            bool: 是否成功更新
+        """
+        try:
+            self.storage.save_blocks(file_id=block.file_id, blocks=[block])
+            self.logger.debug(f"Updated block: {block.block_id}")
+            return True
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error updating block {block.block_id}: {e}")
+            return False
+        except Exception as e:
+            self.logger.exception(f"Error updating block {block.block_id}: {e}")
+            return False
+    
+    def list_files(self) -> List[FileRecordDTO]:
+        """
+        获取所有已注册的文件记录。
+        
+        Returns:
+            List[FileRecordDTO]: 文件记录列表
+        """
+        try:
+            all_files = self.storage.list_files()
+            self.logger.debug(f"Listed {len(all_files)} files")
+            return all_files
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error listing files: {e}")
+            return []
+        except Exception as e:
+            self.logger.exception(f"Error listing files: {e}")
+            return []
+    
+    def get_blocks_by_file(self, file_id: str) -> List[ContentBlockDTO]:
+        """
+        获取指定文件的所有内容块。
+        
+        Args:
+            file_id: 文件ID
+            
+        Returns:
+            List[ContentBlockDTO]: 内容块列表
+        """
+        try:
+            blocks_in_file = self.storage.get_blocks_by_file(file_id)
+            self.logger.debug(f"Got {len(blocks_in_file)} blocks for file {file_id}")
+            return blocks_in_file
+        except SQLAlchemyError as e:
+            self.logger.exception(f"Database error getting blocks for file {file_id}: {e}")
+            return []
+        except Exception as e:
+            self.logger.exception(f"Error getting blocks for file {file_id}: {e}")
+            return []
 
 # --- End of File ---

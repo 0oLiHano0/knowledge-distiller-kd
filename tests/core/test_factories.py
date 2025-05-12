@@ -57,15 +57,44 @@ def test_create_storage():
 
 
 def test_create_logger():
-    """测试 create_logger 函数返回日志器实例（占位）。"""
+    """测试 create_logger 函数创建并配置Loguru日志器实例。"""
     # 创建一个配置实例
     config = MagicMock(spec=AppConfig)
     
-    # 调用工厂函数
-    result = create_logger(config)
+    # 设置日志配置
+    logging_config = MagicMock()
+    logging_config.log_file_path = "logs/test.log"
+    logging_config.log_level = "INFO"
+    logging_config.log_rotation = "10 MB"
+    logging_config.log_retention = "7 days"
+    logging_config.log_serialize_json = True
+    config.logging = logging_config
     
-    # 目前应该返回loguru.logger，后续会更新
-    assert result == logger
+    # 模拟Loguru logger和Path
+    with patch('knowledge_distiller_kd.core.factories.logger') as mock_logger, \
+         patch('knowledge_distiller_kd.core.factories.Path') as mock_path:
+        
+        # 设置Path对象的行为
+        mock_path_instance = MagicMock()
+        mock_path.return_value = mock_path_instance
+        mock_path_instance.parent = MagicMock()
+        mock_path_instance.parent.exists.return_value = True
+        
+        # 配置mock logger
+        mock_logger.remove = MagicMock()
+        mock_logger.add = MagicMock()
+        
+        # 调用工厂函数
+        result = create_logger(config)
+        
+        # 验证移除了默认处理器
+        mock_logger.remove.assert_called_once()
+        
+        # 验证添加了文件处理器和控制台处理器
+        assert mock_logger.add.call_count == 2
+        
+        # 验证返回了正确的实例
+        assert result == mock_logger
 
 
 def test_create_engine():

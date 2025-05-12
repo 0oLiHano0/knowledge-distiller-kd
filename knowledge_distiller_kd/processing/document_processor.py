@@ -9,10 +9,10 @@
 import re
 from pathlib import Path
 from typing import Dict, Any, List, Union, Optional
-import logging
 import traceback # 确保导入 traceback
 
 # --- 第三方库导入 ---
+from loguru import logger
 # 确保导入了 partition 和 partition_md
 from unstructured.partition.auto import partition
 from unstructured.partition.md import partition_md
@@ -29,9 +29,6 @@ from ..core.error_handler import KDError # 使用 ..core 从 processing 上一�
 from ..core import constants # 使用 ..core 从 processing 上一级找到 core
 
 # --- 类定义开始 ---
-# 配置日志
-logger = logging.getLogger(constants.LOGGER_NAME) # 使用常量中定义的名字
-
 class DocumentProcessingError(KDError):
     """文档处理相关错误"""
     pass

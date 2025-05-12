@@ -14,11 +14,12 @@ and core.models DTOs for data exchange.
 
 import datetime
 import json
-import logging
 import uuid
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Type, TypeVar, Union, Callable
+
+from loguru import logger
 
 # Import DTOs and Interface definition
 from knowledge_distiller_kd.core.models import (
@@ -28,9 +29,6 @@ from knowledge_distiller_kd.core.models import (
 from knowledge_distiller_kd.storage.storage_interface import StorageInterface
 # Import potential custom errors if defined
 # from knowledge_distiller_kd.core.exceptions import StorageError, ConfigurationError
-
-# Setup logger for this module
-logger = logging.getLogger(__name__)
 
 # Generic TypeVar for DTOs used in helper functions
 T_DTO = TypeVar('T_DTO', ContentBlock, AnalysisResult, UserDecision, FileRecord)

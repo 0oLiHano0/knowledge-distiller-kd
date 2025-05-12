@@ -7,19 +7,18 @@ This script handles command-line argument parsing, initializes the core componen
 """
 
 import argparse
-import logging
 import sys
 import traceback
 from pathlib import Path
+from loguru import logger
 
 # 使用相对导入来引用同包内的模块
 from .core import constants
 from .core.engine import KnowledgeDistillerEngine
 from .core.error_handler import ConfigurationError, handle_error
-from .core.utils import logger, setup_logger # 使用 utils 中配置好的 logger
+from .core.factories import create_app_config, create_storage, create_logger, create_engine
 from .storage.orm_storage import ORMStorage
 from .ui.cli_interface import CliInterface
-from .core.factories import create_app_config, create_storage, create_logger, create_engine
 
 def parse_args() -> argparse.Namespace:
     """
@@ -113,13 +112,6 @@ def main() -> None:
     Main function: Parses arguments, initializes components, and runs the CLI.
     """
     args = parse_args()
-
-    # 设置日志级别
-    log_level = constants.LOG_LEVEL_MAP.get(args.log_level.upper(), logging.INFO)
-    try:
-        setup_logger(log_level) # 确保调用方式正确
-    except Exception as log_e:
-        print(f"错误：无法配置日志记录器 - {log_e}", file=sys.stderr)
 
     logger.info("KD Tool started.")
     logger.debug(f"Parsed arguments: {args}")

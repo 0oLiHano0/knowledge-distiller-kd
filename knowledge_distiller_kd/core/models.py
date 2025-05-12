@@ -7,11 +7,11 @@ particularly for data exchange between layers (e.g., storage, analysis, UI).
 
 import datetime
 import uuid
-import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
+from loguru import logger
 from pydantic import BaseModel, Field, model_validator
 
 # SQLAlchemy ORM 基础组件
@@ -20,8 +20,6 @@ from sqlalchemy.orm import relationship, declarative_base
 
 # 创建SQLAlchemy Base类
 Base = declarative_base()
-
-logger = logging.getLogger(__name__)
 
 # --- Enumerations ---
 

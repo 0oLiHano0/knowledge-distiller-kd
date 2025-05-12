@@ -2,7 +2,7 @@
 
 import subprocess
 import json
-import logging
+from loguru import logger
 from pathlib import Path
 from typing import List, Optional, Dict, Any, Set, Tuple
 import platform
@@ -20,7 +20,7 @@ class CzkawkaAdapter:
         self,
         czkawka_cli_path: Optional[str] = None,
         config: Optional[Dict[str, Any]] = None,
-        logger: Optional[logging.Logger] = None,
+        logger_instance: Any = None,
     ):
         # 如果用户指定了路径则使用，否则加载捆绑在 vendor 下的二进制
         if czkawka_cli_path:
@@ -37,7 +37,7 @@ class CzkawkaAdapter:
             "czkawka_args": [],  # 默认为空列表
             **(config or {})
         }
-        self.logger = logger or logging.getLogger(__name__)
+        self.logger = logger_instance or logger
 
         # 添加扫描结果缓存
         self._scan_cache = {}

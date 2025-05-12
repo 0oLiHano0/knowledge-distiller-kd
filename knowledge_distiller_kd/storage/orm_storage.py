@@ -2,12 +2,12 @@
 SQLite 数据库存储实现，使用 SQLAlchemy ORM。
 """
 
-import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import uuid
 import hashlib
+from loguru import logger
 
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -22,8 +22,6 @@ from knowledge_distiller_kd.storage.sqlite_storage import SessionLocal
 from knowledge_distiller_kd.storage.models_sqlalchemy import (
     Document, Block, Analysis, Decision
 )
-
-logger = logging.getLogger(__name__)
 
 class ORMStorage(StorageInterface):
     """

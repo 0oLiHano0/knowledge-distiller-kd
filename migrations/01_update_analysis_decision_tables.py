@@ -9,21 +9,17 @@
 import os
 import sys
 import sqlite3
-import logging
 from pathlib import Path
 import uuid
-
-# 配置日志
-logging.basicConfig(
-    level=logging.INFO,
-    format="[%(asctime)s] [%(levelname)s] %(name)s:%(funcName)s - %(message)s",
-    handlers=[logging.StreamHandler()],
-)
-logger = logging.getLogger("db_migration")
+from loguru import logger
 
 # 找到项目根目录
 PROJECT_ROOT = Path(__file__).parent.parent
 DB_PATH = PROJECT_ROOT / "instance" / "kd_database.sqlite"
+
+# 配置日志
+logger.remove()  # 移除默认处理器
+logger.add(sys.stdout, level="INFO", format="[{time:YYYY-MM-DD HH:mm:ss}] [{level}] {name}:{function} - {message}")
 
 
 def get_connection():

@@ -5,12 +5,10 @@
 """
 
 from typing import Optional, Dict, Any, Union
-import logging
 from pathlib import Path
 import traceback
 
-# 获取日志记录器
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class KDError(Exception):
     """知识蒸馏工具的基础错误类"""
@@ -45,6 +43,10 @@ class UserInputError(KDError):
 
 class ConfigurationError(KDError):
     """配置相关错误"""
+    pass
+
+class KDStorageError(KDError):
+    """存储操作相关错误"""
     pass
 
 def handle_error(error: Exception, context: Optional[str] = None) -> None:
