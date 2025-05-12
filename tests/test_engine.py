@@ -92,10 +92,24 @@ def mock_semantic_analyzer() -> MagicMock:
     return analyzer
 
 @pytest.fixture
+def mock_config() -> MagicMock:
+    """Provides a mocked config object."""
+    config = MagicMock()
+    return config
+
+@pytest.fixture
+def mock_logger() -> MagicMock:
+    """Provides a mocked logger object."""
+    logger = MagicMock()
+    return logger
+
+@pytest.fixture
 def engine_instance(
     mock_storage_interface: MagicMock,
     mock_md5_analyzer: MagicMock,         # Inject the MD5 mock fixture
     mock_semantic_analyzer: MagicMock,    # Inject the Semantic mock fixture
+    mock_config: MagicMock,              # 新增的配置
+    mock_logger: MagicMock,              # 新增的日志器
     tmp_path: Path
 ) -> Generator[KnowledgeDistillerEngine, None, None]:
     """
@@ -109,6 +123,8 @@ def engine_instance(
          patch('knowledge_distiller_kd.core.engine.SemanticAnalyzer', return_value=mock_semantic_analyzer) as MockSemantic:
         engine = KnowledgeDistillerEngine(
             storage=mock_storage_interface,
+            config=mock_config,
+            logger=mock_logger,
             decision_file=decision_file_path,
             output_dir=output_dir_path
             )
@@ -166,25 +182,40 @@ def test_engine_initialization_with_storage_interface(engine_instance: Knowledge
     assert isinstance(engine_instance.semantic_analyzer, MagicMock)
 
 
-def test_engine_initialization_with_input_dir(mock_storage_interface: MagicMock, tmp_path: Path):
+def test_engine_initialization_with_input_dir(mock_storage_interface: MagicMock, mock_config: MagicMock, mock_logger: MagicMock, tmp_path: Path):
     input_dir = tmp_path / "input_init"; input_dir.mkdir()
     # Need to patch analyzers here too if Engine init uses them
     with patch('knowledge_distiller_kd.core.engine.MD5Analyzer') as MockMD5, \
          patch('knowledge_distiller_kd.core.engine.SemanticAnalyzer') as MockSemantic:
-        engine = KnowledgeDistillerEngine(storage=mock_storage_interface, input_dir=input_dir)
+        engine = KnowledgeDistillerEngine(
+            storage=mock_storage_interface,
+            config=mock_config,
+            logger=mock_logger,
+            input_dir=input_dir
+        )
         assert engine.input_dir == input_dir.resolve(); assert engine.storage == mock_storage_interface
 
-def test_engine_initialization_with_invalid_input_dir(mock_storage_interface: MagicMock, tmp_path: Path):
+def test_engine_initialization_with_invalid_input_dir(mock_storage_interface: MagicMock, mock_config: MagicMock, mock_logger: MagicMock, tmp_path: Path):
     invalid_input = tmp_path / "non_existent_dir"
     with pytest.raises(ConfigurationError):
          with patch('knowledge_distiller_kd.core.engine.MD5Analyzer'), patch('knowledge_distiller_kd.core.engine.SemanticAnalyzer'):
-            KnowledgeDistillerEngine(storage=mock_storage_interface, input_dir=invalid_input)
+            KnowledgeDistillerEngine(
+                storage=mock_storage_interface,
+                config=mock_config,
+                logger=mock_logger,
+                input_dir=invalid_input
+            )
 
-def test_engine_initialization_with_file_as_input_dir(mock_storage_interface: MagicMock, tmp_path: Path):
+def test_engine_initialization_with_file_as_input_dir(mock_storage_interface: MagicMock, mock_config: MagicMock, mock_logger: MagicMock, tmp_path: Path):
     input_file = tmp_path / "input_file.txt"; input_file.touch()
     with pytest.raises(ConfigurationError):
          with patch('knowledge_distiller_kd.core.engine.MD5Analyzer'), patch('knowledge_distiller_kd.core.engine.SemanticAnalyzer'):
-            KnowledgeDistillerEngine(storage=mock_storage_interface, input_dir=input_file)
+            KnowledgeDistillerEngine(
+                storage=mock_storage_interface,
+                config=mock_config,
+                logger=mock_logger,
+                input_dir=input_file
+            )
 
 
 # --- set_input_dir Tests ---

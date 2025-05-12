@@ -14,6 +14,11 @@ from pathlib import Path
 from typing import Generator
 
 import pytest
+from unittest.mock import MagicMock, patch
+from typing import Dict, List, Optional, Union
+
+from knowledge_distiller_kd.storage.storage_interface import StorageInterface
+from knowledge_distiller_kd.core.config import AppConfig
 
 # 添加项目根目录到Python路径
 project_root = Path(__file__).parent.parent
@@ -113,4 +118,38 @@ def sample_blocks_data() -> list[dict]:
             "content": "这是第一个测试段落。",  # 重复内容
             "block_id": "test2_1"
         }
-    ] 
+    ]
+
+@pytest.fixture
+def mock_storage_interface() -> MagicMock:
+    """
+    Creates a mock storage interface for testing.
+    """
+    storage = MagicMock(spec=StorageInterface)
+    return storage
+
+@pytest.fixture
+def mock_config() -> MagicMock:
+    """
+    创建配置的模拟对象，模拟 AppConfig 的行为
+    """
+    config = MagicMock(spec=AppConfig)
+    
+    # 配置 engine 属性
+    engine_config = MagicMock()
+    engine_config.similarity_threshold = 0.85
+    engine_config.semantic_model = "test-model"
+    engine_config.batch_size = 32
+    engine_config.cache_dir = "cache"
+    engine_config.cache_base_dir = ".kd_cache"
+    config.engine = engine_config
+    
+    return config
+
+@pytest.fixture
+def mock_logger() -> MagicMock:
+    """
+    创建 logger 的模拟对象
+    """
+    logger = MagicMock()
+    return logger 

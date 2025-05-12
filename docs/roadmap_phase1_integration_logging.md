@@ -33,23 +33,29 @@
         *   `.env.example`文件创建时遇到权限问题，通过使用shell命令成功解决
         *   从`constants.py`迁移配置项时需要调整配置模型结构，已完成迁移
 
-*   **任务 1.2: 实现依赖管理工厂 (`core/factories.py`)**
+*   **任务 1.2: 实现依赖管理工厂 (`core/factories.py`)** [✅已完成]
     *   **目标:** 集中创建和提供核心依赖项（配置、存储实例、日志器）。
     *   **内容:**
-        *   创建 `knowledge_distiller_kd/core/factories.py`。
-        *   实现一个工厂类或一组函数，用于：
-            *   加载 `AppConfig` (调用 Task 1.1 的逻辑)。
-            *   根据 `StorageConfig` 创建并返回配置好的 `StorageInterface` 实现实例 (例如 `ORMStorage`)。
-            *   (准备阶段) 提供获取配置好的 `logger` 实例的方法 (将在 Phase 2 完成具体配置)。
-            *   (准备阶段) 提供创建 `KnowledgeDistillerEngine` 实例的方法，并将工厂管理的其他依赖（storage, config, logger）注入。
-    *   **产出:** 统一的依赖获取入口，简化应用启动和测试设置。
+        *   ✅ 创建 `knowledge_distiller_kd/core/factories.py`。
+        *   ✅ 实现一个工厂类或一组函数，用于：
+            *   ✅ 加载 `AppConfig` (调用 Task 1.1 的逻辑)。
+            *   ✅ 根据 `StorageConfig` 创建并返回配置好的 `StorageInterface` 实现实例 (例如 `ORMStorage`)。
+            *   ✅ (准备阶段) 提供获取配置好的 `logger` 实例的方法 (将在 Phase 2 完成具体配置)。
+            *   ✅ (准备阶段) 提供创建 `KnowledgeDistillerEngine` 实例的方法，并将工厂管理的其他依赖（storage, config, logger）注入。
+    *   **产出:** ✅ 统一的依赖获取入口，简化应用启动和测试设置。
+    *   **遇到的问题:**
+        *   无
 
-*   **任务 1.3: 重构引擎初始化与依赖注入**
+*   **任务 1.3: 重构引擎初始化与依赖注入** [✅已完成]
     *   **目标:** 使 `Engine` 通过构造函数接收其所有外部依赖，并由工厂提供。
     *   **内容:**
-        *   修改 `knowledge_distiller_kd/core/engine.py` 中 `KnowledgeDistillerEngine.__init__` 方法，使其接受 `storage: StorageInterface`, `config: AppConfig` (或其子配置), 以及 `logger` (Loguru logger instance) 参数。移除引擎内部创建这些依赖的逻辑。
-        *   更新 `knowledge_distiller_kd/cli.py` (或主程序入口)，使用 `core/factories.py` 来创建 `Engine` 实例及其依赖项。
-    *   **产出:** `Engine` 与其依赖项创建过程解耦，提高了可测试性和灵活性。
+        *   ✅ 修改 `knowledge_distiller_kd/core/engine.py` 中 `KnowledgeDistillerEngine.__init__` 方法，使其接受 `storage: StorageInterface`, `config: AppConfig` (或其子配置), 以及 `logger` (Loguru logger instance) 参数。移除引擎内部创建这些依赖的逻辑。
+        *   ✅ 更新 `knowledge_distiller_kd/cli.py` (或主程序入口)，使用 `core/factories.py` 来创建 `Engine` 实例及其依赖项。
+    *   **产出:** ✅ `Engine` 与其依赖项创建过程解耦，提高了可测试性和灵活性。
+    *   **遇到的问题:**
+        *   修改 Engine 初始化后导致多个测试失败，需要更新测试用例
+        *   实现了配置和日志器的依赖注入，使 Engine 更加可测试，实现了目标
+        *   创建了通用测试夹具，简化测试代码
 
 *   **任务 1.4: 在引擎中集成 `StorageInterface` 调用**
     *   **目标:** 将 `Engine` 内所有直接的数据持久化操作替换为对注入的 `storage` 对象的调用。
@@ -121,21 +127,4 @@
         *   **单元测试:**
             *   为 `core/config.py` 编写测试，验证配置加载和验证逻辑。
             *   为 `core/factories.py` 编写测试，验证依赖项是否正确创建和配置（可使用 Mock 验证配置是否传递）。
-            *   更新 `Engine` 的单元测试，使用 Mock `StorageInterface` 和 `AppConfig` 来验证其逻辑，确保它正确调用了 `storage` 的方法。
-        *   **集成测试:**
-            *   编写或更新集成测试，覆盖从 `cli.py` 启动，通过工厂获取依赖，执行核心流程（涉及存储读写和日志记录）的场景。
-            *   验证实际生成的日志文件内容和格式。
-            *   验证与真实数据库（测试数据库）交互的数据是否正确。
-    *   **产出:** 对本阶段修改的代码质量和功能正确性有高度信心。
-
-*   **任务 3.3: 更新项目文档**
-    *   **目标:** 使项目文档（特别是架构设计文档）与当前代码实现保持一致。
-    *   **内容:**
-        *   更新 `docs/03.Architecture Design Dcoument v3.0.md`：
-            *   详细说明 `core/config.py` 的 Pydantic 配置结构和加载方式。
-            *   描述 `core/factories.py` 的作用和管理的主要依赖。
-            *   更新 `Engine` 的依赖描述，明确其通过 `__init__` 接收 `storage`, `config`, `logger`。
-            *   更新存储层描述，强调通过 `StorageInterface` 交互。
-            *   详细说明 `Loguru` 的使用方式、配置（JSON格式、轮转等）。
-            *   (完成本文档) 将本文档 (`docs/roadmap_phase1_integration_logging.md`) 定稿并添加到项目中。
-    *   **产出:** 最新、准确的项目文档，方便团队成员理解和后续开发。 
+            *   更新 `Engine` 的单元测试，使用 Mock `

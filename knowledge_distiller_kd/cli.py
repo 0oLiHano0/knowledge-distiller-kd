@@ -19,6 +19,7 @@ from .core.error_handler import ConfigurationError, handle_error
 from .core.utils import logger, setup_logger # 使用 utils 中配置好的 logger
 from .storage.orm_storage import ORMStorage
 from .ui.cli_interface import CliInterface
+from .core.factories import create_app_config, create_storage, create_logger, create_engine
 
 def parse_args() -> argparse.Namespace:
     """
@@ -124,35 +125,31 @@ def main() -> None:
     logger.debug(f"Parsed arguments: {args}")
 
     try:
-        # 1. 初始化存储层 (Storage)
-        storage = ORMStorage(database_url=constants.DATABASE_URL)
-        storage.init_db()
-        logger.info(f"✅ ORMStorage initialized at {constants.DATABASE_URL}")
-
-        # 2. 初始化核心引擎 (Engine)
-        # 直接将参数传递给引擎的构造函数
-        logger.info("Initializing KnowledgeDistillerEngine...")
-        engine = KnowledgeDistillerEngine(
-            storage=storage,
-            input_dir=args.input_dir,         # 直接传递路径字符串或 None
-            output_dir=args.output_dir,       # 直接传递路径字符串
-            decision_file=args.decision_file, # 直接传递路径字符串
-            skip_semantic=args.skip_semantic,
-            skip_prefilter=args.skip_prefilter,  # 传递 skip_prefilter 参数
-            similarity_threshold=args.threshold
-        )
-        logger.info("KnowledgeDistillerEngine initialized successfully.")
-
-        # 3. 参数冲突检测放在最前面（已经在parse_args中实现了，这里不需要重复检查）
-        # 由于我们可能遇到初始化中input_dir解析失败的情况，确保在需要时重新设置
-        if args.input_dir and (not hasattr(engine, 'input_dir') or engine.input_dir is None):
-            logger.warning(f"Engine failed to initialize with input_dir '{args.input_dir}'. Attempting to set again.")
-            success = engine.set_input_dir(args.input_dir)  # Engine 内部处理 Path()
+        # 1. 使用工厂创建依赖项
+        config = create_app_config()
+        storage = create_storage(config)
+        logger_instance = create_logger(config)
+        
+        # 2. 使用工厂创建引擎
+        engine = create_engine(storage, config, logger_instance)
+        
+        # 设置引擎的其他参数
+        if args.input_dir:
+            success = engine.set_input_dir(args.input_dir)
             if not success:
-                logger.error(f"Failed to set initial input directory '{args.input_dir}' provided via argument after init failure.")
+                logger.error(f"Failed to set initial input directory '{args.input_dir}' provided via argument.")
                 print(f"[错误] 无法设置输入目录 '{args.input_dir}'", file=sys.stderr)
                 sys.exit(1)
+                
+        # 更新引擎的其他配置
+        if args.skip_semantic:
+            engine.set_skip_semantic(True)
+        if args.skip_prefilter:
+            engine.skip_prefilter = True
+        if args.threshold != constants.DEFAULT_SIMILARITY_THRESHOLD:
+            engine.set_similarity_threshold(args.threshold)
         
+        # 3. 参数冲突检测放在最前面（已经在parse_args中实现了，这里不需要重复检查）
         # 4. 处理 --pre-filter 参数（仅执行预过滤步骤）
         if args.pre_filter:
             if not args.input_dir:

@@ -24,6 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from . import constants
 from .error_handler import KDError, ConfigurationError, handle_error, validate_file_path, FileOperationError, AnalysisError
 from .utils import logger, create_decision_key, parse_decision_key
+from .config import AppConfig
 from ..storage.storage_interface import StorageInterface # Use the interface
 # Import DTOs/Enums from core.models (use final confirmed version)
 from ..core.models import (
@@ -59,15 +60,35 @@ class KnowledgeDistillerEngine:
     def __init__(
         self,
         storage: StorageInterface,
+        config: AppConfig,
+        logger: Any,
         input_dir: Optional[Union[str, Path]] = None,
-        decision_file: Optional[Union[str, Path]] = None, # Config path name remains for consistency
-        output_dir: Optional[Union[str, Path]] = None,  # Config path name remains for consistency
+        decision_file: Optional[Union[str, Path]] = None,
+        output_dir: Optional[Union[str, Path]] = None,
         skip_semantic: bool = False,
         skip_prefilter: bool = False,
-        similarity_threshold: float = constants.DEFAULT_SIMILARITY_THRESHOLD
+        similarity_threshold: Optional[float] = None
     ):
-        logger.info("Initializing KnowledgeDistillerEngine...")
-        self.storage: StorageInterface = storage
+        """
+        初始化引擎，接收存储接口、配置和日志器作为依赖项。
+        
+        Args:
+            storage (StorageInterface): 存储接口实现
+            config (AppConfig): 应用配置
+            logger (Any): 日志器实例
+            input_dir (Optional[Union[str, Path]], optional): 输入目录
+            decision_file (Optional[Union[str, Path]], optional): 决策文件路径
+            output_dir (Optional[Union[str, Path]], optional): 输出目录
+            skip_semantic (bool, optional): 是否跳过语义分析
+            skip_prefilter (bool, optional): 是否跳过预过滤
+            similarity_threshold (Optional[float], optional): 相似度阈值，如果为 None 则从配置读取
+        """
+        # 保存注入的依赖项
+        self.storage = storage
+        self.config = config
+        self.logger = logger
+
+        self.logger.info("Initializing KnowledgeDistillerEngine...")
 
         # 初始化输入目录属性
         self.input_dir: Optional[Path] = None
@@ -78,16 +99,21 @@ class KnowledgeDistillerEngine:
                     raise ConfigurationError(f"Input path is not a directory: {validated_input_dir}")
                 self.input_dir = validated_input_dir
             except (ConfigurationError, FileOperationError) as e:
-                 logger.error(f"Invalid input directory provided during initialization: {e}")
-                 raise ConfigurationError(f"Engine initialization failed due to invalid input directory: {e}") from e
+                self.logger.error(f"Invalid input directory provided during initialization: {e}")
+                raise ConfigurationError(f"Engine initialization failed due to invalid input directory: {e}") from e
 
-        # Store config paths with corrected internal names
+        # 从配置或参数中获取路径
         self.decision_file_config_path: Path = Path(decision_file or constants.DEFAULT_DECISION_FILE).resolve()
         self.output_dir_config_path: Path = Path(output_dir or constants.DEFAULT_OUTPUT_DIR).resolve()
 
+        # 从配置或参数中获取分析选项
         self.skip_semantic: bool = skip_semantic
         self.skip_prefilter: bool = skip_prefilter
-        self.similarity_threshold: float = max(0.0, min(1.0, similarity_threshold))
+        
+        # 优先使用传入的阈值，如果未提供则从配置中读取
+        threshold_from_config = self.config.engine.similarity_threshold
+        chosen_threshold = similarity_threshold if similarity_threshold is not None else threshold_from_config
+        self.similarity_threshold: float = max(0.0, min(1.0, chosen_threshold))
 
         # Internal state for analysis run
         self.blocks_data: List[ContentBlockDTO] = []
@@ -104,15 +130,20 @@ class KnowledgeDistillerEngine:
         # Analyzers
         try:
             self.md5_analyzer = MD5Analyzer()
-            self.semantic_analyzer = SemanticAnalyzer(similarity_threshold=self.similarity_threshold)
+            self.semantic_analyzer = SemanticAnalyzer(
+                similarity_threshold=self.similarity_threshold,
+                model_name=self.config.engine.semantic_model,
+                batch_size=self.config.engine.batch_size,
+                cache_dir=self.config.engine.cache_base_dir
+            )
         except Exception as e:
-            logger.critical(f"Failed to initialize analyzers: {e}", exc_info=True)
+            self.logger.critical(f"Failed to initialize analyzers: {e}", exc_info=True)
             raise ConfigurationError(f"Engine initialization failed due to analyzer error: {e}") from e
-        logger.info("KnowledgeDistillerEngine initialized successfully.")
+        self.logger.info("KnowledgeDistillerEngine initialized successfully.")
 
     def _reset_state(self) -> None:
         """Resets the internal state related to a specific analysis run."""
-        logger.debug("Resetting engine analysis state...")
+        self.logger.debug("Resetting engine analysis state...")
         self.blocks_data.clear()
         self.blocks.clear()
         self.block_decisions.clear()
@@ -120,19 +151,19 @@ class KnowledgeDistillerEngine:
         self.semantic_duplicates.clear()
         self._decisions_loaded = False
         self._analysis_completed = False
-        logger.debug("Engine analysis state reset.")
+        self.logger.debug("Engine analysis state reset.")
 
     def set_input_dir(self, input_dir: Union[str, Path]) -> bool:
         """Sets the input directory and resets the engine analysis state."""
-        logger.info(f"Attempting to set input directory to: {input_dir}")
+        self.logger.info(f"Attempting to set input directory to: {input_dir}")
         try:
             input_path = Path(input_dir)
             resolved_path = validate_file_path(input_path, must_exist=True)
             if not resolved_path.is_dir():
-                logger.error(f"Setting input directory failed: '{resolved_path}' is not a directory.")
+                self.logger.error(f"Setting input directory failed: '{resolved_path}' is not a directory.")
                 print(f"[Error] Path '{resolved_path}' is not a valid directory.")
                 return False
-            logger.info(f"Input directory set to: {resolved_path}")
+            self.logger.info(f"Input directory set to: {resolved_path}")
             self.input_dir = resolved_path
             self._reset_state()
             print(f"[*] Input directory set to: {self.input_dir}")
