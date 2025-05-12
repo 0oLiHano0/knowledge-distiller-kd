@@ -17,14 +17,21 @@
 
 *   **总目标:** 建立集中的配置管理和依赖注入机制，并将引擎对存储的依赖通过接口和工厂进行解耦。
 
-*   **任务 1.1: 实现分层配置管理 (Pydantic)**
+*   **任务 1.1: 实现分层配置管理 (Pydantic)** [✅已完成]
     *   **目标:** 使用 Pydantic 集中管理、验证并加载应用配置。
     *   **内容:**
-        *   创建 `knowledge_distiller_kd/core/config.py`。
-        *   定义 Pydantic 模型：`StorageConfig` (包含数据库 URL/路径, 可选的超时/池大小等), `LoggingConfig` (日志文件路径, 级别, 轮转设置, JSON格式开关), `EngineConfig` (相似度阈值, Czkawka路径等, 可按需细化), 以及一个顶层 `AppConfig` 聚合这些模型。
-        *   实现配置加载逻辑：优先从环境变量或 `.env` 文件加载，若无则使用合理的默认值。
-        *   添加必要的验证规则到 Pydantic 模型中。
-    *   **产出:** 可靠、类型安全的配置加载与访问机制。
+        *   ✅ 创建 `knowledge_distiller_kd/core/config.py`。
+        *   ✅ 定义 Pydantic 模型：`StorageConfig` (包含数据库 URL/路径, 可选的超时/池大小等), `LoggingConfig` (日志文件路径, 级别, 轮转设置, JSON格式开关), `EngineConfig` (相似度阈值, Czkawka路径等, 可按需细化), 以及一个顶层 `AppConfig` 聚合这些模型。
+        *   ✅ 实现配置加载逻辑：优先从环境变量或 `.env` 文件加载，若无则使用合理的默认值。
+        *   ✅ 添加必要的验证规则到 Pydantic 模型中。
+    *   **产出:** 
+        *   ✅ 可靠、类型安全的配置加载与访问机制
+        *   ✅ 完整的测试覆盖
+        *   ✅ 配置模板文件 (.env.example)
+        *   ✅ 更新的架构设计文档
+    *   **遇到的问题:**
+        *   `.env.example`文件创建时遇到权限问题，通过使用shell命令成功解决
+        *   从`constants.py`迁移配置项时需要调整配置模型结构，已完成迁移
 
 *   **任务 1.2: 实现依赖管理工厂 (`core/factories.py`)**
     *   **目标:** 集中创建和提供核心依赖项（配置、存储实例、日志器）。
