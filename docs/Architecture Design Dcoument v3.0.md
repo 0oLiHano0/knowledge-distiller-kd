@@ -363,7 +363,7 @@ Knowledge Distiller (KD) 采用清晰的六层架构设计，各层职责分明�
 * **文件去重**：Czkawka 9.0.0 (MIT) – **捆绑CLI与应用一同分发**
 * **语义分析**：SentenceTransformers 4.1.0
 * **SimHash**：`simhash 1.0.0` (by 1e0ng, MIT License) Python Simhash实现 （待集成）
-* **数据库**：SQLite 3.45.1 (Phase 3核心存储) （待实现）
+* **数据库**：SQLite 3.45.1 (Phase 3核心存储) 
 * **GUI 预选**：Tkinter 8.6 (Python内置) → PySide 6.7.0 （待实现）
 * **日志记录**：loguru 0.7.2 (结构化日志记录)
 * **进度显示**：tqdm 4.66.2 (进度条可视化)
