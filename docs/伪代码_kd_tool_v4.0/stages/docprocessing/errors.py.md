@@ -1,6 +1,6 @@
 ```python
 # ------------------------------------------------------------------------------
-# 文件名: knowledge_distiller_kd/stages/docprocessing/errors.py.md
+# 文件名: knowledge_distiller_kd/stages/docprocessing/errors.py
 # 模块: P03 - 文档处理阶段 (DocumentProcessingStage) - 自定义异常
 # 描述:
 #   此模块定义了 P03 DocumentProcessingStage (原始提取阶段)
