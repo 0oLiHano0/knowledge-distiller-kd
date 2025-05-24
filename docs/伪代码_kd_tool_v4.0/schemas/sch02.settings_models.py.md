@@ -1,14 +1,13 @@
-
 ```python
-# 存放 `StorageSettingsDTO`, `OrchestratorSettings`, `LoggingSettings`, 各个 `AnalyzerSettings` 等
+# 存放 `StorageSettingsDTO`, `OrchestratorSettings`, `LoggingSettings`, 各个 StageSettings 等
 
 # knowledge_distiller_kd/schemas/settings_models.py
 """
 该模块定义了项目中核心组件和服务所需的配置设置模型 (Settings Models)。
 这些模型使用 Pydantic 定义，用于结构化和验证应用程序配置。
 """
-from pydantic import BaseModel, Field, FilePath, PositiveInt, model_validator # 确保 model_validator 已导入
-from typing import Optional, Literal, Any # 确保 Literal 已导入
+from pydantic import BaseModel, Field, FilePath, PositiveInt, model_validator
+from typing import Optional, Literal, Any, List # <--- 确保 List 已导入
 from pathlib import Path
 
 # 注意：这里不应该有对其他非Pydantic基础类型的运行时代码的依赖，
@@ -35,9 +34,6 @@ class StorageSettingsDTO(BaseModel):
         if isinstance(data, cls):
             if data.backend_type == "sqlite" and not data.connection_string:
                 raise ValueError("对于 'sqlite' 后端类型, 'connection_string' 必须提供。")
-            # 'file_debug' 已移除，如果未来有其他基于目录的后端，可添加类似校验
-            # if data.backend_type == "some_file_based_backend" and not data.base_directory:
-            #     raise ValueError("对于 'some_file_based_backend' 后端类型, 'base_directory' 必须提供。")
         return data
 
     class Config:
@@ -55,13 +51,9 @@ class OrchestratorSettings(BaseModel):
         default='kd_task_',
         description="为生成的 task_id 添加的可选前缀。"
     )
-    # example_global_flag_for_orchestrator: bool = Field(default=True, description="示例Orchestrator全局开关")
 
     class Config:
         extra = 'forbid'
-
-
-
 
 
 class LoggingSettings(BaseModel):
@@ -101,9 +93,9 @@ class LoggingSettings(BaseModel):
         validate_assignment = True
 
 
-class CzkawkaPrefilterSettings(BaseModel):
-    """Czkawka 预处理器适配器的配置。"""
-    enabled: bool = Field(default=True, description="是否启用 Czkawka 预处理器。")
+class CzkawkaPrefilterSettings(BaseModel): # <--- 根据文件内容，这应该是 P01 或 P02 阶段的配置
+    """Czkawka 预处理阶段的配置。""" # <--- 更新描述以匹配阶段概念
+    enabled: bool = Field(default=True, description="是否启用 Czkawka 预处理阶段。")
     executable_path: Optional[FilePath] = Field(default=None, description="Czkawka CLI 可执行文件路径。")
 
     @model_validator(mode='after')
@@ -111,27 +103,63 @@ class CzkawkaPrefilterSettings(BaseModel):
     def check_executable_path_if_enabled(cls, data: Any) -> Any:
         if isinstance(data, cls):
             if data.enabled and not data.executable_path:
-                raise ValueError("如果 Czkawka 预处理器已启用, 'executable_path' 必须提供。")
+                raise ValueError("如果 Czkawka 预处理阶段已启用, 'executable_path' 必须提供。")
         return data
 
     class Config:
         extra = 'forbid'
         arbitrary_types_allowed = True
 
+# ==============================================================================
+# 阶段配置: P03 - 文档处理阶段 (Document Processing Stage - Raw Extraction)
+# ==============================================================================
+class DocumentProcessingStageSettings(BaseModel):
+    """
+    P03 - 文档处理阶段 (原始提取) 的配置模型。
+    用于控制此阶段如何从文件中提取初步的内容元素。
+    """
+    enabled: bool = Field(
+        default=True,
+        description="是否启用 P03 - 文档处理阶段（原始提取）。"
+    )
+    parsing_strategy: Literal['auto', 'fast', 'hi_res'] = Field(
+        default='auto',
+        description="底层解析库（如 unstructured）使用的解析策略。"
+    )
+    supported_extensions: List[str] = Field(
+        default=[".md"], # 当前仅处理markdown文件，未来计划扩展 ".txt", ".docx", ".pdf"等
+        description="此阶段尝试处理的文件扩展名列表。不在此列表中的文件将被跳过。"
+    )
+    class Config:
+        extra = 'forbid'
 
-class MD5AnalyzerSettings(BaseModel):
-    """MD5 分析器的配置。"""
+# ==============================================================================
+# 阶段配置: P04 - 块合并阶段 (Block Merging Stage) - (预留位置)
+# ==============================================================================
+# class BlockMergingStageSettings(BaseModel):
+#     """P04 - 块合并阶段的配置。"""
+#     enabled: bool = Field(default=True, description="是否启用 P04 - 块合并阶段。")
+#     min_block_length_char: int = Field(default=50, description="合并后块的最小字符长度（启发式规则）。")
+#     # ... 其他合并规则 ...
+#     class Config: extra = 'forbid'
+
+
+# ==============================================================================
+# 阶段配置: 分析阶段 (Analysis Stages)
+# ==============================================================================
+class MD5AnalysisStageSettings(BaseModel): 
+    """MD5 分析阶段的配置。"""
     enabled: bool = Field(default=True, description="是否启用 MD5 分析阶段。")
     class Config: extra = 'forbid'
 
-class SimHashAnalyzerSettings(BaseModel):
-    """SimHash 分析器的配置。"""
+class SimHashAnalysisStageSettings(BaseModel): 
+    """SimHash 分析阶段的配置。"""
     enabled: bool = Field(default=True, description="是否启用 SimHash 分析阶段。")
     similarity_threshold_bits: PositiveInt = Field(default=3, description="SimHash 汉明距离阈值。")
     class Config: extra = 'forbid'
 
-class SemanticAnalyzerSettings(BaseModel):
-    """语义分析器的配置。"""
+class SemanticAnalysisStageSettings(BaseModel): 
+    """语义分析阶段的配置。"""
     enabled: bool = Field(default=True, description="是否启用语义分析阶段。")
     model_name_or_path: str = Field(default="shibing624/text2vec-base-chinese", description="语义分析模型名称或路径。")
     similarity_threshold: float = Field(default=0.85, ge=0.0, le=1.0, description="语义相似度得分阈值。")
@@ -139,11 +167,12 @@ class SemanticAnalyzerSettings(BaseModel):
     device: Optional[str] = Field(default=None, description="运行模型设备 (e.g., 'cpu', 'cuda')。")
     class Config: extra = 'forbid'
 
-class AnalysisSettings(BaseModel):
+class AnalysisSettings(BaseModel): # <--- 这是分析阶段配置的聚合器
     """所有分析阶段参数的顶层配置集合。"""
-    md5: MD5AnalyzerSettings = Field(default_factory=MD5AnalyzerSettings)
-    simhash: SimHashAnalyzerSettings = Field(default_factory=SimHashAnalyzerSettings)
-    semantic: SemanticAnalyzerSettings = Field(default_factory=SemanticAnalyzerSettings)
+    md5: MD5AnalysisStageSettings = Field(default_factory=MD5AnalysisStageSettings) 
+    simhash: SimHashAnalysisStageSettings = Field(default_factory=SimHashAnalysisStageSettings) 
+    semantic: SemanticAnalysisStageSettings = Field(default_factory=SemanticAnalysisStageSettings) 
     class Config: extra = 'forbid'
 
+# ... (未来可以添加其他 Stage 的 Settings DTO, 如 DecisionStageSettings 等) ...
 ```
