@@ -1,6 +1,6 @@
 ```python
 
-# knowledge_distiller_kd/stages/prefilter/adapter_interface.py
+# knowledge_distiller_kd/stages/prefilter/czkawka_adapter.py.md
 
 import subprocess
 import json
