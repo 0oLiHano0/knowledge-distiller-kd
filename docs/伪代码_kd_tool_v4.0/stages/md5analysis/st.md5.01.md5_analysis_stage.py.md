@@ -1,6 +1,6 @@
 ```python
 # ------------------------------------------------------------------------------
-# 文件名: knowledge_distiller_kd/stages/md5analysis/md5_analysis_stage.py
+# 文件名: kd_tool/stages/md5analysis/md5_analysis_stage.py
 # 模块: MD5 分析阶段 (MD5AnalysisStage)
 # 描述:
 #   此模块负责计算内容块的 MD5 哈希值，并在同一阶段内找出 MD5 完全相同的块，
@@ -20,17 +20,17 @@ from loguru import Logger
 import itertools # <-- 导入以方便生成块对
 
 # 核心接口 (必须遵循)
-from knowledge_distiller_kd.core.interfaces import StageInterface
-from knowledge_distiller_kd.storage.storage_interface import StorageInterface
+from kd_tool.core.interfaces import StageInterface
+from kd_tool.storage.storage_interface import StorageInterface
 
 # 数据传输对象 (必须使用 v4 定义)
-from knowledge_distiller_kd.schemas.dtos import (
+from kd_tool.schemas.dtos import (
     PipelineContextDTO,
     ContentBlockDTO,
     AnalysisResultDTO,
     MD5AnalysisStageSettings # <-- 确保使用重命名后的 Settings
 )
-from knowledge_distiller_kd.schemas.enums import AnalysisType
+from kd_tool.schemas.enums import AnalysisType
 
 # 自定义错误 (必须使用)
 from .errors import MD5InputError, MD5CalculationError

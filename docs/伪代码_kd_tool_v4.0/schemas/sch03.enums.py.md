@@ -1,8 +1,4 @@
-```python
-
-# 存放 `BlockType`, `AnalysisType`, `DecisionType`, `ProcessingStatus` 等
-
-# knowledge_distiller_kd/schemas/enums.py
+# kd_tool/schemas/enums.py
 """
 该模块定义了项目中使用的核心枚举类型。
 这些枚举被 Pydantic 模型（DTOs 和 Settings）以及业务逻辑广泛使用。
@@ -35,6 +31,7 @@ class DecisionType(str, Enum):
 class ProcessingStatus(str, Enum):
     """定义文件记录的处理状态。"""
     PENDING = "pending"
+    DUPLICATE = "duplicate"
 
     PREPROCESSING_SCHEDULED = "preprocessing_scheduled"
     PREPROCESSING_RUNNING = "preprocessing_running"

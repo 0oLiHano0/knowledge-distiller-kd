@@ -1,6 +1,6 @@
 ```python
 # ------------------------------------------------------------------------------
-# 文件名: knowledge_distiller_kd/stages/docprocessing/document_processing_stage.py
+# 文件名: kd_tool/stages/docprocessing/document_processing_stage.py
 # 模块: P03 - 文档处理阶段 (DocumentProcessingStage) - 原始提取
 # 描述:
 #   此阶段的核心职责是调用底层文档解析库（如 unstructured），
@@ -20,15 +20,15 @@ import datetime # 导入datetime
 import uuid # 导入uuid
 
 # 核心接口和 DTOs
-from knowledge_distiller_kd.core.interfaces import StageInterface
-from knowledge_distiller_kd.schemas.dtos import (
+from kd_tool.core.interfaces import StageInterface
+from kd_tool.schemas.dtos import (
     PipelineContextDTO,
     ContentBlockDTO, # 使用 v4.0 定义的 DTO
     FileRecordDTO    # 使用 v4.0 定义的 DTO
 )
 # 架构约束: DocumentProcessingStageSettings 从 schemas.settings_models 导入
-from knowledge_distiller_kd.schemas.settings_models import DocumentProcessingStageSettings
-from knowledge_distiller_kd.schemas.enums import BlockType, ProcessingStatus # 导入所需枚举
+from kd_tool.schemas.settings_models import DocumentProcessingStageSettings
+from kd_tool.schemas.enums import BlockType, ProcessingStatus # 导入所需枚举
 
 # 自定义错误 (从同目录的 errors.py 导入)
 # 架构约束: 必须使用在 stages/docprocessing/errors.py.md 中定义的错误

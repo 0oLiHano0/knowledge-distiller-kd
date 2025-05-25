@@ -1,4 +1,4 @@
-# knowledge_distiller_kd/prefilter/czkawka_adapter.py
+# knowledge_distiller_kd/prefilter/czkawka_adapter.py（v3.0）
 
 import subprocess
 import json

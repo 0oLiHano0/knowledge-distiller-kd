@@ -1,6 +1,6 @@
 ```python
 # ------------------------------------------------------------------------------
-# 文件名: knowledge_distiller_kd/stages/blockmerging/errors.py.md
+# 文件名: kd_tool/stages/blockmerging/errors.py.md
 # 模块: P04 - 块合并阶段 (BlockMergingStage) - 自定义异常
 # 描述:
 #   此模块定义了 P04 BlockMergingStage 及其相关操作可能抛出的特定异常。
@@ -13,7 +13,7 @@
 # ------------------------------------------------------------------------------
 
 from typing import Optional, Any, List # <-- 确保导入 List
-from knowledge_distiller_kd.core.errors import KDToolError # <-- 从核心错误模块导入
+from kd_tool.core.errors import KDToolError # <-- 从核心错误模块导入
 
 # ==============================================================================
 # P04 - 块合并阶段基础异常 (BlockMergingError)

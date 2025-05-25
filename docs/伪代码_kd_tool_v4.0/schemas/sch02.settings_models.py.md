@@ -1,7 +1,7 @@
 ```python
 # 存放 `StorageSettingsDTO`, `OrchestratorSettings`, `LoggingSettings`, 各个 StageSettings 等
 
-# knowledge_distiller_kd/schemas/settings_models.py
+# kd_tool/schemas/settings_models.py
 # -*- coding: utf-8 -*-
 
 """

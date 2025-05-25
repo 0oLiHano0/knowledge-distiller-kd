@@ -1,7 +1,7 @@
 ```python
 
 # ------------------------------------------------------------------------------
-# 文件名: knowledge_distiller_kd/stages/blockmerging/block_merging_stage.py.md
+# 文件名: kd_tool/stages/blockmerging/block_merging_stage.py.md
 # 模块: P04 - 块合并阶段 (BlockMergingStage)
 # 描述:
 #   负责根据配置的规则，将 P03 阶段产生的初步 ContentBlockDTO 进行合并和重组，
@@ -21,14 +21,14 @@ import uuid # 用于为合并后的新块生成 ID
 import datetime # 用于记录处理历史
 
 # 核心接口和 DTOs
-from knowledge_distiller_kd.core.interfaces import StageInterface
-from knowledge_distiller_kd.schemas.dtos import (
+from kd_tool.core.interfaces import StageInterface
+from kd_tool.schemas.dtos import (
     PipelineContextDTO,
     ContentBlockDTO
 )
 # 架构约束: BlockMergingStageSettings 从 schemas.settings_models 导入
-from knowledge_distiller_kd.schemas.settings_models import BlockMergingStageSettings, CodeBlockMergeSettings, TextBlockMergeSettings
-from knowledge_distiller_kd.schemas.enums import BlockType, ProcessingStatus # 导入所需枚举
+from kd_tool.schemas.settings_models import BlockMergingStageSettings, CodeBlockMergeSettings, TextBlockMergeSettings
+from kd_tool.schemas.enums import BlockType, ProcessingStatus # 导入所需枚举
 
 # 自定义错误 (从同目录的 errors.py 导入)
 # 架构约束: 必须使用在 stages/blockmerging/errors.py.md 中定义的错误

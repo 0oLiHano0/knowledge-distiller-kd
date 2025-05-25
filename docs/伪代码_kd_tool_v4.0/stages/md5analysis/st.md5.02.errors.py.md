@@ -1,6 +1,6 @@
 ```python
 # ------------------------------------------------------------------------------
-# 文件名: knowledge_distiller_kd/stages/md5analysis/errors.py
+# 文件名: kd_tool/stages/md5analysis/errors.py
 # 模块: MD5 分析阶段 - 自定义异常
 # 描述:
 #   定义 MD5AnalysisStage 可能抛出的特定异常。
@@ -10,7 +10,7 @@
 from typing import Optional, Any
 
 # 导入核心基础异常类 (必须继承)
-from knowledge_distiller_kd.core.errors import KDToolError
+from kd_tool.core.errors import KDToolError
 
 # ==============================================================================
 # MD5 分析阶段基础异常 (MD5AnalysisError)
