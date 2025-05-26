@@ -1,0 +1,151 @@
+# kd_tool/storage/errors.py
+"""
+定义存储层特定的自定义异常。
+
+架构决策与约束:
+- 此模块是存储层所有自定义异常的权威定义来源。
+- 所有存储层实现 (如 SQLiteStorage) 抛出的、旨在被上层捕获的特定错误，都应在此模块中定义或从此模块导入。
+- 所有此模块中定义的异常都应继承自 StorageError 基类。
+- StorageError 基类【必须】继承自应用级基础异常 KDToolError (定义在 core.errors.py)。
+- 异常类应通过调用 KDToolError 的构造函数并使用 **kwargs 来传递和存储有助于调试和错误处理的上下文信息。
+  这些信息将存储在 KDToolError 实例的 context_info 属性中。
+- StorageInterface 的文档字符串应明确指出其方法可能抛出的、在此文件中定义的异常类型。
+"""
+
+from typing import Any, Optional
+
+# 架构决策: 从 core.errors 导入应用级基础异常 KDToolError
+# coding 阶段必须确保 kd_tool/core/errors.py 文件已创建并定义了 KDToolError。
+from kd_tool.core.errors import KDToolError # 假设 KDToolError 在此路径
+
+
+class StorageError(KDToolError): 
+    """
+    存储层操作相关的自定义异常基类。
+    所有其他存储特定异常都应从此类继承。
+    它本身继承自 KDToolError，以融入应用统一的异常体系。
+    """
+    def __init__(self, message: str, original_exception: Optional[Exception] = None, **kwargs: Any):
+        """
+        构造 StorageError。
+
+        参数:
+            message (str): 错误的主要描述信息。
+            original_exception (Optional[Exception]): 导致此错误的原始底层异常（如果有）。
+            **kwargs: 传递给 KDToolError 基类的其他上下文信息。
+                      这些信息将存储在 KDToolError 实例的 context_info 属性中。
+        """
+        super().__init__(message, original_exception=original_exception, **kwargs)
+        # StorageError 本身通常不需要额外的、不同于 KDToolError 的特定属性，
+        # 它主要作为分类标记和继承点。
+        # 如果需要特定于所有存储错误的通用上下文，可以通过 kwargs 传递给 KDToolError。
+        # 例如: super().__init__(message, original_exception=original_exception, module="storage", **kwargs)
+
+
+class StorageConfigurationError(StorageError):
+    """
+    当存储配置无效或不完整时抛出。
+    例如，缺少必要的连接字符串或后端类型不支持。
+    """
+    def __init__(self, message: str, setting_key: Optional[str] = None, **kwargs: Any):
+        # 构造更具体的错误消息
+        full_message = f"存储配置错误: {message}"
+        if setting_key:
+            full_message += f" (相关配置项: '{setting_key}')"
+        
+        # 将 setting_key 作为上下文信息传递给 KDToolError (通过 StorageError 间接传递)
+        # KDToolError 会将 setting_key 存入其 context_info 字典。
+        super().__init__(full_message, setting_key=setting_key, **kwargs)
+        # 子类不再需要单独存储 setting_key，因为它已在 KDToolError 的 context_info 中。
+        # self.setting_key = setting_key # 移除
+
+
+class StorageConnectionError(StorageError):
+    """
+    当数据库连接失败时抛出，通常在 `initialize()` 期间。
+    """
+    def __init__(self, message: str, connection_details: Optional[str] = None, original_exception: Optional[Exception] = None, **kwargs: Any):
+        full_message = f"存储连接错误: {message}"
+        if connection_details:
+            full_message += f" (连接详情: {connection_details})"
+        
+        # 将 connection_details 作为上下文信息传递
+        super().__init__(full_message, original_exception=original_exception, connection_details=connection_details, **kwargs)
+        # self.connection_details = connection_details # 移除
+
+
+class StorageOperationError(StorageError):
+    """
+    当通用的存储操作 (如读/写数据库) 失败时抛出。
+    这是一个相对通用的错误，当没有更具体的错误类型适用时使用。
+    """
+    def __init__(self, operation: str, original_exception: Optional[Exception] = None, details: Optional[str] = None, **kwargs: Any):
+        message = f"存储操作 '{operation}' 失败。"
+        if details:
+            message += f" 详情: {details}"
+        
+        # 将 operation 和 details 作为上下文信息传递
+        super().__init__(message, original_exception=original_exception, operation=operation, details=details, **kwargs)
+        # self.operation = operation # 移除
+        # self.details = details # 移除
+
+
+class RecordNotFoundError(StorageError):
+    """
+    当尝试访问一个在存储中不存在的特定记录时抛出。
+    """
+    def __init__(self, record_type: str, record_id: Any, details: Optional[str] = None, **kwargs: Any):
+        message = f"类型为 '{record_type}' 的记录 (ID/标识: {record_id}) 未找到。"
+        if details:
+            message += f" {details}"
+        
+        # 将 record_type, record_id, details 作为上下文信息传递
+        super().__init__(message, record_type=record_type, record_id=record_id, details=details, **kwargs)
+        # self.record_type = record_type # 移除
+        # self.record_id = record_id  # 移除
+        # self.details = details # 移除
+
+
+class DuplicateRecordError(StorageError):
+    """
+    当尝试创建一个因违反唯一性约束而导致重复的记录时抛出。
+    例如，尝试插入具有已存在的主键或唯一键的记录。
+    """
+    def __init__(self, record_type: str, record_identifier: Any, details: Optional[str] = None, existing_record_id: Optional[Any] = None, **kwargs: Any):
+        message = f"尝试创建的类型为 '{record_type}' 的记录已存在 (基于标识: {record_identifier})。"
+        if existing_record_id:
+            message += f" 已存在记录的 ID: {existing_record_id}."
+        if details:
+            message += f" {details}"
+        
+        # 将相关信息作为上下文传递
+        super().__init__(message, record_type=record_type, record_identifier=record_identifier, 
+                         existing_record_id=existing_record_id, details=details, **kwargs)
+        # self.record_type = record_type # 移除
+        # self.record_identifier = record_identifier # 移除
+        # self.existing_record_id = existing_record_id # 移除
+        # self.details = details # 移除
+
+
+class TransactionError(StorageError):
+    """
+    与事务管理相关的错误 (begin, commit, rollback)。
+    """
+    def __init__(self, operation: str, message: Optional[str] = None, original_exception: Optional[Exception] = None, **kwargs: Any):
+        # operation 应为 'begin', 'commit', 或 'rollback'
+        detailed_message = f"事务操作 '{operation}' 失败。"
+        if message: # 这里的 message 是特定于 TransactionError 的补充消息
+            detailed_message += f" {message}"
+        
+        # 将 operation 作为上下文传递
+        super().__init__(detailed_message, original_exception=original_exception, operation=operation, **kwargs)
+        # self.operation = operation # 移除
+
+# 可以根据需要添加更多特定的存储异常，例如:
+# class InvalidQueryCriteriaError(StorageError):
+#     """当提供的查询条件无效时抛出。"""
+#     def __init__(self, criteria_key: str, reason: str, original_exception: Optional[Exception] = None, **kwargs):
+#         super().__init__(f"查询条件无效: '{criteria_key}' - {reason}", original_exception=original_exception, 
+#                          criteria_key=criteria_key, reason=reason, **kwargs)
+#         # self.criteria_key = criteria_key # 移除
+#         # self.reason = reason # 移除

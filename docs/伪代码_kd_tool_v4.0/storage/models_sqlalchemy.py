@@ -1,0 +1,142 @@
+# kd_tool/storage/models_sqlalchemy.py
+"""
+此模块定义了项目使用的 SQLAlchemy ORM 模型，
+这些模型直接映射到数据库中的表结构。
+"""
+from sqlalchemy import (
+    Column, String, Integer, DateTime, Text, Float, ForeignKey, Enum as SAEnum, JSON
+)
+from sqlalchemy.orm import relationship, declarative_base
+from sqlalchemy.dialects.sqlite import JSON as SQLiteJSON # 针对 SQLite 的 JSON 类型优化
+from datetime import datetime, timezone
+from pathlib import Path
+import uuid
+
+# 从 core.models 导入枚举类型，以便在 ORM 模型中使用
+from kd_tool.schemas.enums import (
+    BlockType,
+    AnalysisType,
+    DecisionType,
+    ProcessingStatus
+)
+
+Base = declarative_base()
+
+# --- 辅助函数或类型处理 ---
+# 例如，处理 Path 对象到字符串的转换，虽然通常在 ORM <-> DTO 转换层做，
+# 但如果需要在模型层面直接处理（不常见），可以在此定义。
+# 通常，SQLAlchemy 会期望其能直接处理的类型。
+
+class FileOrmModel(Base):
+    __tablename__ = "files" # 表名
+
+    file_id: str = Column(String, primary_key=True, default=lambda: f"file_{uuid.uuid4()}")
+    original_path: str = Column(String, nullable=False, unique=True) # 路径通常需要唯一
+    file_hash_md5: str = Column(String(32), nullable=True, index=True) # MD5 通常 32 个字符
+    size_bytes: int = Column(Integer, nullable=True)
+    last_modified_at: datetime = Column(DateTime(timezone=True), nullable=True)
+    registered_at: datetime = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    
+    processing_status: ProcessingStatus = Column(SAEnum(ProcessingStatus, name="processing_status_enum", native_enum=False), nullable=False, default=ProcessingStatus.PENDING)
+    
+    # 决定采用 JSON 字符串列存储 processing_history
+    # 对于 SQLite，可以使用 SQLiteJSON 以获得更好的 JSON 函数支持 (如果 SQLAlchemy 版本和 Dialect 支持)
+    # 否则，Text 也可以存储 JSON 字符串。
+    # 注意：如果直接使用 SQLAlchemy 的 JSON 类型，它通常在 PostgreSQL 等数据库中有更好的原生支持。
+    # 对于 SQLite，存储为 Text 并由应用层处理序列化/反序列化是常见做法，
+    # 或者使用 SQLiteJSON (它底层可能也是 Text，但提供了 JSON 函数接口)。
+    processing_history = Column(SQLiteJSON, nullable=True, default=list) # 或者 Column(JSON) 或 Column(Text)
+
+    metadata_ = Column("metadata", SQLiteJSON, nullable=True, default=dict) # 列名可以是 metadata，但 Python 属性用 metadata_ 避免与 SQLAlchemy 的 metadata 冲突
+
+    # --- 关系定义 ---
+    # 一个文件可以有多个内容块
+    content_blocks = relationship("ContentBlockOrmModel", back_populates="file", cascade="all, delete-orphan")
+
+    def __repr__(self):
+        return f"<FileOrmModel(file_id='{self.file_id}', path='{self.original_path}')>"
+
+
+class ContentBlockOrmModel(Base):
+    __tablename__ = "content_blocks"
+
+    block_id: str = Column(String, primary_key=True, default=lambda: f"block_{uuid.uuid4()}")
+    file_id: str = Column(String, ForeignKey("files.file_id"), nullable=False, index=True) # 外键关联到 files 表
+    
+    text_content: str = Column(Text, nullable=False)
+    analysis_text: str = Column(Text, nullable=True) # 与 DTO 对应，允许为空
+    block_type: BlockType = Column(SAEnum(BlockType, name="block_type_enum", native_enum=False), nullable=False)
+    
+    order_in_document: int = Column(Integer, nullable=True)
+    page_number: int = Column(Integer, nullable=True)
+
+    text_hash_md5: str = Column(String(32), nullable=True, index=True)
+    simhash_value: str = Column(String(16), nullable=True, index=True) # SimHash 通常 16 个十六进制字符 (64位)
+
+    metadata_ = Column("metadata", SQLiteJSON, nullable=True, default=dict)
+
+    # --- 关系定义 ---
+    file = relationship("FileOrmModel", back_populates="content_blocks")
+    # 一个内容块可以作为分析结果中的 block_1 或 block_2 出现多次
+    analysis_results_as_block1 = relationship(
+        "AnalysisResultOrmModel",
+        foreign_keys="[AnalysisResultOrmModel.block_id_1]",
+        back_populates="block1",
+        cascade="all, delete-orphan"
+    )
+    analysis_results_as_block2 = relationship(
+        "AnalysisResultOrmModel",
+        foreign_keys="[AnalysisResultOrmModel.block_id_2]",
+        back_populates="block2",
+        cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<ContentBlockOrmModel(block_id='{self.block_id}', type='{self.block_type.value if self.block_type else None}')>"
+
+
+class AnalysisResultOrmModel(Base):
+    __tablename__ = "analysis_results"
+
+    # 基于 DTO，pair_analysis_id 是确定性生成的，可以作为主键
+    pair_analysis_id: str = Column(String(32), primary_key=True) # MD5 哈希通常 32 个字符
+    
+    block_id_1: str = Column(String, ForeignKey("content_blocks.block_id"), nullable=False, index=True)
+    block_id_2: str = Column(String, ForeignKey("content_blocks.block_id"), nullable=False, index=True)
+    
+    analysis_type: AnalysisType = Column(SAEnum(AnalysisType, name="analysis_type_enum", native_enum=False), nullable=False)
+    score: float = Column(Float, nullable=True) # 允许为 NULL，因为 DTO 中 score 是 Optional
+    
+    details: Dict[str, Any] = Column(SQLiteJSON, nullable=True, default=dict)
+
+    # --- 关系定义 ---
+    block1 = relationship("ContentBlockOrmModel", foreign_keys=[block_id_1], back_populates="analysis_results_as_block1")
+    block2 = relationship("ContentBlockOrmModel", foreign_keys=[block_id_2], back_populates="analysis_results_as_block2")
+    # 一个分析结果对应一个用户决策
+    user_decision = relationship("UserDecisionOrmModel", back_populates="analysis_result", uselist=False, cascade="all, delete-orphan")
+
+
+    def __repr__(self):
+        return f"<AnalysisResultOrmModel(pair_analysis_id='{self.pair_analysis_id}', type='{self.analysis_type.value if self.analysis_type else None}')>"
+
+
+class UserDecisionOrmModel(Base):
+    __tablename__ = "user_decisions"
+
+    # 每个分析结果最多只有一个决策，所以 pair_analysis_id 可以作为主键，并作为外键关联到 analysis_results
+    pair_analysis_id: str = Column(String(32), ForeignKey("analysis_results.pair_analysis_id"), primary_key=True)
+    
+    decision: DecisionType = Column(SAEnum(DecisionType, name="decision_type_enum", native_enum=False), nullable=False, default=DecisionType.UNDECIDED)
+    decided_at: datetime = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+    decided_by: str = Column(String, nullable=True)
+    notes: str = Column(Text, nullable=True)
+
+    # --- 关系定义 ---
+    analysis_result = relationship("AnalysisResultOrmModel", back_populates="user_decision")
+
+    def __repr__(self):
+        return f"<UserDecisionOrmModel(pair_analysis_id='{self.pair_analysis_id}', decision='{self.decision.value if self.decision else None}')>"
+
+# --- 可以在此添加创建所有表的辅助函数 (通常由 Alembic 管理) ---
+# def create_all_tables(engine):
+#     Base.metadata.create_all(engine)
