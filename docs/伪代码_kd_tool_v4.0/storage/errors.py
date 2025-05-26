@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 # 架构决策: 从 core.errors 导入应用级基础异常 KDToolError
 # coding 阶段必须确保 kd_tool/core/errors.py 文件已创建并定义了 KDToolError。
-from kd_tool.core.errors import KDToolError # 假设 KDToolError 在此路径
+from kd_tool.core.errors import KDToolError
 
 
 class StorageError(KDToolError): 

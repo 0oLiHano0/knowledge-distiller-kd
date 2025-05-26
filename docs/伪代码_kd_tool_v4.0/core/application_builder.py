@@ -30,20 +30,20 @@ from .logging_setup import setup_logging
 from .errors import KDToolError # <-- [指令] 导入 KDToolError
 
 # [指令] 必须 从 schemas 导入 PipelineContextDTO
-from ..schemas.dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import PipelineContextDTO
 
 # 导入存储工厂
-from ..storage.f03.storage_factory import StorageFactory
+from kd_tool.storage.f03.storage_factory import StorageFactory
 
 # [指令] 必须 导入所有需要的 Stage 工厂
-from ..stages.prefilter.p04.prefilter_factory import PrefilterStageFactory
-from ..stages.docprocessing.factory import DocumentProcessingStageFactory
-from ..stages.blockmerging.factory import BlockMergerStageFactory
-from ..stages.md5analysis.factory import MD5AnalysisStageFactory
-from ..stages.simhash_analysis.factory import SimHashAnalysisStageFactory
-from ..stages.semantic_analysis.factory import SemanticAnalysisStageFactory
-from ..stages.decision.factory import DecisionStageFactory
-from ..stages.cleanup.factory import CleanupStageFactory
+from kd_tool.stages.prefilter.p04.prefilter_factory import PrefilterStageFactory
+from kd_tool.stages.docprocessing.factory import DocumentProcessingStageFactory
+from kd_tool.stages.blockmerging.factory import BlockMergerStageFactory
+from kd_tool.stages.md5analysis.factory import MD5AnalysisStageFactory
+from kd_tool.stages.simhash_analysis.factory import SimHashAnalysisStageFactory
+from kd_tool.stages.semantic_analysis.factory import SemanticAnalysisStageFactory
+from kd_tool.stages.decision.factory import DecisionStageFactory
+from kd_tool.stages.cleanup.factory import CleanupStageFactory
 
 # [指令] 必须 导入 OrchestratorFactory
 from .f02.orchestrator_factory import OrchestratorFactory
@@ -100,7 +100,7 @@ class Application:
                              f"     原始异常详情 (Error {i+1}):"
                          )
                 # [指令] 即使有错误，也认为 *流程* 走完了，但可以抛出特定异常或返回状态。
-                # 当前决策：记录错误，但不抛出，让 CLI 判断为“完成但有错”。
+                # 当前决策：记录错误，但不抛出，让 CLI 判断为"完成但有错"。
                 # 如果需要 CLI 明确知道失败，可以在这里抛出一个 'PipelineWithErrorsError'。
                 # self.logger.warning("流水线执行已完成，但包含错误，请检查日志。")
                 # **修改**: 为了让 CLI 更明确，如果存在错误，我们抛出一个异常。

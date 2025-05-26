@@ -29,14 +29,14 @@ from loguru import Logger # [指令] 必须导入 Logger
 # --- 项目内部模块导入 ---
 # [指令] PipelineContextDTO 依赖的核心业务 DTOs 和 Enums 仍从调整后的中央 schemas 目录导入。
 # [指令] 路径 "../schemas/" 是相对于当前 "kd_tool/core/" 目录而言。
-from ..schemas.dtos import ( #
+from kd_tool.schemas.dtos import (
     FileRecordDTO,
     ContentBlockDTO,
     AnalysisResultDTO,
     UserDecisionDTO
 )
-from ..schemas.enums import AnalysisType #
-from ..errors import KDToolError # [指令] 导入核心错误基类
+from kd_tool.schemas.enums import AnalysisType
+from kd_tool.core.errors import KDToolError
 
 
 # ==============================================================================

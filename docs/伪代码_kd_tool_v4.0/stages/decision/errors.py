@@ -14,7 +14,7 @@ errors.py - P08 决策阶段错误定义 (v4.6)
 ---
 """
 
-from ...core.errors import KDToolError
+from kd_tool.core.errors import KDToolError
 
 class DecisionError(KDToolError):
     """决策阶段的基础错误类型。"""

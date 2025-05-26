@@ -1,4 +1,3 @@
-```python
 # ------------------------------------------------------------------------------
 # 文件名: kd_tool/stages/blockmerging/errors.py.md
 # 模块: P04 - 块合并阶段 (BlockMergingStage) - 自定义异常
@@ -130,6 +129,3 @@ class MergingFailedError(BlockMergingError):
 #     那么与存储相关的错误应该由 Storage 层抛出，或者被 Orchestrator 捕获。
 #   - 输入的 ContentBlockDTO 本身的有效性问题（如缺少关键字段）理论上应由P03或其之前的阶段保证，
 #     或者在P04开始时进行一次前置校验（如果校验失败，可能抛出 InvalidBlockSequenceError）。
-
-
-```

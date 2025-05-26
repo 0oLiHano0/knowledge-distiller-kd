@@ -14,7 +14,7 @@ errors.py - P06 SimHash 分析阶段错误定义 (v4.5)
 ---
 """
 
-from ...core.errors import KDToolError
+from kd_tool.core.errors import KDToolError
 
 class SimHashAnalysisError(KDToolError):
     """SimHash 分析阶段的基础错误类型。"""

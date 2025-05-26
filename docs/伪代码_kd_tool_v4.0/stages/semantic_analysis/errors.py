@@ -14,7 +14,7 @@ errors.py - P07 语义分析阶段错误定义 (v4.6)
 ---
 """
 
-from ...core.errors import KDToolError
+from kd_tool.core.errors import KDToolError
 
 class SemanticAnalysisError(KDToolError):
     """语义分析阶段的基础错误类型。"""

@@ -13,7 +13,7 @@ from .storage_interface import StorageInterface # [指令] 保持相对导入 (�
 from .sqlite_storage import SQLiteStorage     # [指令] 保持相对导入 (如果适用)
 
 # [指令] 从 core.errors 导入基础错误
-from ..core.errors import KDToolError #
+from kd_tool.core.errors import KDToolError #
 
 
 # --- 工厂相关的自定义异常 ---

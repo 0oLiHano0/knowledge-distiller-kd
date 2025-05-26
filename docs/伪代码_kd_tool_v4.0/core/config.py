@@ -27,21 +27,21 @@ from pydantic import BaseModel, Field
 # --- 从新的、分散的位置导入所有需要的配置模型 ---
 
 # 1. 核心层配置导入
-from .settings_models import OrchestratorSettings # [指令] 从 core/settings_models.py 导入
-from .logging.settings_models import LoggingSettings # [指令] 从 core/logging/settings_models.py 导入
+from kd_tool.core.settings_models import OrchestratorSettings # [指令] 从 core/settings_models.py 导入
+from kd_tool.core.logging.settings_models import LoggingSettings # [指令] 从 core/logging/settings_models.py 导入
 
 # 2. 存储层配置导入
-from ..storage.settings_models import StorageSettingsDTO # [指令] 从 storage/settings_models.py 导入
+from kd_tool.storage.settings_models import StorageSettingsDTO # [指令] 从 storage/settings_models.py 导入
 
 # 3. 各个 Stage 的配置导入
-from ..stages.prefilter.settings_models import PrefilterStageSettings
-from ..stages.docprocessing.settings_models import DocumentProcessingStageSettings
-from ..stages.blockmerging.settings_models import BlockMergerStageSettings
-from ..stages.md5analysis.settings_models import MD5AnalysisStageSettings
-from ..stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
-from ..stages.semantic_analysis.settings_models import SemanticAnalysisStageSettings
-from ..stages.decision.settings_models import DecisionStageSettings
-from ..stages.cleanup.settings_models import CleanupStageSettings
+from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
+from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
+from kd_tool.stages.blockmerging.settings_models import BlockMergerStageSettings
+from kd_tool.stages.md5analysis.settings_models import MD5AnalysisStageSettings
+from kd_tool.stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
+from kd_tool.stages.semantic_analysis.settings_models import SemanticAnalysisStageSettings
+from kd_tool.stages.decision.settings_models import DecisionStageSettings
+from kd_tool.stages.cleanup.settings_models import CleanupStageSettings
 
 
 # ==============================================================================

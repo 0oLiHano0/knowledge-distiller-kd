@@ -13,7 +13,7 @@ errors.py - P09 清理阶段错误定义 (v4.7)
 ---
 """
 
-from ...core.errors import KDToolError
+from kd_tool.core.errors import KDToolError
 from pathlib import Path
 
 class CleanupError(KDToolError):
