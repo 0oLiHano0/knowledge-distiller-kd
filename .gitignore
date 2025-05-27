@@ -155,3 +155,4 @@ requirements/*.txt
 *_temp.*
 
 # 环境变量文件
+.coverage*
