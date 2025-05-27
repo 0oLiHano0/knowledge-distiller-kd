@@ -1,158 +1,63 @@
-### macOS ###
-# General
+##############################################################################
+#  基础：OS 通用 & macOS
+##############################################################################
 .DS_Store
 .AppleDouble
-.LSOverride
-
-# Icon must end with two \r
-Icon
-
-# Thumbnails
-._*
-
-# Files that might appear in the root of a volume
-.DocumentRevisions-V100
-.fseventsd
-.Spotlight-V100
-.TemporaryItems
-.Trashes
-.VolumeIcon.icns
-.com.apple.timemachine.donotpresent
-.cursorrules
-
-# Directories potentially created on remote AFP share
-.AppleDB
-.AppleDesktop
-Network Trash Folder
-Temporary Items
-.apdisk
-
-### macOS Patch ###
-# iCloud generated files
+.Icon?          # 旧 HFS 图标
+._*             # 资源叉
 *.icloud
+Thumbs.db
 
-### Python ###
+##############################################################################
+#  Python 项目
+##############################################################################
 __pycache__/
 *.py[cod]
-*.pyc
-*.pyd
-*.so
-.Python
 .mypy_cache/
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-
-### Virtual Environment ###
+.pytest_cache/
+*.so
+# 虚拟环境（本地或 IDE 生成）
 venv/
-env/
-ENV/
+.env/
+.venv/
 
-### IDE ###
+##############################################################################
+#  开发工具 / IDE
+##############################################################################
 .idea/
 .vscode/
 *.swp
 *.swo
-.project
-.pydevproject
-.settings/
+.cursor/
+.cursorignore
 
-### Testing ###
-.coverage
+##############################################################################
+#  测试 & 覆盖率
+##############################################################################
 htmlcov/
-.pytest_cache/
-.tox/
-nosetests.xml
-coverage.xml
-decisions/
-input/
-logs/
-output/
-patch/
+.coverage*
 
-### Logs & Temp Files ###
+##############################################################################
+#  日志、临时、缓存
+##############################################################################
 *.log
 *.tmp
+.kd_cache/
 
-### Project specific ###
-/input/*
-!/input/.gitkeep
-/output/*
-!/output/.gitkeep
-logs/*
-!logs/.gitkeep
-decisions/*
-!decisions/.gitkeep
-.cache/
-vector_cache.pkl
-models/
-
-### OS specific ###
-Thumbs.db
-
-### Dependency Files ###
-Pipfile
-Pipfile.lock
-poetry.lock
-requirements/*.txt
-
-### Jupyter Notebook ###
-.ipynb_checkpoints/
-# 测试日志
-/tests/test.log
-
-# 本地模型缓存
-/.kd_cache/
-
-/.cursor/
-
-### 数据库相关 ###
-# 数据库实例目录及文件
-/instance/
-/instance/*
-!/instance/.gitkeep
-# 数据库文件
-*.sqlite
-*.sqlite3
+##############################################################################
+#  数据库
+##############################################################################
+*.sqlite*
 *.db
 
-### 数据库迁移相关 ###
-# Alembic版本控制文件
-/alembic/versions/*_test_script.py
-/alembic/versions/*_merge_*.py
-/alembic/versions/__pycache__/
-# 保留基础版本文件
-!/alembic/versions/1a2b3c4d5e6f_initial_tables.py
-!/alembic/versions/e5851bc0270a_init_tables.py
-!/alembic/versions/f20a2b7cc75c_drop_raw_element_type_from_blocks.py
-# 迁移目录下的缓存和临时文件
-/migrations/__pycache__/
-/migrations/*.pyc
-# 数据库备份文件
-*.sqlite.bak
-*.db.bak
+##############################################################################
+#  Jupyter
+##############################################################################
+.ipynb_checkpoints/
 
-### 可能的重复文件 ###
-# 重复的engine.py文件
-/knowledge_distiller_kd/engine.py
-# 其他可能的重复文件
-*_backup.*
-*_old.*
-*_duplicate.*
-*_copy.*
-*_temp.*
-
-# 环境变量文件
-.coverage*
+##############################################################################
+#  依赖 / 构建产物（如以后用到）
+##############################################################################
+dist/
+build/
+*.egg-info/
