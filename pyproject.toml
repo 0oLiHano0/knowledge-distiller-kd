@@ -1,30 +1,37 @@
+# pyproject.toml  ——  Poetry 配置（已修正 packages 位置）
+
 [tool.poetry]
-name = "knowledge-distiller-kd"
-version = "1.0.0"
-description = "A tool to detect and manage duplicate content in Markdown files."
-authors = ["Your Name or Team <your.email@example.com>"] # Please update this
+name = "kd_tool"
+version = "0.1.0"
+description = "Knowledge Distiller v4 prototype – detect and manage duplicate or conflicting knowledge."
+authors = ["Hansen Lee"]
 license = "MIT"
 readme = "README.md"
-python = ">=3.8"
-packages = [{include = "knowledge_distiller_kd"}]
 
+# 告诉 Poetry/Setuptools 打包 kd_tool 目录
+packages = [{ include = "kd_tool" }]
+
+# -------------------------------
+# 运行时依赖
+# -------------------------------
 [tool.poetry.dependencies]
-python = ">=3.8"
+python = ">=3.10"
 sentence-transformers = ">=2.2.2"
 numpy = ">=1.24.0"
 torch = ">=2.0.0"
 tqdm = ">=4.65.0"
-pathlib = {version = ">=1.0.1", python = "<3.4"} # pathlib is stdlib in 3.4+
-typing = {version = ">=3.7.4", python = "<3.5"} # typing is stdlib in 3.5+
 markdown = ">=3.4.0"
 pyyaml = ">=6.0.0"
 colorama = ">=0.4.6"
-unstructured = {version = ">=0.10.0", extras = ["docx", "md"]}
+unstructured = { version = ">=0.10.0", extras = ["docx", "md"] }
 loguru = ">=0.7.0"
 sqlalchemy = ">=2.0.0"
 alembic = ">=1.12.0"
 pydantic-settings = ">=2.2.1"
 
+# -------------------------------
+# 开发 / 测试依赖
+# -------------------------------
 [tool.poetry.group.dev.dependencies]
 pytest = ">=7.4.3"
 pytest-cov = ">=4.1.0"
@@ -37,8 +44,11 @@ pylint = ">=3.0.0"
 coverage = ">=7.3.0"
 mistune = ">=3.0.1"
 
+# -------------------------------
+# CLI 入口
+# -------------------------------
 [tool.poetry.scripts]
-kd-tool = "knowledge_distiller_kd.cli:main"
+kd-tool = "kd_tool.cli:main"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
