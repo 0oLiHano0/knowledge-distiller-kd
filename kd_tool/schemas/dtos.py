@@ -1,241 +1,233 @@
 """
-=================================================
-sch01.dtos.py.md - KD_Tool 数据传输对象 (DTOs) (v4.6)
-=================================================
-
-**模块功能**:
-
-- **核心职责**: 定义项目中用于在不同层 (Orchestrator, Stages, Storage) 之间传递数据的核心数据结构。
-- **技术选型**: 使用 Pydantic 定义，以实现数据的结构化、类型安全和自动验证。
-- **设计原则**:
-    - **[架构指令] 严禁**将 DTOs 与 ORM 模型混用。DTOs 是接口契约，ORM 是持久化细节。
-    - DTOs 应尽量保持简单，只包含数据和必要的验证/辅助方法。
-    - **[架构指令] 必须**使用类型提示。
-- **v4.6 核心变更**:
-    - **[架构指令] 必须** 从 `FileRecordDTO`, `ContentBlockDTO`, `AnalysisResultDTO`, `UserDecisionDTO`
-      中移除 `task_id` 字段。
-    - **[架构原因]** `task_id` 现在由 `PipelineContextDTO` 全权管理。
-      核心 DTOs 应专注于业务实体本身。如需追踪，应通过日志或元数据实现。
-    - **[架构指令] 必须** 更新 `PipelineContextDTO` 的 `add_...` 辅助方法，移除其中对 DTO `task_id` 的校验。
-
----
+kd_tool/schemas/dtos.py  ‑  KD_Tool 数据传输对象 (DTOs)  v4.6
+================================================================
+WHY  : 各层之间的数据契约，保证结构化与类型安全。
+WHAT : 定义 FileRecordDTO / ContentBlockDTO / AnalysisResultDTO /
+       UserDecisionDTO / PipelineContextDTO 五大核心 DTO。
+HOW  : 依 Pydantic v2 构建，所有字段明确类型与验证，
+       严格禁止与 ORM 混用，遵守架构设计总则 v4.0‑v4.6。
 """
-import uuid
-from uuid import UUID, uuid4
+
+from __future__ import annotations
+
 import hashlib
-from typing import Optional, Dict, Any, List, Union
+import uuid
 from datetime import datetime, timezone
-from pathlib import Path
 from enum import Enum
-from pydantic import BaseModel, Field, field_validator, model_validator
-from loguru import Logger
-from kd_tool.schemas.enums import BlockType, AnalysisType, DecisionType, ProcessingStatus
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Union
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+# ---------- 业务枚举 & 错误 ----------
+from kd_tool.schemas.enums import (
+    AnalysisType,
+    BlockType,
+    DecisionType,
+    ProcessingStatus,
+)
 from kd_tool.core.errors import KDToolError
 
+__all__ = [
+    "FileRecordDTO",
+    "ContentBlockDTO",
+    "AnalysisResultDTO",
+    "UserDecisionDTO",
+    "PipelineContextDTO",
+]
 
+
+# =============================================================================
+# FileRecordDTO
+# =============================================================================
 class FileRecordDTO(BaseModel):
-    """
-    代表存储系统中已注册文件的记录的 DTO。
-    **规范**: 这是文件在系统中的唯一表示，贯穿整个处理流程。
-    """
-    file_id: str = Field(default_factory=lambda :
-        f'file_{uuid.uuid4().hex}', description=
-        '文件的唯一标识符。**规范**: 使用 UUID 生成，确保唯一性，保持 str 类型。')
-    original_path: Path = Field(description='文件在文件系统中的原始绝对路径。**规范**: 必须是绝对路径。')
-    file_hash_md5: Optional[str] = Field(default=None, max_length=32,
-        description='文件的完整内容 MD5 哈希值。**规范**: 用于快速精确匹配。')
-    size_bytes: Optional[int] = Field(default=None, ge=0, description=
-        '文件大小（字节）。')
-    last_modified_at: Optional[datetime] = Field(default=None, description=
-        '文件最后修改时间戳。**规范**: 必须是 UTC 时间。')
-    registered_at: datetime = Field(default_factory=lambda : datetime.now(
-        timezone.utc), description='文件注册时间戳。**规范**: 必须是 UTC 时间。')
-    processing_status: ProcessingStatus = Field(default=ProcessingStatus.
-        PENDING, description='文件的处理状态。**规范**: 使用 `ProcessingStatus` 枚举。')
-    processing_history: List[Dict[str, Any]] = Field(default_factory=list,
-        description='文件处理状态变更的历史记录。**规范**: 用于追踪和调试。')
-    metadata: Dict[str, Any] = Field(default_factory=dict, description=
-        '与文件相关的其他元数据。**规范**: 用于存储扩展信息。')
+    """WHY  文件唯一标识；WHAT  贯穿全流程；HOW  Pydantic v2 DTO。"""
 
-    @field_validator('last_modified_at', 'registered_at', mode='before',
-        always=True)
-    def ensure_datetime_is_utc(cls, v: Any) ->Optional[datetime]:
-        """**验证器**: 确保所有关键日期时间字段都是 UTC 时区。"""
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    file_id: str = Field(  # noqa: WPS110 (保持业务词)
+        default_factory=lambda: f"file_{uuid.uuid4().hex}",
+        description="文件唯一标识，UUID‑hex",
+    )
+    original_path: Path = Field(description="文件系统绝对路径")
+    file_hash_md5: Optional[str] = Field(
+        default=None,
+        max_length=32,
+        description="文件内容 MD5，用于精确匹配",
+    )
+    size_bytes: Optional[int] = Field(default=None, ge=0, description="文件大小，字节")
+    last_modified_at: Optional[datetime] = Field(
+        default=None, description="文件最后修改 UTC 时间",
+    )
+    registered_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="注册时间 UTC",
+    )
+    processing_status: ProcessingStatus = Field(
+        default=ProcessingStatus.PENDING, description="处理状态枚举",
+    )
+    processing_history: List[Dict[str, Any]] = Field(
+        default_factory=list, description="状态变更历史",
+    )
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="扩展元数据")
+
+    # ---- 验证 ---------------------------------------------------------------
+    @field_validator("last_modified_at", "registered_at", mode="before", check_fields=False)
+    @classmethod
+    def _ensure_utc(cls, v: Any) -> Any:  # noqa: N805 (Pydantic 规范)
+        """保证日期字段为 UTC。"""
         if v is None:
             return None
         if isinstance(v, str):
-            try:
-                v_dt = datetime.fromisoformat(v.replace('Z', '+00:00')
-                    ) if v.endswith('Z') else datetime.fromisoformat(v)
-            except ValueError:
-                raise ValueError(f"无效的日期时间字符串格式: '{v}'")
+            v_dt = datetime.fromisoformat(v.replace("Z", "+00:00"))
         elif isinstance(v, datetime):
             v_dt = v
         else:
-            raise TypeError(f'期望字符串或日期时间对象，但得到 {type(v)}')
-        if v_dt.tzinfo is None:
-            return v_dt.replace(tzinfo=timezone.utc)
-        if v_dt.tzinfo != timezone.utc:
-            return v_dt.astimezone(timezone.utc)
-        return v_dt
+            raise TypeError(f"期望 str 或 datetime, 得到 {type(v)}")
+        return v_dt.astimezone(timezone.utc)
 
 
-    class Config:
-        extra = 'forbid'
-        arbitrary_types_allowed = True
-        json_encoders = {datetime: lambda v: v.isoformat().replace('+00:00',
-            'Z') if v and v.tzinfo == timezone.utc else v.isoformat() if v else
-            None, Path: str}
-
-
+# =============================================================================
+# ContentBlockDTO
+# =============================================================================
 class ContentBlockDTO(BaseModel):
-    """
-    代表从文档中解析出的一个内容块的 DTO。
-    **规范**: 这是进行内容分析（MD5, SimHash, Semantic）的基本单元。
-    """
-    block_id: str = Field(default_factory=lambda :
-        f'block_{uuid.uuid4().hex}', description=
-        '内容块的唯一标识符。**规范**: 使用 UUID 生成。')
-    file_id: str = Field(description=
-        '此内容块所属的源文件的 file_id。**规范**: 关联到 `FileRecordDTO`。')
-    text_content: str = Field(description='内容块的原始文本内容。')
-    analysis_text: Optional[str] = Field(default=None, description=
-        '用于分析的标准化文本内容。**规范**: 如为 None，分析时默认使用 `text_content`。')
-    block_type: BlockType = Field(description=
-        '内容块的类型。**规范**: 使用 `BlockType` 枚举。')
-    order_in_document: Optional[int] = Field(default=None, ge=0,
-        description='内容块在文档中的顺序索引。')
-    page_number: Optional[int] = Field(default=None, ge=1, description=
-        '内容块所在的页码 (如果适用)。')
-    text_hash_md5: Optional[str] = Field(default=None, max_length=32,
-        description='`analysis_text` 的 MD5 哈希值。')
-    simhash_value: Optional[str] = Field(default=None, pattern=
-        '^[0-9a-fA-F]{16}$|^[0-9a-fA-F]{32}$', description=
-        '`analysis_text` 的 SimHash 指纹 (64位或128位)。')
-    metadata: Dict[str, Any] = Field(default_factory=dict, description=
-        '与内容块相关的其他元数据。')
+    """WHY  文档基本分析单元；WHAT  存储文本块与哈希；HOW  DTO。"""
 
-    @model_validator(mode='after')
-    @classmethod
-    def set_analysis_text_if_none(cls, data: Any) ->Any:
-        """**验证器**: 确保 `analysis_text` 如果未提供，则使用 `text_content`。"""
-        if isinstance(data, cls):
-            if data.analysis_text is None and data.text_content is not None:
-                data.analysis_text = data.text_content
-        return data
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    block_id: str = Field(
+        default_factory=lambda: f"block_{uuid.uuid4().hex}",
+        description="内容块唯一标识",
+    )
+    file_id: str = Field(description="所属 FileRecordDTO.file_id")
+    text_content: str = Field(description="原始文本内容")
+    analysis_text: Optional[str] = Field(
+        default=None, description="标准化文本，默认 text_content",
+    )
+    block_type: BlockType = Field(description="内容块类型枚举")
+    order_in_document: Optional[int] = Field(default=None, ge=0, description="文档内顺序")
+    page_number: Optional[int] = Field(default=None, ge=1, description="页码")
+    text_hash_md5: Optional[str] = Field(default=None, max_length=32, description="标准化文本 MD5")
+    simhash_value: Optional[str] = Field(
+        default=None,
+        pattern=r"^[0-9a-fA-F]{16}$|^[0-9a-fA-F]{32}$",
+        description="SimHash 指纹 64/128 bit",
+    )
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="扩展元数据")
+
+    # ---- 自动回填 -----------------------------------------------------------
+    @model_validator(mode="after")
+    def _fill_analysis_text(self) -> "ContentBlockDTO":  # noqa: D401 (Pydantic 自身返回类型)
+        """若 analysis_text 为空，则使用 text_content。"""
+        if self.analysis_text is None:
+            object.__setattr__(self, "analysis_text", self.text_content)
+        return self
 
 
-    class Config:
-        extra = 'forbid'
-        arbitrary_types_allowed = True
-
-
+# =============================================================================
+# AnalysisResultDTO
+# =============================================================================
 class AnalysisResultDTO(BaseModel):
-    """
-    代表对**两个**内容块进行**一种特定分析**后得到的结果的 DTO。
-    **规范**: 这是所有分析阶段 (MD5, SimHash, Semantic) 的标准输出格式。
-    """
-    pair_analysis_id: str = Field(description='基于块对和分析类型的确定性唯一ID。')
-    block_id_1: str = Field(description='第一个内容块的 block_id。')
-    block_id_2: str = Field(description='第二个内容块的 block_id。')
-    analysis_type: AnalysisType = Field(description=
-        '执行的分析类型。**规范**: 使用 `AnalysisType` 枚举。')
-    score: Optional[float] = Field(default=None, ge=0.0, le=1.0,
-        description='标准化相似度分数 (0.0 到 1.0 之间)。')
-    details: Dict[str, Any] = Field(default_factory=dict, description=
-        '与分析结果相关的其他详细信息。')
+    """WHY  块对分析结果；WHAT  提供统一输出；HOW  DTO。"""
 
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+
+    pair_analysis_id: str = Field(description="块对+类型 唯一哈希")
+    block_id_1: str = Field(description="内容块一 ID")
+    block_id_2: str = Field(description="内容块二 ID")
+    analysis_type: AnalysisType = Field(description="分析类型枚举")
+    score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="相似度分数")
+    details: Dict[str, Any] = Field(default_factory=dict, description="分析附加详情")
+
+    # ---- 内部工具 -----------------------------------------------------------
     @staticmethod
-    def _calculate_pair_analysis_id(block_id_1: str, block_id_2: str,
-        analysis_type: Union[AnalysisType, str]) ->str:
-        """**辅助方法**: 计算确定性的 ID。"""
-        sorted_block_ids = sorted([block_id_1, block_id_2])
-        analysis_type_value = analysis_type.value if isinstance(analysis_type,
-            Enum) else str(analysis_type)
-        key_string = (
-            f'pair_{sorted_block_ids[0]}__{sorted_block_ids[1]}_type_{analysis_type_value}'
-            )
-        return hashlib.md5(key_string.encode('utf-8')).hexdigest()
+    def _make_id(b1: str, b2: str, a_type: Union[AnalysisType, str]) -> str:
+        ids = sorted([b1, b2])
+        at_val = a_type.value if isinstance(a_type, Enum) else str(a_type)
+        raw = f"pair_{ids[0]}__{ids[1]}_type_{at_val}"
+        return hashlib.md5(raw.encode()).hexdigest()
 
-    @field_validator(mode='before')
+    # ---- 验证 ---------------------------------------------------------------
+    @model_validator(mode="before")
     @classmethod
-    def set_pair_analysis_id_on_validation(cls, values: Any) ->Any:
-        """**验证器**: 在验证前自动计算 `pair_analysis_id`。"""
-        if isinstance(values, dict):
-            block_id_1 = values.get('block_id_1')
-            block_id_2 = values.get('block_id_2')
-            analysis_type = values.get('analysis_type')
-            if block_id_1 and block_id_2 and analysis_type:
-                values['pair_analysis_id'] = cls._calculate_pair_analysis_id(
-                    block_id_1, block_id_2, analysis_type)
-            elif 'pair_analysis_id' not in values:
-                raise ValueError(
-                    '无法计算 pair_analysis_id，且未提供 block_id_1, block_id_2, 或 analysis_type。'
-                    )
-        return values
-
-    @field_validator(mode='after')
-    @classmethod
-    def check_simhash_details(cls, data: Any) ->Any:
-        """**验证器**: 如果分析类型是 SimHash，验证 details 字段是否符合规范。"""
-        if isinstance(data, cls):
-            if data.analysis_type == AnalysisType.SIMHASH:
-                if 'hamming_distance' not in data.details or not isinstance(
-                    data.details['hamming_distance'], int):
-                    raise ValueError(
-                        "SimHash 分析结果必须在 details 中包含整数 'hamming_distance'。")
-                if 'hash_bits' not in data.details or not isinstance(data.
-                    details['hash_bits'], int):
-                    raise ValueError(
-                        "SimHash 分析结果必须在 details 中包含整数 'hash_bits'。")
+    def _populate_id(cls, data: Dict[str, Any]) -> Dict[str, Any]:
+        if "pair_analysis_id" not in data:
+            cls_fields = (data.get("block_id_1"), data.get("block_id_2"), data.get("analysis_type"))
+            if all(cls_fields):
+                data["pair_analysis_id"] = cls._make_id(*cls_fields)
+            else:
+                raise ValueError("缺少生成 pair_analysis_id 所需字段")
         return data
 
+    @model_validator(mode="after")
+    def _check_simhash(self) -> "AnalysisResultDTO":
+        if self.analysis_type is AnalysisType.SIMHASH:
+            if not isinstance(self.details.get("hamming_distance"), int):
+                raise ValueError("SimHash 结果 details 必含整数 hamming_distance")
+            if not isinstance(self.details.get("hash_bits"), int):
+                raise ValueError("SimHash 结果 details 必含整数 hash_bits")
+        return self
 
-    class Config:
-        extra = 'forbid'
-        arbitrary_types_allowed = True
 
-
+# =============================================================================
+# UserDecisionDTO
+# =============================================================================
 class UserDecisionDTO(BaseModel):
-    """
-    代表用户或系统针对一个分析结果所做的决策的 DTO。
-    **规范**: 这是 `DecisionStage` 的核心输出，也是 `CleanupStage` 的输入。
-    """
-    pair_analysis_id: str = Field(description=
-        '此决策针对的 AnalysisResultDTO 的 ID。**规范**: 关联到 `AnalysisResultDTO`。')
-    decision: DecisionType = Field(default=DecisionType.UNDECIDED,
-        description='做出的具体决策。**规范**: 使用 `DecisionType` 枚举。')
-    decided_at: datetime = Field(default_factory=lambda : datetime.now(
-        timezone.utc), description='决策时间戳 (UTC)。**规范**: 必须是 UTC。')
-    decided_by: Optional[str] = Field(default=None, description=
-        "决策者标识符 (e.g., 'system_rule_v1', 'user_admin')。")
-    notes: Optional[str] = Field(default=None, max_length=1024, description
-        ='决策备注。')
+    """WHY  人机决策记录；WHAT  输入给 CleanupStage；HOW  DTO。"""
 
-    @field_validator('decided_at', mode='before')
-    def ensure_datetime_is_utc(cls, v: Any) ->Optional[datetime]:
-        """**验证器**: 确保决策时间是 UTC。"""
-        if v is None:
-            return None
+    model_config = ConfigDict(extra="forbid")
+
+    pair_analysis_id: str = Field(description="对应 AnalysisResultDTO ID")
+    decision: DecisionType = Field(default=DecisionType.UNDECIDED, description="决策枚举")
+    decided_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), description="决策时间 UTC",
+    )
+    decided_by: Optional[str] = Field(default=None, description="决策者标识符")
+    notes: Optional[str] = Field(default=None, max_length=1024, description="备注")
+
+    # ---- 验证 ---------------------------------------------------------------
+    @field_validator("decided_at", mode="before", check_fields=False)
+    @classmethod
+    def _ensure_utc(cls, v: Any) -> Any:  # noqa: N805
         if isinstance(v, str):
-            try:
-                v_dt = datetime.fromisoformat(v.replace('Z', '+00:00')
-                    ) if v.endswith('Z') else datetime.fromisoformat(v)
-            except ValueError:
-                raise ValueError(f"无效的日期时间字符串格式: '{v}'")
-        elif isinstance(v, datetime):
-            v_dt = v
-        else:
-            raise TypeError(f'期望字符串或日期时间对象，但得到 {type(v)}')
-        if v_dt.tzinfo is None:
-            return v_dt.replace(tzinfo=timezone.utc)
-        if v_dt.tzinfo != timezone.utc:
-            return v_dt.astimezone(timezone.utc)
-        return v_dt
+            v = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if isinstance(v, datetime):
+            return v.astimezone(timezone.utc)
+        raise TypeError("decided_at 必须为 datetime 或 ISO str")
 
 
-    class Config:
-        extra = 'forbid'
-        json_encoders = {datetime: lambda v: v.isoformat().replace('+00:00',
-            'Z') if v and v.tzinfo == timezone.utc else v.isoformat() if v else
-            None}
+# =============================================================================
+# PipelineContextDTO
+# =============================================================================
+class PipelineContextDTO(BaseModel):
+    """WHY  管理一次文件处理流水线的临时上下文。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    context_id: str = Field(default_factory=lambda: uuid.uuid4().hex, description="上下文 ID")
+    file_records: Dict[str, FileRecordDTO] = Field(default_factory=dict, description="file_id → DTO")
+    content_blocks: Dict[str, ContentBlockDTO] = Field(default_factory=dict, description="block_id → DTO")
+    analysis_results: Dict[str, AnalysisResultDTO] = Field(default_factory=dict, description="pair_id → DTO")
+    decisions: Dict[str, UserDecisionDTO] = Field(default_factory=dict, description="pair_id → DTO")
+
+    # ---------- 辅助方法 (已移除 task_id 校验) ------------------------------
+    def add_file_record(self, record: FileRecordDTO) -> None:
+        """注册文件 DTO。若重复则抛错。"""
+        if record.file_id in self.file_records:
+            raise KDToolError(f"FileRecord 已存在: {record.file_id}")
+        self.file_records[record.file_id] = record
+
+    def add_content_block(self, block: ContentBlockDTO) -> None:
+        if block.block_id in self.content_blocks:
+            raise KDToolError(f"ContentBlock 已存在: {block.block_id}")
+        self.content_blocks[block.block_id] = block
+
+    def add_analysis_result(self, result: AnalysisResultDTO) -> None:
+        if result.pair_analysis_id in self.analysis_results:
+            raise KDToolError(f"AnalysisResult 已存在: {result.pair_analysis_id}")
+        self.analysis_results[result.pair_analysis_id] = result
+
+    def add_user_decision(self, decision: UserDecisionDTO) -> None:
+        if decision.pair_analysis_id in self.decisions:
+            raise KDToolError(f"Decision 已存在: {decision.pair_analysis_id}")
+        self.decisions[decision.pair_analysis_id] = decision
