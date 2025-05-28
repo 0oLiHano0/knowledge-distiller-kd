@@ -44,4 +44,4 @@ jobs:
 
     - name: Black format check
       run: |
-        poetry run black --check kd_tool || true
+        poetry run black --check kd_tool

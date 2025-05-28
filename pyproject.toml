@@ -53,3 +53,16 @@ kd-tool = "kd_tool.cli:main"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+# -------------------------------
+# Pytest 配置
+# -------------------------------
+[tool.pytest.ini_options]
+# 架构师注释：将当前目录（项目根）加入 Python 搜索路径，解决导入问题。
+pythonpath = ["."]
+# 架构师注释：明确告知 pytest 测试文件的查找路径。
+testpaths = ["tests"]
+# 架构师注释：以下是 pytest 的一些标准配置，确保它能找到测试。
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
