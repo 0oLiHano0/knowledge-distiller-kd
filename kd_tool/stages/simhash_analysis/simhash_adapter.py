@@ -19,7 +19,7 @@ except ImportError:
     Simhash = None
     SimhashIndex = None
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
-from kd_tool.stages.simhash_analysis.errors import SimHashCalculationError, SimHashComparisonError
+from kd_tool.stages.simhash_analysis.errors import SimHashCalculationError, SimHashComparisonError, SimHashAdapterError
 
 
 class SimhashLibAdapter(SimHashAdapterInterface):

@@ -11,7 +11,7 @@ sentence_transformer_adapter.py - 基于 `sentence-transformers` 的适配器实
 
 ---
 """
-from typing import List, Optional
+from typing import List, Optional, Any # 实际运行时可能不需要Any
 import numpy as np
 try:
     from sentence_transformers import SentenceTransformer
@@ -30,7 +30,7 @@ class SentenceTransformerAdapter(SemanticAdapterInterface):
     """
 
     def __init__(self):
-        self._model: Optional[SentenceTransformer] = None
+        self._model: Optional[Any] = None # 实际运行时，会根据实际的模型类型进行类型注解“SentenceTransformer”
 
     def load_model(self, model_name_or_path: str, device: Optional[str]=None
         ) ->None:

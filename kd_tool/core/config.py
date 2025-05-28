@@ -18,7 +18,7 @@ config.py - KD_Tool 应用程序顶层配置 (v4.6)
 """
 from pydantic import BaseModel, Field
 from kd_tool.core.core_settings_models import OrchestratorSettings
-from kd_tool.core.logging.logging_settings_models import LoggingSettings
+from kd_tool.logging.settings import LoggingSettingsDTO # kd_tool/logging/settings.py 日志配置
 from kd_tool.storage.settings_models import StorageSettingsDTO
 from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
@@ -44,7 +44,7 @@ class AppConfig(BaseModel):
         description='存储服务配置。')
     orchestrator: OrchestratorSettings = Field(default_factory=
         OrchestratorSettings, description='编排器配置。')
-    logging: LoggingSettings = Field(default_factory=LoggingSettings,
+    logging: LoggingSettingsDTO = Field(default_factory=LoggingSettingsDTO, # kd_tool/logging/settings.py 日志配置
         description='日志系统配置。')
     prefilter: PrefilterStageSettings = Field(default_factory=
         PrefilterStageSettings, description='P02 预过滤阶段配置。')

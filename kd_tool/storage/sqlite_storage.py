@@ -46,11 +46,11 @@ sqlite_storage.py - SQLite 存储实现 (v4.6)
 8. **返回持久化后的 DTOs**: 所有 `save_...` 和 `register_...` 方法现在都会在 `session.flush()` 后，将持久化的 ORM 对象转换回 DTO 并返回。这确保了调用者能获得包含任何数据库生成/更新的值（如主键、默认时间戳）的最新 DTO。
 ---
 """
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Generator
 from contextlib import contextmanager
 from pathlib import Path
 from datetime import datetime, timezone
-from loguru import Logger
+from kd_tool.logging import LoggerProtocol
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError, NoResultFound
@@ -68,7 +68,7 @@ class SQLiteStorage(StorageInterface):
     使用 SQLite 和 SQLAlchemy 实现 StorageInterface。
     """
 
-    def __init__(self, settings: StorageSettingsDTO, logger: Logger):
+    def __init__(self, settings: StorageSettingsDTO, logger: LoggerProtocol):
         super().__init__(settings, logger)
         self.logger.info(f'SQLiteStorage: 正在配置实例 (父类初始化已完成)...')
         if not isinstance(self.settings, StorageSettingsDTO):
@@ -77,7 +77,7 @@ class SQLiteStorage(StorageInterface):
                 )
             self.logger.error(msg)
             raise TypeError(msg)
-        if not isinstance(self.logger, Logger):
+        if not isinstance(self.logger, LoggerProtocol):
             msg = 'SQLiteStorage: logger 参数必须是兼容的 Logger 实例 (由父类初始化后检查)。'
             self.logger.error(msg)
             raise TypeError(msg)
@@ -181,7 +181,7 @@ class SQLiteStorage(StorageInterface):
         self.logger.info('SQLiteStorage: 清理操作完成。')
 
     @contextmanager
-    def _session_scope(self) ->Session:
+    def _session_scope(self) -> Generator[Session, None, None]:
         """
         提供一个 SQLAlchemy 会话的上下文管理器。
         (详细架构约束见 v4 版本)

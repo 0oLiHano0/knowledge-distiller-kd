@@ -15,13 +15,13 @@ factory.py - P06 SimHash 分析阶段工厂 (v4.6)
 
 ---
 """
-from loguru import Logger
-from typing import Optional
-from ....core.interfaces import StorageInterface
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.core.interfaces import StorageInterface
 from kd_tool.stages.simhash_analysis.simhash_analysis_stage import SimHashAnalysisStage
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
 from kd_tool.stages.simhash_analysis.simhash_adapter import SimhashLibAdapter
 from kd_tool.stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
+from typing import Optional
 
 
 class SimHashAnalysisStageFactory:
@@ -29,7 +29,7 @@ class SimHashAnalysisStageFactory:
     创建 `SimHashAnalysisStage` 实例的工厂。
     """
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: LoggerProtocol):
         """
         **规范**: 工厂自身依赖 (如 Logger) **必须**通过构造函数注入。
         """

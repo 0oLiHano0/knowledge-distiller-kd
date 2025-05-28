@@ -22,8 +22,9 @@ from typing import List, Optional
 from pathlib import Path
 import sys
 import traceback
-from kd_tool.core.application_builder import ApplicationBuilder
-from kd_tool.core.errors import KDToolError
+from kd_tool.core.application_builder import ApplicationBuilder # kd_tool/core/application_builder.py 应用构建器
+from kd_tool.core.errors import KDToolError # kd_tool/core/errors.py 错误
+from kd_tool.logging.protocols import LoggerProtocol
 app = typer.Typer(name='kd_tool', help=
     """
     KD_Tool (Knowledge Distiller) v4.0 - 本地化运行的源信息治理工具。
@@ -65,17 +66,17 @@ def run(input_paths: List[Path]=typer.Argument(..., help=
             f"❌ 错误: 无法找到配置文件 '{DEFAULT_CONFIG_FILENAME}'。请使用 -c 或 --config 参数指定，或在默认位置创建。"
             , fg=typer.colors.RED, err=True)
         raise typer.Exit(code=1)
-    application = None
-    logger = None
+    logger: Optional[LoggerProtocol] = None
     try:
         typer.echo(f"🔧 使用配置文件 '{actual_config_path}' 初始化应用程序...")
         builder = ApplicationBuilder(str(actual_config_path))
         typer.echo('🏗️ 正在构建应用程序核心组件...')
         application = builder.build()
         logger = application.logger
-        logger.info('⚡️ 应用程序构建完成，准备启动流水线...')
+        if logger:
+            logger.info('⚡️ 应用程序构建完成，准备启动流水线...')
     except KDToolError as e:
-        typer.secho(f'❌ 严重错误: 应用程序构建失败: {e}', fg=typer.colors.RED, err=True)
+        typer.secho(f'❌ 严重错误: Logger未能成功初始化。', fg=typer.colors.RED, err=True)
         if e.original_exception:
             typer.secho('--- 原始错误详情 ---', fg=typer.colors.YELLOW, err=True)
             traceback.print_exception(type(e.original_exception), e.

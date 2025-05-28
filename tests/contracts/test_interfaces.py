@@ -11,7 +11,7 @@ from typing import Type
 from tests.contracts.helpers import get_public_methods_from_class, compare_method_signatures
 
 # 导入待测试的接口和实现
-from kd_tool.storage.Storage_interface import StorageInterface
+from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.storage.sqlite_storage import SQLiteStorage
 # 以后可以导入更多:
 # from kd_tool.core.interfaces import StageInterface

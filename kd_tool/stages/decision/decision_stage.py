@@ -20,11 +20,11 @@ decision_stage.py - P08 决策阶段实现 (v4.6)
 """
 from typing import List, Dict, Set, Tuple, Optional, Any
 from uuid import UUID
-from loguru import Logger
-from ....core.interfaces import StageInterface, StorageInterface
-from ....core.dtos import PipelineContextDTO
-from ....schemas.dtos import AnalysisResultDTO, UserDecisionDTO
-from ....schemas.enums import AnalysisType, DecisionType
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import AnalysisResultDTO, UserDecisionDTO
+from kd_tool.schemas.enums import AnalysisType, DecisionType
 from kd_tool.stages.decision.settings_models import DecisionStageSettings, DecisionRule
 from kd_tool.stages.decision.errors import DecisionError, RuleEvaluationError, MissingAnalysisDataError
 
@@ -35,7 +35,7 @@ class DecisionStage(StageInterface):
     负责根据分析结果生成决策建议。
     """
 
-    def __init__(self, logger: Logger, storage: StorageInterface, settings:
+    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
         DecisionStageSettings):
         """构造函数，通过 DI 注入所有依赖。"""
         self._logger = logger.bind(stage='DecisionStage')
@@ -137,7 +137,7 @@ class DecisionStage(StageInterface):
         return None
 
     def _apply_rules(self, results_map: Dict[AnalysisType,
-        AnalysisResultDTO], logger: Logger) ->DecisionType:
+        AnalysisResultDTO], logger: LoggerProtocol) ->DecisionType:
         for rule in self._sorted_rules:
             if self._check_rule_match(rule, results_map):
                 logger.trace(
@@ -167,7 +167,7 @@ class DecisionStage(StageInterface):
         return True
 
     def _save_user_decisions(self, decisions: List[UserDecisionDTO], logger:
-        Logger, context: PipelineContextDTO) ->None:
+        LoggerProtocol, context: PipelineContextDTO) ->None:
         """将用户决策持久化到存储。"""
         logger.info(f'正在将 {len(decisions)} 个用户决策保存到存储...')
         try:

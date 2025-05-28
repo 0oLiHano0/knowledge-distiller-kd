@@ -21,12 +21,12 @@ semantic_analysis_stage.py - P07 语义分析阶段实现 (v4.6)
 """
 from typing import List, Dict, Tuple
 from uuid import UUID
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
 import numpy as np
-from ....core.interfaces import StageInterface, StorageInterface
-from ....core.dtos import PipelineContextDTO
-from ....schemas.dtos import ContentBlockDTO, AnalysisResultDTO
-from ....schemas.enums import AnalysisType
+from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import ContentBlockDTO, AnalysisResultDTO
+from kd_tool.schemas.enums import AnalysisType
 from kd_tool.stages.semantic_analysis.settings_models import SemanticAnalysisStageSettings
 from kd_tool.stages.semantic_analysis.adapter_interface import SemanticAdapterInterface
 from kd_tool.stages.semantic_analysis.errors import SemanticAnalysisError, ModelLoadingError, EmbeddingCalculationError, SimilarityCalculationError
@@ -38,7 +38,7 @@ class SemanticAnalysisStage(StageInterface):
     负责计算内容块的语义相似度，并找出相似的内容块对。
     """
 
-    def __init__(self, logger: Logger, storage: StorageInterface, settings:
+    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
         SemanticAnalysisStageSettings, adapter: SemanticAdapterInterface):
         """构造函数，通过 DI 注入所有依赖。"""
         self._logger = logger.bind(stage='SemanticAnalysisStage')
@@ -113,7 +113,7 @@ class SemanticAnalysisStage(StageInterface):
             context.add_error(error)
         return context
 
-    def _ensure_model_loaded(self, logger: Logger):
+    def _ensure_model_loaded(self, logger: LoggerProtocol):
         if not self._is_model_loaded:
             logger.info(f'正在加载语义模型: {self._settings.model_name_or_path}...')
             self._adapter.load_model(self._settings.model_name_or_path,
@@ -127,7 +127,7 @@ class SemanticAnalysisStage(StageInterface):
             analysis_text and b.analysis_text.strip() != '']
 
     def _get_pairs_to_compare(self, block_ids: List[str], context:
-        PipelineContextDTO, logger: Logger) ->List[Tuple[str, str]]:
+        PipelineContextDTO, logger: LoggerProtocol) ->List[Tuple[str, str]]:
         pairs = []
         n = len(block_ids)
         if self._settings.comparison_strategy == 'all_pairs':
@@ -167,7 +167,7 @@ class SemanticAnalysisStage(StageInterface):
         return pairs
 
     def _calculate_pairs_similarity(self, pairs: List[Tuple[str, str]],
-        embedding_map: Dict[str, np.ndarray], logger: Logger) ->List[
+        embedding_map: Dict[str, np.ndarray], logger: LoggerProtocol) ->List[
         AnalysisResultDTO]:
         results = []
         threshold = self._settings.similarity_threshold
@@ -191,7 +191,7 @@ class SemanticAnalysisStage(StageInterface):
         return results
 
     def _save_analysis_results(self, results: List[AnalysisResultDTO],
-        logger: Logger, context: PipelineContextDTO) ->None:
+        logger: LoggerProtocol, context: PipelineContextDTO) ->None:
         """将分析结果持久化到存储。"""
         logger.info(f'正在将 {len(results)} 个语义分析结果保存到存储...')
         try:

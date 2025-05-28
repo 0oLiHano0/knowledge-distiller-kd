@@ -9,9 +9,9 @@ factory.py - P09 清理阶段工厂 (v4.6)
 
 ---
 """
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.core.interfaces import StorageInterface
 from typing import Optional
-from ....core.interfaces import StorageInterface
 from kd_tool.stages.cleanup.settings_models import CleanupStageSettings
 from kd_tool.stages.cleanup.cleanup_stage import CleanupStage
 from kd_tool.stages.cleanup.adapter_interface import FileSystemAdapterInterface
@@ -23,7 +23,7 @@ class CleanupStageFactory:
     创建 `CleanupStage` 实例的工厂。
     """
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: LoggerProtocol):
         """工厂构造函数。"""
         self._logger = logger.bind(factory='CleanupStageFactory')
 

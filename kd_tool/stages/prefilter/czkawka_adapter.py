@@ -3,7 +3,7 @@ import json
 import platform
 from pathlib import Path
 from typing import List
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.prefilter.settings_models import CzkawkaSettings
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from kd_tool.stages.prefilter.dtos import CzkawkaScanOutputDTO, CzkawkaDuplicateResultDTO
@@ -16,7 +16,7 @@ PLATFORM_MAP = {'linux': 'czkawka_cli_linux', 'windows': 'czkawka_cli.exe',
 class CzkawkaAdapter(CzkawkaAdapterInterface):
     """与 Czkawka CLI 工具交互的具体实现。"""
 
-    def __init__(self, settings: CzkawkaSettings, logger: Logger):
+    def __init__(self, settings: CzkawkaSettings, logger: LoggerProtocol):
         self._logger = logger.bind(component='CzkawkaAdapter')
         self._settings = settings
         self._executable_path = self._resolve_executable_path()

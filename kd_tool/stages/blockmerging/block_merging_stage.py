@@ -1,16 +1,16 @@
 from typing import List, Dict, Tuple, Union
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
 import copy
 import uuid
 import datetime
-from ....core.interfaces import StageInterface
-from ....core.interfaces import StorageInterface as CoreStorageInterface
-from ....core.dtos import PipelineContextDTO
-from ....schemas.dtos import ContentBlockDTO
-from ....schemas.enums import BlockType, ProcessingStatus
+from kd_tool.core.interfaces import StageInterface
+from kd_tool.core.interfaces import StorageInterface as CoreStorageInterface
+from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import ContentBlockDTO
+from kd_tool.schemas.enums import BlockType, ProcessingStatus
 from kd_tool.stages.blockmerging.settings_models import BlockMergerStageSettings, CodeBlockMergeSettings, TextBlockMergeSettings
 from kd_tool.stages.blockmerging.errors import BlockMergingError, MergeRuleConflictError, InvalidBlockSequenceError, MergingFailedError
-
+from typing import Optional
 
 class BlockMergingStage(StageInterface):
     """
@@ -18,7 +18,7 @@ class BlockMergingStage(StageInterface):
     根据规则合并由 P03 提取的初步内容块。
     """
 
-    def __init__(self, logger: Logger, storage: CoreStorageInterface,
+    def __init__(self, logger: LoggerProtocol, storage: CoreStorageInterface,
         settings: BlockMergerStageSettings) ->None:
         self._logger = logger.bind(stage='BlockMergingStageP04')
         self._storage = storage
@@ -157,7 +157,7 @@ class BlockMergingStage(StageInterface):
     def _merge_specific_type_blocks(self, input_blocks: List[
         ContentBlockDTO], target_type: Union[BlockType, List[BlockType]],
         merge_settings: Union[CodeBlockMergeSettings,
-        TextBlockMergeSettings], file_id_for_log: str, run_logger: Logger,
+        TextBlockMergeSettings], file_id_for_log: str, run_logger: LoggerProtocol,
         preserve_min_len: Optional[int]=None) ->List[ContentBlockDTO]:
         """
         通用的、按类型合并块的辅助方法。

@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol # kd_tool/logging/protocols.py 日志协议
 from kd_tool.schemas.dtos import FileRecordDTO, ContentBlockDTO, AnalysisResultDTO, UserDecisionDTO
 from kd_tool.schemas.enums import AnalysisType
 from kd_tool.core.errors import KDToolError
@@ -37,7 +37,7 @@ class PipelineContextDTO(BaseModel):
         '本次流水线执行的唯一标识符 (UUID)。')
     initial_input_paths: List[Path] = Field(default_factory=list,
         description='本次任务初始请求处理的输入路径列表。')
-    run_logger: Logger = Field(description=
+    run_logger: LoggerProtocol = Field(description=
         '与当前任务绑定的日志记录器。 **规范**: 此 logger **必须**已绑定 `task_id`。')
     file_records: Dict[str, FileRecordDTO] = Field(default_factory=dict,
         description='处理过程中涉及的文件记录 (FileRecordDTO)，以 file_id 为键。')

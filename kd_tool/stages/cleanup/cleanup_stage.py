@@ -18,17 +18,17 @@ cleanup_stage.py - P09 清理阶段实现 (v4.6)
 
 ---
 """
-from typing import List, Dict, Set
+from typing import List, Dict, Set, Optional
 from pathlib import Path
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
 import datetime
-from ....core.interfaces import StageInterface, StorageInterface
-from ....core.dtos import PipelineContextDTO
-from ....schemas.dtos import FileRecordDTO, UserDecisionDTO
-from ....schemas.enums import DecisionType, ProcessingStatus
+from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import FileRecordDTO, UserDecisionDTO
+from kd_tool.schemas.enums import DecisionType, ProcessingStatus
 from kd_tool.stages.cleanup.settings_models import CleanupStageSettings
 from kd_tool.stages.cleanup.adapter_interface import FileSystemAdapterInterface
-from kd_tool.stages.cleanup.errors import CleanupError, FileOperationError
+from kd_tool.stages.cleanup.errors import CleanupError, FileOperationError, TrashDirectoryError
 
 
 class CleanupStage(StageInterface):
@@ -37,7 +37,7 @@ class CleanupStage(StageInterface):
     负责执行决策结果。
     """
 
-    def __init__(self, logger: Logger, storage: StorageInterface, settings:
+    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
         CleanupStageSettings, fs_adapter: FileSystemAdapterInterface):
         """构造函数，通过 DI 注入所有依赖。"""
         self._logger = logger.bind(stage='CleanupStage')
@@ -90,7 +90,7 @@ class CleanupStage(StageInterface):
         return context
 
     def _resolve_files_from_decisions(self, context: PipelineContextDTO,
-        logger: Logger) ->Dict[str, str]:
+        logger: LoggerProtocol) ->Dict[str, str]:
         """
         【关键且复杂的逻辑 - 伪代码简化】
         根据 UserDecisionDTO 决定每个文件的最终清理动作。
@@ -125,7 +125,7 @@ class CleanupStage(StageInterface):
         return file_actions
 
     def _execute_action(self, record: FileRecordDTO, action: str, logger:
-        Logger) ->Optional[ProcessingStatus]:
+        LoggerProtocol) ->Optional[ProcessingStatus]:
         """根据配置执行具体的文件操作。"""
         original_path = record.original_path
         if action == 'mark_only':

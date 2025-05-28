@@ -13,7 +13,7 @@ real_file_system_adapter.py - 文件系统适配器实现 (v4.6)
 import os
 import shutil
 from pathlib import Path
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.cleanup.adapter_interface import FileSystemAdapterInterface
 from kd_tool.stages.cleanup.errors import FileOperationError
 

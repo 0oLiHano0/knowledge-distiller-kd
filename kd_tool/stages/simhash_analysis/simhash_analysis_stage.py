@@ -20,11 +20,11 @@ simhash_analysis_stage.py - P06 SimHash 分析阶段实现 (v4.6)
 ---
 """
 from typing import List, Dict, Tuple
-from loguru import Logger
-from ....core.interfaces import StageInterface, StorageInterface
-from ....core.dtos import PipelineContextDTO
-from ....schemas.dtos import ContentBlockDTO, AnalysisResultDTO
-from ....schemas.enums import AnalysisType
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import ContentBlockDTO, AnalysisResultDTO
+from kd_tool.schemas.enums import AnalysisType
 from kd_tool.stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
 from kd_tool.stages.simhash_analysis.errors import SimHashAnalysisError, SimHashCalculationError, SimHashComparisonError
@@ -36,7 +36,7 @@ class SimHashAnalysisStage(StageInterface):
     负责计算内容块的 SimHash 指纹，并找出相似的内容块对。
     """
 
-    def __init__(self, logger: Logger, storage: StorageInterface, settings:
+    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
         SimHashAnalysisStageSettings, adapter: SimHashAdapterInterface):
         """
         **规范**: 构造函数，**必须**通过 DI 注入所有依赖。
@@ -102,7 +102,7 @@ class SimHashAnalysisStage(StageInterface):
             return [b for b in context.content_blocks.values() if b.
                 simhash_value is None]
 
-    def _calculate_hashes(self, blocks: List[ContentBlockDTO], logger: Logger
+    def _calculate_hashes(self, blocks: List[ContentBlockDTO], logger: LoggerProtocol
         ) ->Tuple[List[ContentBlockDTO], List[SimHashAnalysisError]]:
         calculated_blocks = []
         errors = []
@@ -126,7 +126,7 @@ class SimHashAnalysisStage(StageInterface):
         return calculated_blocks, errors
 
     def _update_storage_hashes(self, blocks: List[ContentBlockDTO], logger:
-        Logger, context: PipelineContextDTO) ->None:
+        LoggerProtocol, context: PipelineContextDTO) ->None:
         logger.info(f'正在将 {len(blocks)} 个新的 SimHash 值更新到存储...')
         try:
             self._storage.save_content_blocks(blocks)
@@ -143,7 +143,7 @@ class SimHashAnalysisStage(StageInterface):
             simhash_value is not None]
 
     def _compare_hashes_and_generate_results(self, blocks: List[
-        ContentBlockDTO], logger: Logger, task_id: UUID) ->List[
+        ContentBlockDTO], logger: LoggerProtocol, task_id: str) ->List[
         AnalysisResultDTO]:
         results = []
         threshold = self._settings.hamming_distance_threshold
@@ -189,7 +189,7 @@ class SimHashAnalysisStage(StageInterface):
         return results
 
     def _brute_force_comparison(self, block_hashes: List[Tuple[str, str]],
-        threshold: int, logger: Logger) ->List[Tuple[str, str, int]]:
+        threshold: int, logger: LoggerProtocol) ->List[Tuple[str, str, int]]:
         pairs = []
         n = len(block_hashes)
         for i in range(n):
@@ -205,7 +205,7 @@ class SimHashAnalysisStage(StageInterface):
         return pairs
 
     def _save_analysis_results(self, results: List[AnalysisResultDTO],
-        logger: Logger, context: PipelineContextDTO) ->None:
+        logger: LoggerProtocol, context: PipelineContextDTO) ->None:
         logger.info(f'正在将 {len(results)} 个 SimHash 分析结果保存到存储...')
         try:
             self._storage.save_analysis_results(results)

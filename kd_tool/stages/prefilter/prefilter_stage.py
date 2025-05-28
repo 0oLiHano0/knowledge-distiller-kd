@@ -19,14 +19,14 @@ prefilter_stage.py.md - PrefilterStage 实现 (v4.6)
 
 ---
 """
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
 from typing import List, Dict
 from pathlib import Path
 from uuid import UUID
-from ....core.interfaces import StageInterface, StorageInterface
-from ....core.dtos import PipelineContextDTO
-from ....schemas.dtos import FileRecordDTO
-from ....schemas.enums import ProcessingStatus
+from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import FileRecordDTO
+from kd_tool.schemas.enums import ProcessingStatus
 from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from kd_tool.stages.prefilter.dtos import CzkawkaScanOutputDTO
@@ -38,7 +38,7 @@ class PrefilterStage(StageInterface):
     负责执行文件级预过滤（如去重）的阶段。
     """
 
-    def __init__(self, logger: Logger, settings: PrefilterStageSettings,
+    def __init__(self, logger: LoggerProtocol, settings: PrefilterStageSettings,
         storage: StorageInterface, czkawka_adapter: CzkawkaAdapterInterface):
         """
         **[指令]** 构造函数，**必须** 通过 DI 注入所有依赖。
@@ -56,7 +56,7 @@ class PrefilterStage(StageInterface):
         **[指令]** 从 `context.task_id` 获取当前任务ID。
         **[指令]** 创建 `FileRecordDTO` 时 **严禁** 包含 `task_id` 字段。
         """
-        run_logger: Logger = context.run_logger.bind(stage_name=self.
+        run_logger: LoggerProtocol = context.run_logger.bind(stage_name=self.
             __class__.__name__)
         task_id: UUID = context.task_id
         run_logger.info('Starting prefilter stage...')
@@ -118,7 +118,7 @@ class PrefilterStage(StageInterface):
         return context
 
     def _register_scan_results(self, scan_output: CzkawkaScanOutputDTO,
-        run_logger: Logger) ->List[FileRecordDTO]:
+        run_logger: LoggerProtocol) ->List[FileRecordDTO]:
         """
         将 Czkawka 扫描到的所有文件信息转换为 FileRecordDTO 列表，并调用存储服务注册。
         **[指令]** 此方法不再接收 `task_id`。

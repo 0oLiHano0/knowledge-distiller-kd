@@ -1,12 +1,11 @@
 """
 =================================================
-factory.py.md - BlockMergerStage 工厂 (v4.6)
+factory.py - BlockMergerStage 工厂 (v4.6)
 =================================================
-... (模块注释保持不变) ...
 ---
 """
-from loguru import Logger
-from ....core.interfaces import StageInterface, StorageInterface
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.core.interfaces import StageInterface, StorageInterface
 from kd_tool.stages.blockmerging.block_merging_stage import BlockMergerStage
 from kd_tool.stages.blockmerging.settings_models import BlockMergerStageSettings
 
@@ -16,7 +15,7 @@ class BlockMergerStageFactory:
     负责创建 BlockMergerStage 实例。
     """
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: LoggerProtocol):
         """
         初始化块合并阶段工厂。
         """

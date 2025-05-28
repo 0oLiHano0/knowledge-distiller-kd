@@ -28,9 +28,9 @@ import traceback
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 from collections import Counter
-from loguru import Logger
-from kd_tool.core.core_settings_models import OrchestratorSettings
+from kd_tool.logging.protocols import LoggerProtocol # kd_tool/logging/protocols.py 日志协议
 from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.core.core_settings_models import OrchestratorSettings
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.errors import KDToolError
 
@@ -79,7 +79,17 @@ class Orchestrator:
 
     def __init__(self, *, stage_modules: Dict[str, StageInterface],
         default_stage_order: List[str], settings: OrchestratorSettings,
-        logger: Logger):
+        # MODIFIED: Expect LoggerProtocol
+        logger: LoggerProtocol):
+        # ...
+        if not hasattr(logger, 'bind'):
+            # MODIFIED: More generic check or trust DI
+            raise TypeError("参数 'logger' 必须是一个兼容 LoggerProtocol 的实例。")
+        # ...
+        # MODIFIED: Use LoggerProtocol
+        self._logger: LoggerProtocol = logger.bind(component='Orchestrator')
+        # ...
+
         """
         **[指令]** 构造 Orchestrator 实例。**必须** 通过依赖注入接收所有参数。
 
@@ -107,7 +117,7 @@ class Orchestrator:
         self._stage_modules: Dict[str, StageInterface] = stage_modules
         self._default_stage_order: List[str] = default_stage_order
         self._settings: OrchestratorSettings = settings
-        self._logger: Logger = logger.bind(component='Orchestrator')
+        self._logger: LoggerProtocol = logger.bind(component='Orchestrator')
         self._logger.info(
             f'Orchestrator 已初始化。默认阶段顺序: {self._default_stage_order}。 错误处理策略: {self._settings.on_pipeline_error_policy}。'
             )
@@ -185,6 +195,15 @@ class Orchestrator:
         ]]=None, stages_to_skip: Optional[List[str]]=None,
         initial_shared_data: Optional[Dict[str, Any]]=None
         ) ->PipelineContextDTO:
+        run_logger: LoggerProtocol = self._logger.bind(task_id=task_id_str)
+        run_logger.info(
+            f'流水线运行启动 (ID: {task_id_str})。输入路径: {[str(p) for p in input_paths]}。'
+            ) 
+        total_start_time = time.monotonic()
+        stage_durations: Dict[str, float] = {}
+        context = PipelineContextDTO(task_id=task_id_uuid,
+            initial_input_paths=input_paths, run_logger=run_logger,
+            shared_data=initial_shared_data or {})
         """
         **[指令]** 执行完整处理流水线。这是 `Orchestrator` 的核心方法。
 

@@ -10,21 +10,20 @@ factory.py - P07 语义分析阶段工厂 (v4.6)
 
 ---
 """
-from loguru import Logger
-from typing import Optional
-from ....core.interfaces import StorageInterface
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.core.interfaces import StorageInterface
 from kd_tool.stages.semantic_analysis.settings_models import SemanticAnalysisStageSettings
 from kd_tool.stages.semantic_analysis.semantic_analysis_stage import SemanticAnalysisStage
 from kd_tool.stages.semantic_analysis.adapter_interface import SemanticAdapterInterface
 from kd_tool.stages.semantic_analysis.sentence_transformer_adapter import SentenceTransformerAdapter
-
+from typing import Optional
 
 class SemanticAnalysisStageFactory:
     """
     创建 `SemanticAnalysisStage` 实例的工厂。
     """
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: LoggerProtocol):
         """工厂构造函数。"""
         self._logger = logger.bind(factory='SemanticAnalysisStageFactory')
 

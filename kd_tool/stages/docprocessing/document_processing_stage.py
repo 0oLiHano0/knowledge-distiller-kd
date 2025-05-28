@@ -7,20 +7,20 @@ document_processing_stage.py - P03 文档处理阶段 (v4.6)
 """
 from typing import List, Any, Dict
 from pathlib import Path
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
 import datetime
 import uuid
-from ....core.interfaces import StageInterface, StorageInterface
-from ....core.dtos import PipelineContextDTO
-from ....schemas.dtos import ContentBlockDTO, FileRecordDTO
-from ....schemas.enums import BlockType, ProcessingStatus
+from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import ContentBlockDTO, FileRecordDTO
+from kd_tool.schemas.enums import BlockType, ProcessingStatus
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
 from kd_tool.stages.docprocessing.errors import DocumentProcessingError, FileReadError, ParsingError, DTOConversionError, UnsupportedFileTypeError
 
 
 class _InternalParserWrapper:
 
-    def __init__(self, logger: Logger, strategy: str):
+    def __init__(self, logger: LoggerProtocol, strategy: str):
         self._logger = logger.bind(parser_wrapper=self.__class__.__name__)
         self._strategy = strategy
         self._logger.info(
@@ -56,7 +56,7 @@ class DocumentProcessingStage(StageInterface):
     负责将文件解析为初步的 ContentBlockDTO 列表。
     """
 
-    def __init__(self, logger: Logger, storage: StorageInterface, settings:
+    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
         DocumentProcessingStageSettings) ->None:
         self._logger = logger.bind(stage='DocumentProcessingStageP03')
         self._storage = storage

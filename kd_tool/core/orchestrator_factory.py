@@ -13,7 +13,7 @@ orchestrator_factory.py - Orchestrator 工厂 (v4.1)
 ---
 """
 from typing import Dict, List
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol # kd_tool/logging/protocols.py 日志协议
 from kd_tool.core.core_settings_models import OrchestratorSettings
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.orchestrator import Orchestrator
@@ -39,7 +39,7 @@ class OrchestratorFactory:
     一个类式工厂，负责创建和配置 Orchestrator 实例。
     """
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: LoggerProtocol):
         """
         初始化工厂。
         """
@@ -68,8 +68,8 @@ class OrchestratorFactory:
         try:
             orchestrator_instance = Orchestrator(stage_modules=
                 stage_modules, default_stage_order=default_stage_order,
-                settings=settings, logger=self._logger.bind(component=
-                'Orchestrator'))
+                settings=settings,
+                logger=self._logger)
             self._logger.success('Orchestrator 实例已成功创建。')
             return orchestrator_instance
         except Exception as e:

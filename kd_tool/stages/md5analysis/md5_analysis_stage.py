@@ -21,12 +21,12 @@ md5_analysis_stage.py - P05 MD5 分析阶段 (v4.6)
 # ------------------------------------------------------------------------------
 """
 from typing import List, Dict, Optional
-from loguru import Logger
+from kd_tool.logging.protocols import LoggerProtocol
 import itertools
-from ....core.interfaces import StageInterface, StorageInterface
-from ....core.dtos import PipelineContextDTO
-from ....schemas.dtos import ContentBlockDTO, AnalysisResultDTO
-from ....schemas.enums import AnalysisType
+from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.schemas.dtos import ContentBlockDTO, AnalysisResultDTO
+from kd_tool.schemas.enums import AnalysisType
 from kd_tool.stages.md5analysis.settings_models import MD5AnalysisStageSettings
 from kd_tool.stages.md5analysis.errors import MD5InputError, MD5CalculationError, MD5AnalysisError
 
@@ -38,7 +38,7 @@ class MD5AnalysisStage(StageInterface):
     负责计算内容块的 MD5 哈希值，找出重复项，并生成 AnalysisResultDTO。
     """
 
-    def __init__(self, logger: Logger, storage: StorageInterface, settings:
+    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
         MD5AnalysisStageSettings) ->None:
         """
         构造函数 - 严格执行依赖注入。

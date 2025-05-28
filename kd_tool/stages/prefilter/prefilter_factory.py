@@ -12,9 +12,9 @@ prefilter_factory.py.md - PrefilterStage 工厂 (v4.6)
 
 ---
 """
-from loguru import Logger
-from ....core.interfaces import StageInterface, StorageInterface
-from ....core.errors import KDToolError
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.errors import KDToolError
 from kd_tool.stages.prefilter.prefilter_stage import PrefilterStage
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from kd_tool.stages.prefilter.czkawka_adapter import CzkawkaAdapter
@@ -34,11 +34,11 @@ class PrefilterStageFactory:
     **规范**: 严格遵循依赖注入。
     """
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: LoggerProtocol):
         """
         初始化预过滤阶段工厂。
         **参数**:
-            logger (Logger): **[必须]** 日志记录器实例。
+            logger (LoggerProtocol): **[必须]** 日志记录器实例。
         """
         self._logger = logger.bind(factory_name='PrefilterStageFactory')
         self._logger.info('PrefilterStageFactory initialized.')

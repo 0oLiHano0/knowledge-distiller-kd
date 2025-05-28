@@ -10,8 +10,8 @@ factory.py.md - DocumentProcessingStage 工厂伪代码
 
 ---
 """
-from loguru import Logger
-from ....core.interfaces import StageInterface, StorageInterface
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.core.interfaces import StageInterface, StorageInterface
 from kd_tool.stages.docprocessing.document_processing_stage import DocumentProcessingStage
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
 
@@ -21,7 +21,7 @@ class DocumentProcessingStageFactory:
     负责创建 DocumentProcessingStage 实例。
     """
 
-    def __init__(self, logger: Logger):
+    def __init__(self, logger: LoggerProtocol):
         """
         初始化文档处理阶段工厂。
 
