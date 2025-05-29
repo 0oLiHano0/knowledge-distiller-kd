@@ -23,7 +23,7 @@ from kd_tool.logging.protocols import LoggerProtocol
 from typing import List, Dict
 from pathlib import Path
 from uuid import UUID
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import FileRecordDTO
 from kd_tool.schemas.enums import ProcessingStatus
@@ -31,7 +31,8 @@ from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from kd_tool.stages.prefilter.dtos import CzkawkaScanOutputDTO
 from kd_tool.stages.prefilter.errors import PrefilterError
-
+from kd_tool.storage.storage_interface import StorageInterface
+from pydantic import BaseModel
 
 class PrefilterStage(StageInterface):
     """

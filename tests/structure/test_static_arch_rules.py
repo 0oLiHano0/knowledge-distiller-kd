@@ -198,6 +198,9 @@ def test_pseudo_code_conformance():
         # 服务骨架文件
         "service.py",  # 如日志服务骨架
 
+        # SimHashAnalysis 阶段配置模型需将计算结果转换为0～1的值（允许结构性代码）
+        "simhash_analysis/settings_models.py",
+
         # 接口定义文件 (文件名或特定路径)
         "_interface.py", # 约定接口文件名以 _interface.py 结尾
         "kd_tool/core/interfaces.py",

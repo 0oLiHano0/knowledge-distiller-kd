@@ -13,7 +13,7 @@ settings_models.py - SemanticAnalysis Stage 配置模型 (v4.6)
 ---
 """
 from typing import Optional, Literal
-from pydantic import BaseModel, Field, PositiveInt
+from pydantic import BaseModel, Field, PositiveInt, ConfigDict
 
 
 class SemanticAnalysisStageSettings(BaseModel):
@@ -21,6 +21,7 @@ class SemanticAnalysisStageSettings(BaseModel):
     P07 - 语义分析阶段的配置。
     **规范**: 定义语义分析模型、阈值和执行参数。
     """
+    model_config = ConfigDict(extra="forbid")
     enabled: bool = Field(default=True, description=
         '是否启用 P07 - 语义分析阶段 (用于语义去重)。')
     model_name_or_path: str = Field(default=
@@ -58,7 +59,3 @@ class SemanticAnalysisStageSettings(BaseModel):
         **编码要求**: Stage 必须根据此策略决定哪些块对需要进行语义比较。
         """
         )
-
-
-    class Config:
-        extra = 'forbid'

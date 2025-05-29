@@ -11,14 +11,11 @@ settings_models.py - MD5Analysis Stage 配置模型 (v4.6)
 
 ---
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class MD5AnalysisStageSettings(BaseModel):
     """P05 - MD5 分析阶段的配置。"""
+    model_config = ConfigDict(extra="forbid")
     enabled: bool = Field(default=True, description=
         '是否启用 P05 - MD5 分析阶段 (用于精确去重)。')
-
-
-    class Config:
-        extra = 'forbid'

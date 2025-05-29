@@ -22,14 +22,14 @@ from typing import List, Dict, Set, Optional
 from pathlib import Path
 from kd_tool.logging.protocols import LoggerProtocol
 import datetime
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import FileRecordDTO, UserDecisionDTO
 from kd_tool.schemas.enums import DecisionType, ProcessingStatus
 from kd_tool.stages.cleanup.settings_models import CleanupStageSettings
 from kd_tool.stages.cleanup.adapter_interface import FileSystemAdapterInterface
 from kd_tool.stages.cleanup.errors import CleanupError, FileOperationError, TrashDirectoryError
-
+from kd_tool.storage.storage_interface import StorageInterface
 
 class CleanupStage(StageInterface):
     """

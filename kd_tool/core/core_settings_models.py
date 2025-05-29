@@ -13,7 +13,7 @@ core_settings_models.py - KD_Tool 核心配置模型 (v4.6)
 ---
 """
 from typing import List, Literal
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class OrchestratorSettings(BaseModel):
@@ -21,6 +21,7 @@ class OrchestratorSettings(BaseModel):
     Orchestrator 模块的配置设置。
     **规范**: 定义流水线调度和执行行为的参数。
     """
+    model_config = ConfigDict(extra="forbid")
     on_pipeline_error_policy: Literal['HALT_ON_FIRST_ERROR',
         'CONTINUE_IGNORING_ERROR'] = Field(default='HALT_ON_FIRST_ERROR',
         description=
@@ -48,7 +49,3 @@ class OrchestratorSettings(BaseModel):
         **编码要求**: Orchestrator 将按此列表顺序执行 Stage。
         """
         )
-
-
-    class Config:
-        extra = 'forbid'

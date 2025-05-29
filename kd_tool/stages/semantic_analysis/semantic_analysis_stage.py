@@ -23,13 +23,14 @@ from typing import List, Dict, Tuple
 from uuid import UUID
 from kd_tool.logging.protocols import LoggerProtocol
 import numpy as np
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import ContentBlockDTO, AnalysisResultDTO
 from kd_tool.schemas.enums import AnalysisType
 from kd_tool.stages.semantic_analysis.settings_models import SemanticAnalysisStageSettings
 from kd_tool.stages.semantic_analysis.adapter_interface import SemanticAdapterInterface
 from kd_tool.stages.semantic_analysis.errors import SemanticAnalysisError, ModelLoadingError, EmbeddingCalculationError, SimilarityCalculationError
+from kd_tool.storage.storage_interface import StorageInterface
 
 
 class SemanticAnalysisStage(StageInterface):

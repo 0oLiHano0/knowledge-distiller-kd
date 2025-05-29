@@ -16,7 +16,7 @@ factory.py - P06 SimHash 分析阶段工厂 (v4.6)
 ---
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StorageInterface
+from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.stages.simhash_analysis.simhash_analysis_stage import SimHashAnalysisStage
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
 from kd_tool.stages.simhash_analysis.simhash_adapter import SimhashLibAdapter

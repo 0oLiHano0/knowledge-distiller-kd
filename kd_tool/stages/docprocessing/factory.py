@@ -11,10 +11,10 @@ factory.py.md - DocumentProcessingStage 工厂伪代码
 ---
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.stages.docprocessing.document_processing_stage import DocumentProcessingStage
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
-
+from kd_tool.storage.storage_interface import StorageInterface
 
 class DocumentProcessingStageFactory:
     """

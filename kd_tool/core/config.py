@@ -16,7 +16,7 @@ config.py - KD_Tool 应用程序顶层配置 (v4.6)
 
 ---
 """
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from kd_tool.core.core_settings_models import OrchestratorSettings
 from kd_tool.logging.settings import LoggingSettingsDTO # kd_tool/logging/settings.py 日志配置
 from kd_tool.storage.settings_models import StorageSettingsDTO
@@ -37,6 +37,7 @@ class AppConfig(BaseModel):
              它聚合了所有子模块的配置。
     **编码要求**: `ApplicationBuilder` 将负责加载此配置并分发给各个工厂。
     """
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
     project_name: str = Field(default='Knowledge Distiller KD-Tool',
         description='项目的名称，可能用于日志、报告或界面显示。')
     project_version: str = Field(default='4.6.0-dev', description='项目的当前版本号。')
@@ -65,7 +66,3 @@ class AppConfig(BaseModel):
         CleanupStageSettings, description='P09 清理阶段配置。')
 
 
-    class Config:
-        extra = 'forbid'
-        validate_assignment = True
-        arbitrary_types_allowed = True

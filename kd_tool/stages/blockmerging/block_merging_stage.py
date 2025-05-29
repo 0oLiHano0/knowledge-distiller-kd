@@ -4,7 +4,7 @@ import copy
 import uuid
 import datetime
 from kd_tool.core.interfaces import StageInterface
-from kd_tool.core.interfaces import StorageInterface as CoreStorageInterface
+from kd_tool.storage.storage_interface import StorageInterface as CoreStorageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import ContentBlockDTO
 from kd_tool.schemas.enums import BlockType, ProcessingStatus

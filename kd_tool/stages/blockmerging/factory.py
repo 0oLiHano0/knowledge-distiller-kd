@@ -5,10 +5,11 @@ factory.py - BlockMergerStage 工厂 (v4.6)
 ---
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StageInterface, StorageInterface
-from kd_tool.stages.blockmerging.block_merging_stage import BlockMergerStage
+from kd_tool.core.interfaces import StageInterface
+from kd_tool.stages.blockmerging.block_merging_stage import BlockMergingStage
 from kd_tool.stages.blockmerging.settings_models import BlockMergerStageSettings
-
+from kd_tool.storage.storage_interface import StorageInterface
+from pydantic import BaseModel
 
 class BlockMergerStageFactory:
     """
@@ -28,7 +29,7 @@ class BlockMergerStageFactory:
         创建并返回一个配置好的 BlockMergerStage 实例。
         """
         self._logger.info(f'Creating BlockMergerStage instance...')
-        stage_instance = BlockMergerStage(logger=self._logger.bind(
+        stage_instance = BlockMergingStage(logger=self._logger.bind(
             stage_name='BlockMerger'), settings=settings, storage=storage)
         self._logger.success('BlockMergerStage instance created successfully.')
         return stage_instance

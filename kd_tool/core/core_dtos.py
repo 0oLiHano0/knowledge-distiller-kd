@@ -16,7 +16,7 @@ import uuid
 from uuid import UUID, uuid4
 from pathlib import Path
 from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from kd_tool.logging.protocols import LoggerProtocol # kd_tool/logging/protocols.py 日志协议
 from kd_tool.schemas.dtos import FileRecordDTO, ContentBlockDTO, AnalysisResultDTO, UserDecisionDTO
 from kd_tool.schemas.enums import AnalysisType
@@ -32,7 +32,9 @@ class PipelineContextDTO(BaseModel):
     - **[架构指令] 严禁**将其设计为有状态对象；它只是数据的容器。
     - Stage **必须**通过修改此对象来传递结果。
     - **[架构指令 v4.6] 必须** 包含 `task_id` 和 `run_logger`，作为任务的唯一标识和日志记录器。
-    """
+    """    
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True,
+        validate_assignment=True)
     task_id: UUID = Field(default_factory=uuid4, description=
         '本次流水线执行的唯一标识符 (UUID)。')
     initial_input_paths: List[Path] = Field(default_factory=list,
@@ -110,9 +112,3 @@ class PipelineContextDTO(BaseModel):
             else:
                 blocks_to_process.append(block)
         return list({b.block_id: b for b in blocks_to_process}.values())
-
-
-    class Config:
-        arbitrary_types_allowed = True
-        validate_assignment = True
-        json_encoders = {UUID: str}

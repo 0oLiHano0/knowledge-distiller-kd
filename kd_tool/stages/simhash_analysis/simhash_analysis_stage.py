@@ -21,13 +21,14 @@ simhash_analysis_stage.py - P06 SimHash 分析阶段实现 (v4.6)
 """
 from typing import List, Dict, Tuple
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import ContentBlockDTO, AnalysisResultDTO
 from kd_tool.schemas.enums import AnalysisType
 from kd_tool.stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
 from kd_tool.stages.simhash_analysis.errors import SimHashAnalysisError, SimHashCalculationError, SimHashComparisonError
+from kd_tool.storage.storage_interface import StorageInterface
 
 
 class SimHashAnalysisStage(StageInterface):

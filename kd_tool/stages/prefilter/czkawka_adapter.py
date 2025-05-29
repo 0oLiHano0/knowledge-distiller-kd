@@ -8,6 +8,8 @@ from kd_tool.stages.prefilter.settings_models import CzkawkaSettings
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from kd_tool.stages.prefilter.dtos import CzkawkaScanOutputDTO, CzkawkaDuplicateResultDTO
 from kd_tool.stages.prefilter.errors import CzkawkaExecutionError, CzkawkaParseError
+from pydantic import BaseModel
+
 VENDOR_PATH = Path(__file__).parent.parent.parent.parent / 'vendor' / 'czkawka'
 PLATFORM_MAP = {'linux': 'czkawka_cli_linux', 'windows': 'czkawka_cli.exe',
     'darwin': 'czkawka_cli_macos'}

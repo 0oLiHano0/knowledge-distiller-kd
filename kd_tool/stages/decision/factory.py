@@ -11,7 +11,7 @@ factory.py - P08 决策阶段工厂 (v4.6)
 ---
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StorageInterface
+from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.stages.decision.decision_stage import DecisionStage
 from kd_tool.stages.decision.settings_models import DecisionStageSettings
 

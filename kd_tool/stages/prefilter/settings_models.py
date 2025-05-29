@@ -13,11 +13,12 @@ settings_models.py - Prefilter Stage 配置模型 (v4.6)
 """
 from typing import Optional, Literal, Any, List
 from pathlib import Path
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 
 class CzkawkaSettings(BaseModel):
     """Czkawka 工具相关的具体配置。"""
+    model_config = ConfigDict(extra="forbid")
     executable_path: Path = Field(..., description='Czkawka CLI 工具的可执行文件路径。')
     directories_to_scan: List[Path] = Field(..., description='需要进行扫描的根目录列表。')
     scan_mode: Literal['duplicates'] = Field('duplicates', description=
@@ -33,13 +34,11 @@ class CzkawkaSettings(BaseModel):
         '传递给 Czkawka 的其他命令行参数 (高级用户选项)。')
 
 
-    class Config:
-        extra = 'forbid'
-        arbitrary_types_allowed = True
 
 
 class PrefilterStageSettings(BaseModel):
     """P02 - 预过滤阶段的配置。"""
+    model_config = ConfigDict(extra="forbid")
     enabled: bool = Field(default=True, description='是否启用 P02 - 预过滤阶段。')
     tool: Literal['czkawka'] = Field(default='czkawka', description=
         '当前阶段使用的预过滤工具。**规范**: 未来可扩展支持其他工具。')
@@ -58,5 +57,3 @@ class PrefilterStageSettings(BaseModel):
         return data
 
 
-    class Config:
-        extra = 'forbid'

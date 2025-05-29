@@ -25,6 +25,7 @@ import traceback
 from kd_tool.core.application_builder import ApplicationBuilder # kd_tool/core/application_builder.py 应用构建器
 from kd_tool.core.errors import KDToolError # kd_tool/core/errors.py 错误
 from kd_tool.logging.protocols import LoggerProtocol
+from pydantic import BaseModel
 app = typer.Typer(name='kd_tool', help=
     """
     KD_Tool (Knowledge Distiller) v4.0 - 本地化运行的源信息治理工具。

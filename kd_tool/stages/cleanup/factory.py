@@ -10,7 +10,7 @@ factory.py - P09 清理阶段工厂 (v4.6)
 ---
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StorageInterface
+from kd_tool.storage.storage_interface import StorageInterface
 from typing import Optional
 from kd_tool.stages.cleanup.settings_models import CleanupStageSettings
 from kd_tool.stages.cleanup.cleanup_stage import CleanupStage

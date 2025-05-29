@@ -13,13 +13,14 @@ prefilter_factory.py.md - PrefilterStage 工厂 (v4.6)
 ---
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.errors import KDToolError
 from kd_tool.stages.prefilter.prefilter_stage import PrefilterStage
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from kd_tool.stages.prefilter.czkawka_adapter import CzkawkaAdapter
 from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
-
+from kd_tool.storage.storage_interface import StorageInterface
+from pydantic import BaseModel
 
 class FactoryConfigurationError(KDToolError):
     """当工厂遇到配置问题时抛出。"""

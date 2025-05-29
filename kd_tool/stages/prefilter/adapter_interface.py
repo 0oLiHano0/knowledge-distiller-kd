@@ -14,6 +14,7 @@ import abc
 from pathlib import Path
 from typing import List
 from kd_tool.stages.prefilter.dtos import CzkawkaScanOutputDTO
+from pydantic import BaseModel, Field
 
 
 class CzkawkaDuplicateResultDTO(BaseModel):

@@ -11,9 +11,10 @@ factory.py.md - MD5AnalysisStage 工厂 (v4.6)
 ---
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.stages.md5analysis.md5_analysis_stage import MD5AnalysisStage
 from kd_tool.stages.md5analysis.settings_models import MD5AnalysisStageSettings
+from kd_tool.storage.storage_interface import StorageInterface
 
 
 class MD5AnalysisStageFactory:

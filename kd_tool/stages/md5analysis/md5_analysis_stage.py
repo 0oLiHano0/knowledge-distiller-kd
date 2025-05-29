@@ -23,12 +23,13 @@ md5_analysis_stage.py - P05 MD5 分析阶段 (v4.6)
 from typing import List, Dict, Optional
 from kd_tool.logging.protocols import LoggerProtocol
 import itertools
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import ContentBlockDTO, AnalysisResultDTO
 from kd_tool.schemas.enums import AnalysisType
 from kd_tool.stages.md5analysis.settings_models import MD5AnalysisStageSettings
 from kd_tool.stages.md5analysis.errors import MD5InputError, MD5CalculationError, MD5AnalysisError
+from kd_tool.storage.storage_interface import StorageInterface
 
 
 class MD5AnalysisStage(StageInterface):

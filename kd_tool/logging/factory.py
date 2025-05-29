@@ -60,7 +60,7 @@ class LoggerFactory:
             level=cfg.level,
             format=fmt,
             enqueue=True,
-            serialize=cfg.json,
+            serialize=cfg.log_serialize_json,
         )
         if cfg.log_file:
             _loguru_logger.add(
@@ -70,5 +70,5 @@ class LoggerFactory:
                 level=cfg.level,
                 format=fmt,
                 enqueue=True,
-                serialize=cfg.json,
+                serialize=cfg.log_serialize_json,
             )

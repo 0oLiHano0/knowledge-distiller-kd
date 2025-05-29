@@ -18,12 +18,13 @@ application_builder.py - 应用程序构建器 (v4.6 - 新日志层集成)
 import traceback
 from typing import Dict, List, Optional
 from pathlib import Path
+from pydantic import BaseModel
 
 # 新日志层导入
 from kd_tool.logging import LoggerProtocol, LoggerFactory
 
 # 核心接口和组件导入
-from kd_tool.core.interfaces import StorageInterface, StageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.config import AppConfig
 from kd_tool.core.orchestrator import Orchestrator
 from kd_tool.core.errors import KDToolError
@@ -45,6 +46,7 @@ from kd_tool.stages.semantic_analysis.factory import SemanticAnalysisStageFactor
 from kd_tool.stages.decision.factory import DecisionStageFactory
 from kd_tool.stages.cleanup.factory import CleanupStageFactory
 
+from kd_tool.storage.storage_interface import StorageInterface
 
 # 占位符：实现或导入真实的配置加载逻辑
 def load_config(path: str) -> AppConfig:

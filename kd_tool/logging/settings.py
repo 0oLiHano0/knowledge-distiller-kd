@@ -22,7 +22,7 @@ class LoggingSettingsDTO(BaseModel):
     HOW : 继承 Pydantic BaseModel 保证类型安全
     """
     level: str = Field("INFO", pattern="^(TRACE|DEBUG|INFO|SUCCESS|WARNING|ERROR|CRITICAL)$")
-    json: bool = False
+    log_serialize_json: bool = False
     log_file: Path | None = None
     rotation: str = "00:00"      # 每天切
     retention: str = "10 days"   # 保留10天

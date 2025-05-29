@@ -21,12 +21,13 @@ decision_stage.py - P08 决策阶段实现 (v4.6)
 from typing import List, Dict, Set, Tuple, Optional, Any
 from uuid import UUID
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import AnalysisResultDTO, UserDecisionDTO
 from kd_tool.schemas.enums import AnalysisType, DecisionType
 from kd_tool.stages.decision.settings_models import DecisionStageSettings, DecisionRule
 from kd_tool.stages.decision.errors import DecisionError, RuleEvaluationError, MissingAnalysisDataError
+from kd_tool.storage.storage_interface import StorageInterface
 
 
 class DecisionStage(StageInterface):

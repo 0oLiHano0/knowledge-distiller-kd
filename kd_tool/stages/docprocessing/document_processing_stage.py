@@ -10,12 +10,13 @@ from pathlib import Path
 from kd_tool.logging.protocols import LoggerProtocol
 import datetime
 import uuid
-from kd_tool.core.interfaces import StageInterface, StorageInterface
+from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import ContentBlockDTO, FileRecordDTO
 from kd_tool.schemas.enums import BlockType, ProcessingStatus
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
 from kd_tool.stages.docprocessing.errors import DocumentProcessingError, FileReadError, ParsingError, DTOConversionError, UnsupportedFileTypeError
+from kd_tool.storage.storage_interface import StorageInterface
 
 
 class _InternalParserWrapper:
