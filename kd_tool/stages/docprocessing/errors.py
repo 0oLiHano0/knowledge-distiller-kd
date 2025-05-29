@@ -1,3 +1,8 @@
+"""
+WHY: 定义文档处理阶段相关自定义异常。
+WHAT: 仅声明异常类，便于后续扩展。
+HOW: 继承 KDToolError，方法体留白。
+"""
 from typing import Optional, Any
 from pathlib import Path
 from kd_tool.core.errors import KDToolError
@@ -109,3 +114,8 @@ class DTOConversionError(DocumentProcessingError):
             )
         super().__init__(message, original_exception=original_exception,
             file_path=file_path, element_info=element_info)
+
+
+class DocProcessingStageError(KDToolError):
+    """WHY: 文档处理阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass

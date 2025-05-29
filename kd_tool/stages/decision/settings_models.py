@@ -13,7 +13,7 @@ settings_models.py - Decision Stage 配置模型 (v4.6)
 """
 from typing import List, Optional, Any
 from pydantic import BaseModel, Field, confloat
-from ....schemas.enums import DecisionType
+from kd_tool.schemas.enums import DecisionType
 
 
 class DecisionRule(BaseModel):
@@ -21,14 +21,11 @@ class DecisionRule(BaseModel):
     定义一条决策规则。
     **规范**: 用于描述当满足某些分析条件时，应采取何种决策。
     """
-    md5_score: Optional[confloat(ge=0.0, le=1.0)] = Field(default=None,
-        description='触发此规则的 MD5 分数 (通常是 1.0)。如果为 None，则不考虑 MD5。')
-    simhash_similarity_min: Optional[confloat(ge=0.0, le=1.0)] = Field(default
-        =None, description='触发此规则的 SimHash 最小相似度。如果为 None，则不考虑。')
-    semantic_similarity_min: Optional[confloat(ge=0.0, le=1.0)] = Field(default
-        =None, description='触发此规则的语义最小相似度。如果为 None，则不考虑。')
+    md5_score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description='触发此规则的 MD5 分数 (通常是 1.0)。如果为 None，则不考虑 MD5。')
+    simhash_similarity_min: Optional[float] = Field(default=None, ge=0.0, le=1.0, description='触发此规则的 SimHash 最小相似度。如果为 None，则不考虑。')
+    semantic_similarity_min: Optional[float] = Field(default=None, ge=0.0, le=1.0, description='触发此规则的语义最小相似度。如果为 None，则不考虑。')
     decision_to_apply: DecisionType = Field(..., description=
-        '当满足以上所有（非 None）条件时，要应用的决策。')
+        '当满足以上所有（非 None）条件时，要应用的决策。')  
     rule_priority: int = Field(default=0, description=
         '规则优先级。**规范**: 数字越大，优先级越高。用于处理一个块对可能匹配多条规则的情况。')
 

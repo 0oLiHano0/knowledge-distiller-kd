@@ -73,3 +73,8 @@ class MergingFailedError(BlockMergingError):
         message = f'块合并操作失败: {reason}'
         super().__init__(message, original_exception=original_exception,
             reason=reason, processing_block_ids=processing_block_ids)
+
+
+class BlockMergingStageError(KDToolError):
+    """WHY: 块合并阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass

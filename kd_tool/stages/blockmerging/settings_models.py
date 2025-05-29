@@ -15,7 +15,7 @@ settings_models.py - BlockMerging Stage 配置模型 (v4.6)
 """
 from typing import List, Optional
 from pydantic import BaseModel, Field, PositiveInt
-from ....schemas.enums import BlockType
+from kd_tool.schemas.enums import BlockType
 
 
 class CodeBlockMergeSettings(BaseModel):

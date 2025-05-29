@@ -33,3 +33,13 @@ class RuleEvaluationError(DecisionError):
 class MissingAnalysisDataError(DecisionError):
     """当决策所需的分析数据缺失时抛出。"""
     pass
+
+
+class DecisionStageError(KDToolError):
+    """WHY: 决策阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass
+
+
+class RuleConflictError(DecisionStageError):
+    """WHY: 规则冲突异常；WHAT: 规则优先级冲突时抛出；HOW: 继承 DecisionStageError。"""
+    pass

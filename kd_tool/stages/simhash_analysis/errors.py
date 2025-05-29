@@ -36,3 +36,8 @@ class SimHashAdapterError(SimHashAnalysisError):
 class SimHashComparisonError(SimHashAnalysisError):
     """当比较 SimHash 值时发生意外错误时抛出。"""
     pass
+
+
+class SimHashAnalysisStageError(KDToolError):
+    """WHY: SimHash分析阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass

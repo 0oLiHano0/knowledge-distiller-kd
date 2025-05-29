@@ -44,3 +44,8 @@ class SimilarityCalculationError(SemanticAnalysisError):
 class SemanticAdapterError(SemanticAnalysisError):
     """当语义分析适配器发生错误时抛出。"""
     pass
+
+
+class SemanticAnalysisStageError(KDToolError):
+    """WHY: 语义分析阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass

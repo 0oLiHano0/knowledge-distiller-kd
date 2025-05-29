@@ -38,3 +38,8 @@ class TrashDirectoryError(CleanupError):
 class DecisionResolutionError(CleanupError):
     """当无法将决策映射到具体文件或操作时抛出。"""
     pass
+
+
+class CleanupStageError(KDToolError):
+    """WHY: 清理阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass

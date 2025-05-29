@@ -1,9 +1,14 @@
 """
-定义 Prefilter 阶段相关的自定义异常。
-v4.x 更新: 修改 __init__ 调用方式，以匹配 KDToolError 使用 **kwargs 
-            传递上下文信息的方式。
+WHY: 定义预过滤阶段相关自定义异常。
+WHAT: 仅声明异常类，便于后续扩展。
+HOW: 继承 KDToolError，方法体留白。
 """
 from kd_tool.core.errors import KDToolError
+
+
+class PrefilterStageError(KDToolError):
+    """WHY: 预过滤阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass
 
 
 class PrefilterError(KDToolError):

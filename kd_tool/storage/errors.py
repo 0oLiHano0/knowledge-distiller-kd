@@ -1,27 +1,27 @@
 # kd_tool/storage/errors.py
 """
-WHY  : 存储层专属错误类型集合。
-WHAT : 细分异常，提高可观测性与可测试性。
-HOW  : 继承 KDToolError，供业务精确捕获。
+WHY: 定义存储相关自定义异常。
+WHAT: 仅声明异常类，便于后续扩展。
+HOW: 继承 KDToolError，方法体留白。
 """
 from kd_tool.core.errors import KDToolError
 
 
 class StorageError(KDToolError):
-    """存储通用错误。"""
+    """WHY: 存储通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass
 
 
 class StorageInitializationError(StorageError):
-    """初始化失败。"""
-    def __init__(self, backend: str, original: Exception) -> None:
-        super().__init__(f"{backend} 初始化失败: {original}")
-        self.backend = backend
-        self.original = original
+    """WHY: 存储初始化异常；WHAT: 初始化失败时抛出；HOW: 继承 StorageError。"""
+    pass
 
 
 class DuplicateContentError(StorageError):
-    """重复数据冲突。"""
+    """WHY: 重复内容异常；WHAT: 检测到重复内容时抛出；HOW: 继承 StorageError。"""
+    pass
 
 
 class RecordNotFoundError(StorageError):
-    """记录不存在。"""
+    """WHY: 记录未找到异常；WHAT: 查询无结果时抛出；HOW: 继承 StorageError。"""
+    pass

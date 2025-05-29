@@ -14,7 +14,7 @@ settings_models.py - Cleanup Stage 配置模型 (v4.6)
 from typing import Optional, Literal, Any, Dict
 from pathlib import Path
 from pydantic import BaseModel, Field, model_validator
-from ....schemas.enums import DecisionType
+from kd_tool.schemas.enums import DecisionType
 
 
 class CleanupStageSettings(BaseModel):

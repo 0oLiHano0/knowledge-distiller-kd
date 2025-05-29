@@ -52,3 +52,8 @@ class MD5CalculationError(MD5AnalysisError):
         message = f"为 Block ID '{block_id}' 计算 MD5 时发生内部错误。"
         super().__init__(message, original_exception=original_exception,
             block_id=block_id, **kwargs)
+
+
+class MD5AnalysisStageError(KDToolError):
+    """WHY: MD5分析阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+    pass

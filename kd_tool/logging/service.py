@@ -37,3 +37,7 @@ class LoggingService:
         HOW : 调用 bind 生成子 logger
         """
         return LoggingService(self._logger.bind(task_id=task_id))
+
+    def log(self, msg: str):
+        """WHY: 统一日志接口；WHAT: 记录日志；HOW: TODO: 实现日志记录。"""
+        pass
