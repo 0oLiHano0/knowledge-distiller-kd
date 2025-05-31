@@ -126,7 +126,7 @@ class InMemoryStorage(StorageInterface):
 
     # 保留原始测试中使用的 'count' 方法，尽管它不是接口的一部分
     # 这表明测试可能需要调整，或者接口需要扩展（但不推荐）
-    def count(self) -> int:
+    def _count(self) -> int:
         """
         返回当前存储的块数量 (非接口方法，仅为测试保留)。
         """

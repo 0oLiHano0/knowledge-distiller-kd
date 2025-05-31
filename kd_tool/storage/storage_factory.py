@@ -20,17 +20,18 @@ class StorageFactory:
     """
     WHY: 统一存储工厂。
     WHAT: 根据配置创建StorageInterface实例。
-    HOW: 依赖注入logger，工厂模式。
+    HOW: 依赖注入logger 和 settings。
     """
-    def __init__(self, logger: LoggerProtocol):
+    def __init__(self, logger: LoggerProtocol, settings: StorageSettingsDTO):
         self._logger = logger
+        self._settings = settings
 
-    def create(self, settings: StorageSettingsDTO) -> StorageInterface:
+    def create(self) -> StorageInterface:
         """根据 backend 创建对应实现并初始化。"""
-        backend = settings.backend
+        backend = self._settings.backend
 
         if backend is StorageBackend.SQLITE:
-            storage: StorageInterface = SQLiteStorage(settings, self._logger)
+            storage: StorageInterface = SQLiteStorage(self._settings, self._logger)
         else:
             raise FactoryError(f"未知后端: {backend}")
 
