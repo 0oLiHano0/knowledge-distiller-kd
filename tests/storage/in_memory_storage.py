@@ -1,4 +1,4 @@
-# tests/logging/in_memory_storage.py
+# tests/storage/in_memory_storage.py
 """
 WHY  : 提供 StorageInterface 的内存实现，用于测试。
 WHAT : 模拟数据库行为，但不实际写入磁盘。
@@ -8,7 +8,7 @@ from typing import List, Optional
 
 # 注意: 这里我们从正确的路径导入 StorageInterface
 from kd_tool.storage.storage_interface import StorageInterface
-from kd_tool.core.core_dtos import ContentBlockDTO
+from kd_tool.schemas.dtos import ContentBlockDTO
 from kd_tool.logging.protocols import LoggerProtocol # 导入 LoggerProtocol 以便类型提示
 from kd_tool.storage.errors import RecordNotFoundError # 可能需要导入错误类型
 

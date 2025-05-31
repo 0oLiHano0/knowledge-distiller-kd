@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 from typing import List, Optional, Protocol
 
-from kd_tool.core.core_dtos import ContentBlockDTO  # 仅导入 DTO，无 ORM 依赖
+from kd_tool.schemas.dtos import ContentBlockDTO  # 仅导入 DTO，无 ORM 依赖
 from kd_tool.core.errors import KDToolError
 
 

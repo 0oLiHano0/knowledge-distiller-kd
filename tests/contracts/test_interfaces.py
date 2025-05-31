@@ -59,6 +59,12 @@ def test_implementation_fulfills_contract(
     interface_methods = get_public_methods_from_class(interface_class)
     implementation_methods = get_public_methods_from_class(implementation_class)
 
+    # Filter out methods starting with '_' from implementation_methods
+    implementation_methods = {
+        name: method for name, method in implementation_methods.items()
+        if not name.startswith('_')
+    }
+
     # 2. 接口的所有公共方法是否都在实现中存在
     for method_name, if_method_obj in interface_methods.items():
         if method_name not in implementation_methods:

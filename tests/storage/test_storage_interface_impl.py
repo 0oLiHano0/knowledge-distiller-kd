@@ -101,7 +101,10 @@ def test_storage_factory_creates_storage_instance():
         mock_settings = Mock()
         # 模拟 settings 对象的 backend 属性，使其返回一个 StorageBackend 值
         from kd_tool.storage.settings_models import StorageBackend # 需要导入 StorageBackend
+        from pathlib import Path # 需要导入 Path
         mock_settings.backend = StorageBackend.SQLITE # 假设工厂会创建 SQLiteStorage
+        mock_settings.db_path = Path("mock_db.sqlite") # 模拟 db_path
+        mock_settings.echo_sql = False # 模拟 echo_sql
         
         # 实例化工厂，这可能抛出 TypeError
         factory = StorageFactory(mock_logger, mock_settings)
