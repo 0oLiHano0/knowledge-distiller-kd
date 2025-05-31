@@ -53,9 +53,9 @@ class MD5AnalysisStage(StageInterface):
         """
         执行 MD5 计算与比较流程。
         """
-        task_id = context.get_task_id()
-        logger = self._logger.bind(task_id=task_id)
-        logger.info('Starting combined MD5 analysis process...')
+        logger = context.run_logger.bind(stage_name=self.__class__.__name__)
+        logger.info("MD5 分析阶段开始...")
+        # 检查阶段是否启用
         if not self._settings.enabled:
             logger.warning('MD5AnalysisStage is disabled. Skipping.')
             return context

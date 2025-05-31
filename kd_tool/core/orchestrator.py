@@ -92,15 +92,81 @@ class Orchestrator:
         self._stage_modules = stage_modules
         self._default_stage_order = default_stage_order
         self._settings = settings
-        self._logger = logger
+        self._logger = logger # Orchestrator 自身的 logger
+        # PSEUDO: 初始化时可以进行流水线定义校验等
+        self._validate_pipeline_definition(stage_modules, default_stage_order)
 
     def run(self, input_paths: List[Path]) -> PipelineContextDTO:
         """
         why: 统一入口，调度所有阶段。
-        what: 依次调用各阶段的process方法。
-        how: 只做调度，不做业务逻辑。
+        what: 依次调用各阶段的process方法，管理 PipelineContextDTO 的生命周期。
+        how: 严格按照规范创建 PipelineContextDTO，并注入绑定的 logger 和 task_id。
         """
-        ...
+        # ARCHITECT_TODO: 步骤 1 - 为本次运行生成唯一的 task_id。
+        #   规范: 必须是 UUID。
+        current_task_id: uuid.UUID = uuid.uuid4()
+        self._logger.info(f"Orchestrator: Starting new run with task_id: {current_task_id}") # Orchestrator自身logger记录
+
+        # ARCHITECT_TODO: 步骤 2 - 基于 Orchestrator 的 _logger，为当前 task_id 创建一个已绑定的 run_logger。
+        #   规范: 调用 self._logger.bind(task_id=str(current_task_id))。
+        #   规范: 确保 task_id 转换为字符串形式进行绑定，因为日志 extra 通常是字符串键。
+        run_specific_logger: LoggerProtocol = self._logger.bind(task_id=str(current_task_id))
+        run_specific_logger.info("Orchestrator: Bound run_specific_logger with task_id.") # 使用新绑定的logger确认
+
+        # ARCHITECT_TODO: 步骤 3 - 创建 PipelineContextDTO 实例。
+        #   规范: 必须传入步骤1生成的 current_task_id。
+        #   规范: 必须传入步骤2生成的 run_specific_logger 作为 context.run_logger。
+        #   规范: 必须传入 input_paths。
+        #   规范: 其他字段（file_records, content_blocks 等）应使用其 default_factory 初始化为空。
+        context = PipelineContextDTO(
+            task_id=current_task_id,
+            initial_input_paths=input_paths,
+            run_logger=run_specific_logger
+            # errors, shared_data 等会自动使用 Pydantic 的 default_factory
+        )
+        context.run_logger.info("Orchestrator: PipelineContextDTO created successfully.")
+
+        # ARCHITECT_TODO: 步骤 4 - 根据配置和运行时覆盖，确定要执行的阶段列表。
+        #   PSEUDO: stages_to_execute = self._determine_stages_to_run(...)
+        stages_to_execute = self._default_stage_order # 简化示例，实际应更复杂
+
+        # ARCHITECT_TODO: 步骤 5 - 依次执行选定的阶段。
+        #   规范: 每个阶段接收 context 对象，并返回处理后的 context 对象。
+        #   规范: 使用 context.run_logger 进行阶段执行的日志记录。
+        #   规范: 实现错误处理策略 (e.g., HALT_ON_FIRST_ERROR)。
+        for stage_name in stages_to_execute:
+            if stage_name in self._stage_modules:
+                stage_instance = self._stage_modules[stage_name]
+                context.run_logger.info(f"Orchestrator: Executing stage '{stage_name}'...")
+                try:
+                    context = stage_instance.process(context)
+                    context.run_logger.info(f"Orchestrator: Stage '{stage_name}' completed.")
+                except KDToolError as e: # 假设 KDToolError 是项目的基础错误
+                    context.run_logger.error(f"Orchestrator: Error in stage '{stage_name}': {e}")
+                    context.add_error(e) # 将错误记录到 context 中
+                    if self._settings.on_pipeline_error_policy == 'HALT_ON_FIRST_ERROR':
+                        context.run_logger.error(f"Orchestrator: Halting pipeline due to error in stage '{stage_name}'.")
+                        break # 停止执行后续阶段
+                except Exception as e:
+                    context.run_logger.exception(f"Orchestrator: Unexpected critical error in stage '{stage_name}'.")
+                    # 包装为项目定义的错误类型
+                    generic_error = StageExecutionError(stage_name=stage_name, original_exception=e, details="Unexpected critical error during stage.process()")
+                    context.add_error(generic_error)
+                    if self._settings.on_pipeline_error_policy == 'HALT_ON_FIRST_ERROR':
+                        context.run_logger.error(f"Orchestrator: Halting pipeline due to critical error in stage '{stage_name}'.")
+                        break
+            else:
+                # PSEUDO: 处理阶段未在模块中找到的情况
+                missing_stage_error = InvalidPipelineDefinitionError(f"Stage '{stage_name}' defined in order but not found in stage_modules.")
+                context.run_logger.error(str(missing_stage_error))
+                context.add_error(missing_stage_error)
+                if self._settings.on_pipeline_error_policy == 'HALT_ON_FIRST_ERROR':
+                    break
+
+
+        # ARCHITECT_TODO: 步骤 6 - 流水线执行完毕，返回最终的 context。
+        context.run_logger.info("Orchestrator: Pipeline run finished.")
+        return context
 
     def _validate_pipeline_definition(self, stage_modules: Dict[str,
         StageInterface], default_stage_order: List[str]) ->None:

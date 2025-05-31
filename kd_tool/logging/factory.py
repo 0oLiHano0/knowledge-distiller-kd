@@ -15,7 +15,7 @@ factory.py - 日志工厂 (v4.1)
 from __future__ import annotations
 
 from loguru import logger as _loguru_logger
-from kd_tool.logging.settings_models import LoggingSettingsDTO
+from kd_tool.logging.settings import LoggingSettingsDTO
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.logging.errors import LoggingError
 

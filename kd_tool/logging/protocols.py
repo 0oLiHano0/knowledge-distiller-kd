@@ -3,7 +3,7 @@
 """最小日志接口契约，不依赖 loguru 运行时实体。"""
 # kd_tool/logging/protocols.py
 from __future__ import annotations
-from typing import Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable, abstractmethod
 
 @runtime_checkable
 class LoggerProtocol(Protocol):
@@ -19,5 +19,7 @@ class LoggerProtocol(Protocol):
     def exception(self, msg: str, *a, **kw): ...
     def success(self, msg: str, *a, **kw): ...
     def bind(self, **kw) -> "LoggerProtocol": ...
-    def trace(self, msg: str, **kw) -> None:
-        self.debug(msg, **kw)
+    @abstractmethod
+    def trace(self, msg: str, *a, **kw): ...
+    @abstractmethod
+    def add(self, sink, **kwargs): ...
