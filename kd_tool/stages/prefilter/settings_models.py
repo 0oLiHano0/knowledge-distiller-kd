@@ -37,9 +37,12 @@ class CzkawkaSettings(BaseModel):
 
 
 class PrefilterStageSettings(BaseModel):
-    """P02 - 预过滤阶段的配置。"""
-    model_config = ConfigDict(extra="forbid")
-    enabled: bool = Field(default=True, description='是否启用 P02 - 预过滤阶段。')
+    """
+    WHY: 配置去重阶段参数。
+    WHAT: 只包含本阶段所需配置。
+    HOW: 通过依赖注入传递。
+    """
+    enabled: bool = Field(default=True, description="是否启用本阶段")
     tool: Literal['czkawka'] = Field(default='czkawka', description=
         '当前阶段使用的预过滤工具。**规范**: 未来可扩展支持其他工具。')
     czkawka: Optional[CzkawkaSettings] = Field(default=None, description=

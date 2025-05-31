@@ -22,8 +22,7 @@ class SemanticAdapterInterface(ABC):
     """
 
     @abstractmethod
-    def load_model(self, model_name_or_path: str, device: Optional[str]=None
-        ) ->None:
+    def load_model(self, model_name_or_path: str, device: Optional[str]=None) -> None:
         """
         加载指定的语义模型到指定的设备。
         **规范**: 
@@ -37,8 +36,7 @@ class SemanticAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def calculate_embeddings(self, texts: List[str], batch_size: int
-        ) ->np.ndarray:
+    def calculate_embeddings(self, texts: List[str], batch_size: int) -> np.ndarray:
         """
         为一批文本计算语义嵌入向量。
         
@@ -57,7 +55,7 @@ class SemanticAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def calculate_similarity_matrix(self, embeddings: np.ndarray) ->np.ndarray:
+    def calculate_similarity_matrix(self, embeddings: np.ndarray) -> np.ndarray:
         """
         计算一批嵌入向量之间的余弦相似度矩阵。
         
@@ -75,8 +73,7 @@ class SemanticAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def calculate_pair_similarity(self, embedding1: np.ndarray, embedding2:
-        np.ndarray) ->float:
+    def calculate_pair_similarity(self, embedding1: np.ndarray, embedding2: np.ndarray) -> float:
         """
         计算两个嵌入向量之间的余弦相似度。
         

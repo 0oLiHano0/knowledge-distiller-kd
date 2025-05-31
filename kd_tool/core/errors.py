@@ -11,10 +11,22 @@ from typing import Optional, Any, Dict
 
 class KDToolError(Exception):
     """
-    WHY: 作为应用内所有自定义异常的统一祖先，便于全局捕获。
-    WHAT: 提供 message、原始异常、上下文信息等核心属性。
-    HOW: 通过 __init__ 传递并存储所有关键信息。
+    WHY: KD-Tool通用基础异常。
+    WHAT: 作为所有自定义异常的基类。
+    HOW: 支持原始异常链。
     """
+    def __init__(self, message: str, original_exception: Exception = None):
+        super().__init__(message)
+        self.original_exception = original_exception
+
+class ConfigError(KDToolError):
+    """配置相关错误。"""
+
+class DependencyInjectionError(KDToolError):
+    """依赖注入相关错误。"""
+
+class OrchestratorError(KDToolError):
+    """编排器相关错误。"""
 
     def __init__(self, message: str, original_exception: Optional[Exception]=None, **kwargs: Any):
         """

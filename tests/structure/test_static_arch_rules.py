@@ -388,3 +388,34 @@ def test_no_relative_imports_in_project():
             error_message += f"文件: {f_path}\n"
             error_message += "\n".join(imports) + "\n"
         pytest.fail(error_message)
+
+def test_orm_isolation():
+    """
+    why: 确保 ORM 相关代码（如 SQLAlchemy Base/Session/模型）仅限于存储层，防止业务/核心层耦合数据库实现。
+    what: 检查 kd_tool 除 storage 目录外的所有 .py 文件，是否导入 sqlalchemy 或自定义 ORM model。
+    how: 用 AST 检查 import/from-import 语句，禁止 'sqlalchemy'、'Base'、'Session'、'models_sqlalchemy' 等关键字。
+    """
+    import kd_tool
+    from pathlib import Path
+    import ast
+
+    root = Path(kd_tool.__file__).parent
+    for py_file in root.rglob("*.py"):
+        # 跳过存储层
+        if "storage" in py_file.parts:
+            continue
+        # 跳过 __init__.py
+        if py_file.name == "__init__.py":
+            continue
+        tree = ast.parse(py_file.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.startswith("sqlalchemy") or "models_sqlalchemy" in alias.name:
+                        raise AssertionError(f"{py_file} 不应导入 ORM 相关模块: {alias.name}")
+            elif isinstance(node, ast.ImportFrom):
+                if node.module and (node.module.startswith("sqlalchemy") or "models_sqlalchemy" in node.module):
+                    raise AssertionError(f"{py_file} 不应 from-import ORM 相关模块: {node.module}")
+                for alias in node.names:
+                    if alias.name in ("Base", "Session"):
+                        raise AssertionError(f"{py_file} 不应直接导入 ORM 基类/Session: {alias.name}")

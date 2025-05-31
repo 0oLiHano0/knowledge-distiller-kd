@@ -20,7 +20,7 @@ class FileSystemAdapterInterface(ABC):
     """
 
     @abstractmethod
-    def move_file(self, source_path: Path, target_path: Path) ->None:
+    def move_file(self, source_path: Path, target_path: Path) -> None:
         """
         移动文件从源路径到目标路径。
         **规范**: 
@@ -31,7 +31,7 @@ class FileSystemAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def delete_file(self, file_path: Path) ->None:
+    def delete_file(self, file_path: Path) -> None:
         """
         永久删除指定路径的文件。
         **规范**: 
@@ -42,7 +42,7 @@ class FileSystemAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def ensure_directory_exists(self, dir_path: Path) ->None:
+    def ensure_directory_exists(self, dir_path: Path) -> None:
         """
         确保指定的目录存在，如果不存在则创建它。
         **规范**: 
@@ -52,7 +52,7 @@ class FileSystemAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def file_exists(self, file_path: Path) ->bool:
+    def file_exists(self, file_path: Path) -> bool:
         """
         检查文件是否存在。
         """

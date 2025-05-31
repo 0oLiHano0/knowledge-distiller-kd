@@ -15,15 +15,15 @@ factory.py - 日志工厂 (v4.1)
 from __future__ import annotations
 
 from loguru import logger as _loguru_logger
-from kd_tool.logging.settings import LoggingSettingsDTO
+from kd_tool.logging.settings_models import LoggingSettingsDTO
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.logging.errors import LoggingError
 
 class LoggerFactory:
     """
-    WHY : 集中构建日志实例并注入  
-    WHAT: 生成带全局/任务上下文的 LoggerProtocol  
-    HOW : 仅此文件与 loguru 耦合，遵循 DI
+    WHY: 日志工厂。
+    WHAT: 根据配置创建LoggerProtocol实例。
+    HOW: 依赖注入settings，工厂模式。
     """
 
     def __init__(self, settings: LoggingSettingsDTO) -> None:

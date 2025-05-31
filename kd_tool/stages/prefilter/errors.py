@@ -12,7 +12,7 @@ class PrefilterStageError(KDToolError):
 
 
 class PrefilterError(KDToolError):
-    """PrefilterStage 相关的基本异常。"""
+    """预过滤阶段相关错误。"""
     pass
 
 

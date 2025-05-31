@@ -87,6 +87,7 @@ class FileRecordDTO(BaseModel):
         return v_dt.astimezone(timezone.utc)
 
 
+
 # =============================================================================
 # ContentBlockDTO
 # =============================================================================
@@ -209,25 +210,4 @@ class PipelineContextDTO(BaseModel):
     content_blocks: Dict[str, ContentBlockDTO] = Field(default_factory=dict, description="block_id → DTO")
     analysis_results: Dict[str, AnalysisResultDTO] = Field(default_factory=dict, description="pair_id → DTO")
     decisions: Dict[str, UserDecisionDTO] = Field(default_factory=dict, description="pair_id → DTO")
-
-    # ---------- 辅助方法 (已移除 task_id 校验) ------------------------------
-    def add_file_record(self, record: FileRecordDTO) -> None:
-        """注册文件 DTO。若重复则抛错。"""
-        if record.file_id in self.file_records:
-            raise KDToolError(f"FileRecord 已存在: {record.file_id}")
-        self.file_records[record.file_id] = record
-
-    def add_content_block(self, block: ContentBlockDTO) -> None:
-        if block.block_id in self.content_blocks:
-            raise KDToolError(f"ContentBlock 已存在: {block.block_id}")
-        self.content_blocks[block.block_id] = block
-
-    def add_analysis_result(self, result: AnalysisResultDTO) -> None:
-        if result.pair_analysis_id in self.analysis_results:
-            raise KDToolError(f"AnalysisResult 已存在: {result.pair_analysis_id}")
-        self.analysis_results[result.pair_analysis_id] = result
-
-    def add_user_decision(self, decision: UserDecisionDTO) -> None:
-        if decision.pair_analysis_id in self.decisions:
-            raise KDToolError(f"Decision 已存在: {decision.pair_analysis_id}")
-        self.decisions[decision.pair_analysis_id] = decision
+    # 仅保留字段和Pydantic校验器，所有辅助/业务方法已移除。

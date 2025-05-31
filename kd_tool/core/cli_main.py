@@ -45,11 +45,9 @@ def run(input_paths: List[Path]=typer.Argument(..., help=
     exists=True, file_okay=True, dir_okay=False, readable=True,
     resolve_path=True)):
     """
-    **[指令]** `kd_tool` 的主执行命令。**必须** 严格执行以下步骤：
-    1.  定位配置文件。
-    2.  实例化并构建 `Application`，处理初始化期间的错误。
-    3.  调用 `Application.run_default_pipeline`。
-    4.  捕获运行期间的错误，并提供用户反馈和正确的退出代码。
+    WHY: 命令行入口。
+    WHAT: 解析参数，调用ApplicationBuilder和Application。
+    HOW: 只做参数解析和顶层异常处理。
     """
     typer.echo('🚀 欢迎使用 KD_Tool v4.0！')
     typer.echo('-' * 30)

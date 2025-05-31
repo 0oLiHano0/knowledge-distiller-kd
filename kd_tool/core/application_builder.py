@@ -121,99 +121,79 @@ class Application:
 
 class ApplicationBuilder:
     """
-    **[规范]** 负责构建 `Application` 实例。这是应用程序的组合根。
+    负责构建 Application 实例，所有依赖均通过注入或工厂模式创建。
     """
 
-    def __init__(self, config_path: str):
+    def __init__(
+        self,
+        config_path: str,
+        config: AppConfig,
+        logger_factory: LoggerFactory,
+        logger: LoggerProtocol,
+        storage_factory: StorageFactory,
+        orchestrator_factory: OrchestratorFactory,
+        # 可扩展更多工厂
+    ):
         """
-        **[指令]** 初始化构建器。**必须** 加载配置并设置**新的**日志系统。
+        why: 支持所有依赖注入，便于测试和扩展。
+        what: 允许外部传入 config、logger、factory。
+        how: 通过工厂和依赖注入实现解耦。
         """
-        try:
-            self._config: AppConfig = load_config(config_path)
-            # --- 新的日志系统初始化 ---
-            self._logger_factory = LoggerFactory(self._config.logging) #
-            self._logger: LoggerProtocol = self._logger_factory.get_logger() #
-            # --------------------------
-            self._logger.info(f'ApplicationBuilder 初始化完成 (配置: {config_path})。') #
-        except Exception as e:
-            # 在日志系统完全可用前，使用 print 输出关键错误
-            print(f'严重错误: ApplicationBuilder 初始化失败: {e}')
-            traceback.print_exc()
-            raise KDToolError(f'ApplicationBuilder 初始化失败: {e}',
-                original_exception=e) from e #
-
+        self._config = config
+        self._logger_factory = logger_factory
+        self._logger = logger
+        self._storage_factory = storage_factory
+        self._orchestrator_factory = orchestrator_factory
+        # ...其他工厂同理
         self._storage_instance: Optional[StorageInterface] = None
 
     def _get_storage_instance(self) -> StorageInterface:
         """
-        **[指令]** 创建或获取存储服务实例。**必须** 保证单例。
-        **必须** 注入 `LoggerProtocol`。
+        why: 保证存储服务单例，依赖注入。
+        what: 通过工厂创建 StorageInterface。
+        how: 只在首次调用时创建。
         """
         if self._storage_instance is None:
-            self._logger.debug('正在创建存储服务实例...') #
-            # [注意] StorageFactory 必须被修改以接受 LoggerProtocol
-            storage_factory = StorageFactory(self._logger)
-            self._storage_instance = storage_factory.create(self._config.storage)
-            self._logger.info( #
-                f'存储服务实例 ({self._config.storage.backend_type}) 创建成功。')
+            self._storage_instance = self._storage_factory.create(self._config.storage)
         return self._storage_instance
 
     def _create_stages(self) -> Dict[str, StageInterface]:
         """
-        **[指令]** 使用各自的工厂创建所有已配置的 Stage 实例。
-        **必须** 根据配置中的 `enabled` 标志决定是否创建 Stage。
-        **必须** 使用配置中定义的键名。
-        **必须** 注入 `LoggerProtocol`。
+        why: 通过工厂创建所有阶段，禁止直接实例化依赖。
+        what: 返回所有已启用的阶段实例。
+        how: 依次通过各自工厂创建。
         """
-        self._logger.debug('开始创建所有 Stage 实例...') #
         storage = self._get_storage_instance()
-        stages: Dict[str, StageInterface] = {}
-
-        # [注意] 所有 StageFactory 都必须被修改以接受 LoggerProtocol
+        stages: Dict[str, StageInterface]
+        stages = {}
         if self._config.prefilter.enabled:
-            stages['prefilter'] = PrefilterStageFactory(self._logger).create(
-                self._config.prefilter, storage)
+            stages['prefilter'] = PrefilterStageFactory(self._logger).create(self._config.prefilter, storage)
         if self._config.document_processing.enabled:
-            stages['document_processing'] = DocumentProcessingStageFactory(self
-                ._logger).create(self._config.document_processing, storage)
+            stages['document_processing'] = DocumentProcessingStageFactory(self._logger).create(self._config.document_processing, storage)
         if self._config.block_merging.enabled:
-            stages['block_merging'] = BlockMergerStageFactory(self._logger
-                ).create(self._config.block_merging, storage)
-
-        # 检查并使用正确的分析配置路径
+            stages['block_merging'] = BlockMergerStageFactory(self._logger).create(self._config.block_merging, storage)
         if self._config.md5_analysis.enabled:
-             stages['md5_analysis'] = MD5AnalysisStageFactory(self._logger
-                 ).create(self._config.md5_analysis, storage)
+            stages['md5_analysis'] = MD5AnalysisStageFactory(self._logger).create(self._config.md5_analysis, storage)
         if self._config.simhash_analysis.enabled:
-             stages['simhash_analysis'] = SimHashAnalysisStageFactory(self.
-                 _logger).create(storage, self._config.simhash_analysis)
+            stages['simhash_analysis'] = SimHashAnalysisStageFactory(self._logger).create(storage, self._config.simhash_analysis)
         if self._config.semantic_analysis.enabled:
-             stages['semantic_analysis'] = SemanticAnalysisStageFactory(self
-                 ._logger).create(storage, self._config.semantic_analysis)
-
+            stages['semantic_analysis'] = SemanticAnalysisStageFactory(self._logger).create(storage, self._config.semantic_analysis)
         if self._config.decision.enabled:
-            stages['decision'] = DecisionStageFactory(self._logger).create(
-                storage, self._config.decision)
+            stages['decision'] = DecisionStageFactory(self._logger).create(storage, self._config.decision)
         if self._config.cleanup.enabled:
-            stages['cleanup'] = CleanupStageFactory(self._logger).create(
-                storage, self._config.cleanup)
-
-        self._logger.info( #
-            f'成功创建 {len(stages)} 个 Stage 实例: {list(stages.keys())}。')
+            stages['cleanup'] = CleanupStageFactory(self._logger).create(storage, self._config.cleanup)
         return stages
 
     def build(self) -> Application:
         """
-        **[指令]** 构建并返回完整的 `Application` 实例。
-        **必须** 调用 `OrchestratorFactory` 并传递正确的参数（包括 `LoggerProtocol`）。
+        why: 组装 Application，所有依赖均通过工厂和注入获得。
+        what: 返回完整 Application 实例。
+        how: 组装 orchestrator 和 logger。
         """
-        self._logger.info('开始构建 Application 实例...') #
-        all_stages = self._create_stages()
-        orchestrator_factory = OrchestratorFactory(self._logger)
-        orchestrator = orchestrator_factory.create(stage_modules=all_stages,
-            default_stage_order=self._config.orchestrator.default_stage_order, #
-            settings=self._config.orchestrator)
-        self._logger.info('Orchestrator 实例创建成功。') #
-        app = Application(orchestrator, self._logger)
-        self._logger.info('🏆 Application 实例构建成功！准备就绪。') #
-        return app
+        stages = self._create_stages()
+        orchestrator = self._orchestrator_factory.create(
+            stage_modules=stages,
+            default_stage_order=self._config.orchestrator.default_stage_order,
+            settings=self._config.orchestrator
+        )
+        return Application(orchestrator, self._logger)

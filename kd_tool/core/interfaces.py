@@ -9,7 +9,7 @@ class StageInterface(ABC):
     """
 
     @abstractmethod
-    def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
+    def process(self, context: PipelineContextDTO) -> PipelineContextDTO:
         """
         处理管道上下文并返回更新后的上下文。
 
@@ -26,4 +26,4 @@ class StageInterface(ABC):
         抛出:
             KDToolError 或其子类: 当阶段处理发生错误时。
         """
-        raise NotImplementedError("每个阶段模块都必须实现 'process' 方法。")
+        ...

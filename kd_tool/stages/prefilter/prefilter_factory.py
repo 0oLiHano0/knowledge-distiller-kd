@@ -21,6 +21,7 @@ from kd_tool.stages.prefilter.czkawka_adapter import CzkawkaAdapter
 from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
 from kd_tool.storage.storage_interface import StorageInterface
 from pydantic import BaseModel
+from typing import Optional
 
 class FactoryConfigurationError(KDToolError):
     """当工厂遇到配置问题时抛出。"""
@@ -31,8 +32,9 @@ class FactoryConfigurationError(KDToolError):
 
 class PrefilterStageFactory:
     """
-    负责创建 PrefilterStage 实例。
-    **规范**: 严格遵循依赖注入。
+    WHY: 负责创建PrefilterStage实例。
+    WHAT: 依赖注入logger，create方法组装所有依赖。
+    HOW: 工厂模式，便于测试和扩展。
     """
 
     def __init__(self, logger: LoggerProtocol):
@@ -44,13 +46,18 @@ class PrefilterStageFactory:
         self._logger = logger.bind(factory_name='PrefilterStageFactory')
         self._logger.info('PrefilterStageFactory initialized.')
 
-    def create(self, settings: PrefilterStageSettings, storage:
-        StorageInterface) ->StageInterface:
+    def create(
+        self,
+        settings: PrefilterStageSettings,
+        storage: StorageInterface,
+        adapter: Optional[CzkawkaAdapterInterface] = None
+    ) -> 'PrefilterStage':
         """
         创建并返回一个配置好的 PrefilterStage 实例。
         **参数**:
             settings (PrefilterStageSettings): **[必须]** Prefilter 阶段的配置 DTO。
             storage (StorageInterface): **[必须]** 存储服务接口实例。
+            adapter (Optional[CzkawkaAdapterInterface]): **[可选]** CzkawkaAdapter 实例。
         **返回**:
             StageInterface: 一个实现了 `StageInterface` 的 `PrefilterStage` 实例。
         """

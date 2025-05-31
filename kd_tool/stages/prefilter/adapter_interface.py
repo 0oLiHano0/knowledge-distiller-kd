@@ -38,12 +38,12 @@ class CzkawkaScanOutputDTO(BaseModel):
 
 class CzkawkaAdapterInterface(abc.ABC):
     """
-    定义了与 Czkawka CLI 工具交互的抽象接口。
-    任何 Czkawka 适配器都必须实现此接口。
+    WHY: 适配Czkawka CLI工具。
+    WHAT: 定义scan_and_find_duplicates方法。
+    HOW: 只定义接口，无实现。
     """
-
     @abc.abstractmethod
-    def scan_and_find_duplicates(self) ->CzkawkaScanOutputDTO:
+    def scan_and_find_duplicates(self) -> CzkawkaScanOutputDTO:
         """
         运行 Czkawka 扫描并查找重复项。
 

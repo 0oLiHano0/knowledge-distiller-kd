@@ -36,21 +36,23 @@ from pydantic import BaseModel
 
 class PrefilterStage(StageInterface):
     """
-    负责执行文件级预过滤（如去重）的阶段。
+    WHY: 文件级去重阶段。
+    WHAT: 负责调用底层去重工具，生成初步文件唯一性判断。
+    HOW: 依赖注入logger、settings、storage、adapter。
     """
-
-    def __init__(self, logger: LoggerProtocol, settings: PrefilterStageSettings,
-        storage: StorageInterface, czkawka_adapter: CzkawkaAdapterInterface):
-        """
-        **[指令]** 构造函数，**必须** 通过 DI 注入所有依赖。
-        """
-        self._logger = logger.bind(stage_name=self.__class__.__name__)
+    def __init__(
+        self,
+        logger: LoggerProtocol,
+        settings: PrefilterStageSettings,
+        storage: StorageInterface,
+        adapter: CzkawkaAdapterInterface
+    ):
+        self._logger = logger
         self._settings = settings
         self._storage = storage
-        self._adapter = czkawka_adapter
-        self._logger.info('PrefilterStage initialized.')
+        self._adapter = adapter
 
-    def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
+    def process(self, context: PipelineContextDTO) -> PipelineContextDTO:
         """
         执行预过滤流程。
         **[指令]** 必须使用 `context.run_logger` 进行日志记录。

@@ -12,8 +12,8 @@ class StorageError(KDToolError):
     pass
 
 
-class StorageInitializationError(StorageError):
-    """WHY: 存储初始化异常；WHAT: 初始化失败时抛出；HOW: 继承 StorageError。"""
+class StorageInitializationError(KDToolError):
+    """存储初始化相关错误。"""
     pass
 
 

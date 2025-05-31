@@ -73,54 +73,34 @@ class OrchestratorRuntimeError(OrchestratorError):
 
 class Orchestrator:
     """
-    流水线编排器。
-    负责管理和执行一系列定义好的处理阶段（Stage）。
+    WHY: 负责全局流程调度，保持无状态。
+    WHAT: 依赖注入所有阶段、配置、日志。
+    HOW: 只做调度，不做业务逻辑。
     """
-
-    def __init__(self, *, stage_modules: Dict[str, StageInterface],
-        default_stage_order: List[str], settings: OrchestratorSettings,
-        # MODIFIED: Expect LoggerProtocol
-        logger: LoggerProtocol):
-        # ...
-        if not hasattr(logger, 'bind'):
-            # MODIFIED: More generic check or trust DI
-            raise TypeError("参数 'logger' 必须是一个兼容 LoggerProtocol 的实例。")
-        # ...
-        # MODIFIED: Use LoggerProtocol
-        self._logger: LoggerProtocol = logger.bind(component='Orchestrator')
-        # ...
-
+    def __init__(
+        self,
+        stage_modules: Dict[str, StageInterface],
+        default_stage_order: List[str],
+        settings: OrchestratorSettings,
+        logger: LoggerProtocol
+    ):
         """
-        **[指令]** 构造 Orchestrator 实例。**必须** 通过依赖注入接收所有参数。
-
-        **参数**:
-            stage_modules (Dict[str, StageInterface]): **[必须]** 阶段名称到 `StageInterface` 实例的字典。
-            default_stage_order (List[str]): **[必须]** 默认阶段执行顺序列表。列表中的名称 **必须** 存在于 `stage_modules` 中。
-            settings (OrchestratorSettings): **[必须]** `Orchestrator` 的配置设置实例。
-            logger (Logger): **[必须]** 用于日志记录的 `Logger` 实例。
-
-        **可能抛出的异常**:
-            TypeError: 如果参数类型不正确。
-            InvalidPipelineDefinitionError: 如果 `stage_modules` 或 `default_stage_order` 定义不合法。
+        why: 依赖注入所有阶段、配置、日志。
+        what: 初始化Orchestrator，保存依赖。
+        how: 只做依赖赋值，不做业务逻辑。
         """
-        if not isinstance(settings, OrchestratorSettings):
-            raise TypeError("参数 'settings' 必须是 OrchestratorSettings 的实例。")
-        if not hasattr(logger, 'bind'):
-            raise TypeError("参数 'logger' 必须是一个兼容 Loguru 的 Logger 实例。")
-        if not isinstance(stage_modules, dict) or not stage_modules:
-            raise InvalidPipelineDefinitionError('stage_modules 必须是一个非空的字典。')
-        if not isinstance(default_stage_order, list
-            ) or not default_stage_order:
-            raise InvalidPipelineDefinitionError(
-                'default_stage_order 必须是一个非空的列表。')
-        self._validate_pipeline_definition(stage_modules, default_stage_order)
-        self._stage_modules: Dict[str, StageInterface] = stage_modules
-        self._default_stage_order: List[str] = default_stage_order
-        self._settings: OrchestratorSettings = settings
-        self._logger: LoggerProtocol = logger.bind(component='Orchestrator')
-        self._logger.info(
-            f'Orchestrator 已初始化。默认阶段顺序: {self._default_stage_order}。 错误处理策略: {self._settings.on_pipeline_error_policy}。'
-            )
+        self._stage_modules = stage_modules
+        self._default_stage_order = default_stage_order
+        self._settings = settings
+        self._logger = logger
+
+    def run(self, input_paths: List[Path]) -> PipelineContextDTO:
+        """
+        why: 统一入口，调度所有阶段。
+        what: 依次调用各阶段的process方法。
+        how: 只做调度，不做业务逻辑。
+        """
+        ...
 
     def _validate_pipeline_definition(self, stage_modules: Dict[str,
         StageInterface], default_stage_order: List[str]) ->None:
@@ -190,108 +170,6 @@ class Orchestrator:
                 stages_to_skip_override]
             self._logger.debug(f'跳过阶段后的执行顺序: {effective_order}')
         return effective_order
-
-    def run(self, input_paths: List[Path], stages_to_run: Optional[List[str
-        ]]=None, stages_to_skip: Optional[List[str]]=None,
-        initial_shared_data: Optional[Dict[str, Any]]=None
-        ) ->PipelineContextDTO:
-        run_logger: LoggerProtocol = self._logger.bind(task_id=task_id_str)
-        run_logger.info(
-            f'流水线运行启动 (ID: {task_id_str})。输入路径: {[str(p) for p in input_paths]}。'
-            ) 
-        total_start_time = time.monotonic()
-        stage_durations: Dict[str, float] = {}
-        context = PipelineContextDTO(task_id=task_id_uuid,
-            initial_input_paths=input_paths, run_logger=run_logger,
-            shared_data=initial_shared_data or {})
-        """
-        **[指令]** 执行完整处理流水线。这是 `Orchestrator` 的核心方法。
-
-        **参数**:
-            input_paths (List[Path]): **[必须]** 流水线的初始输入文件或目录路径列表。
-            stages_to_run (Optional[List[str]]): **[可选]** 覆盖默认顺序，只运行指定阶段。
-            stages_to_skip (Optional[List[str]]): **[可选]** 从默认顺序中跳过指定阶段 (若提供 `stages_to_run` 则忽略)。
-            initial_shared_data (Optional[Dict[str, Any]]): **[可选]** 注入到 `PipelineContextDTO.shared_data` 的初始数据。
-
-        **返回**:
-            PipelineContextDTO: **[必须]** 包含流水线执行结果（数据和错误）的最终上下文对象。
-        """
-        task_id_uuid = uuid.uuid4()
-        task_id_str = (
-            f'{self._settings.default_task_id_prefix}{task_id_uuid.hex}')
-        run_logger = self._logger.bind(task_id=task_id_str)
-        run_logger.info(
-            f'流水线运行启动 (ID: {task_id_str})。输入路径: {[str(p) for p in input_paths]}。'
-            )
-        total_start_time = time.monotonic()
-        stage_durations: Dict[str, float] = {}
-        context = PipelineContextDTO(task_id=task_id_uuid,
-            initial_input_paths=input_paths, run_logger=run_logger,
-            shared_data=initial_shared_data or {})
-        try:
-            active_stages = self._determine_stages_to_run(stages_to_run,
-                stages_to_skip)
-            run_logger.info(f'计划执行的阶段顺序: {active_stages}')
-            if not active_stages:
-                run_logger.warning('没有阶段需要执行。流水线提前结束。')
-                return context
-            for stage_name in active_stages:
-                stage_instance = self._stage_modules[stage_name]
-                run_logger.info(f"▶️ 阶段 '{stage_name}' 开始执行。")
-                stage_start_time = time.monotonic()
-                stage_failed = False
-                try:
-                    context = stage_instance.process(context=context)
-                    if not isinstance(context, PipelineContextDTO):
-                        raise OrchestratorRuntimeError(
-                            f"阶段 '{stage_name}' 未返回 PipelineContextDTO 实例，而是返回了 {type(context).__name__}。"
-                            )
-                except KDToolError as stage_kd_exc:
-                    run_logger.error(
-                        f"❌ 阶段 '{stage_name}' 发生受控错误: {stage_kd_exc}",
-                        exc_info=True)
-                    context.add_error(stage_kd_exc)
-                    stage_failed = True
-                except Exception as stage_exc:
-                    run_logger.exception(
-                        f"💥 阶段 '{stage_name}' 发生未预料的错误: {stage_exc}")
-                    wrapped_error = StageExecutionError(stage_name=
-                        stage_name, original_exception=stage_exc)
-                    context.add_error(wrapped_error)
-                    stage_failed = True
-                finally:
-                    stage_duration = time.monotonic() - stage_start_time
-                    stage_durations[stage_name] = round(stage_duration, 4)
-                    if stage_failed:
-                        run_logger.error(
-                            f"⏹️ 阶段 '{stage_name}' 失败。耗时: {stage_duration:.4f} 秒。"
-                            )
-                    else:
-                        run_logger.success(
-                            f"✅ 阶段 '{stage_name}' 成功完成。耗时: {stage_duration:.4f} 秒。"
-                            )
-                if (stage_failed and self._settings.
-                    on_pipeline_error_policy == 'HALT_ON_FIRST_ERROR'):
-                    run_logger.critical(
-                        f"🛑 错误策略为 HALT_ON_FIRST_ERROR，流水线在阶段 '{stage_name}' 中止。"
-                        )
-                    break
-            context.shared_data['stage_durations'] = stage_durations
-            return context
-        except InvalidPipelineDefinitionError as e:
-            run_logger.critical(f'🚨 流水线定义无效，无法执行: {e}', exc_info=False)
-            context.add_error(e)
-            return context
-        except Exception as e:
-            run_logger.critical(f'🚨 Orchestrator 发生意外顶层错误: {e}', exc_info=True)
-            context.add_error(OrchestratorRuntimeError(
-                f'Orchestrator 顶层错误: {e}', original_exception=e))
-            return context
-        finally:
-            total_duration_seconds = time.monotonic() - total_start_time
-            run_logger.info(
-                f'🏁 流水线运行结束 (ID: {task_id_str})。总耗时: {total_duration_seconds:.4f} 秒。发现 {len(context.errors)} 个错误。'
-                )
 
     def configure(self, **kwargs) ->None:
         """

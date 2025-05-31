@@ -17,13 +17,15 @@ class FactoryError(StorageInitializationError):
 
 
 class StorageFactory:
-    """WHY 解耦；WHAT 生产并初始化存储；HOW 通过 create_storage 调用。"""
-
-    def __init__(self, logger: LoggerProtocol) -> None:
+    """
+    WHY: 统一存储工厂。
+    WHAT: 根据配置创建StorageInterface实例。
+    HOW: 依赖注入logger，工厂模式。
+    """
+    def __init__(self, logger: LoggerProtocol):
         self._logger = logger
 
-    # 单一入口
-    def create_storage(self, settings: StorageSettingsDTO) -> StorageInterface:
+    def create(self, settings: StorageSettingsDTO) -> StorageInterface:
         """根据 backend 创建对应实现并初始化。"""
         backend = settings.backend
 

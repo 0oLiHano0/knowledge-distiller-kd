@@ -22,7 +22,7 @@ class SimHashAdapterInterface(ABC):
     """
 
     @abstractmethod
-    def calculate_simhash(self, text: str, hash_bits: int) ->str:
+    def calculate_simhash(self, text: str, hash_bits: int) -> str:
         """
         计算给定文本的 SimHash 指纹。
 
@@ -41,7 +41,7 @@ class SimHashAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def calculate_hamming_distance(self, hash1: str, hash2: str) ->int:
+    def calculate_hamming_distance(self, hash1: str, hash2: str) -> int:
         """
         计算两个 SimHash 指纹之间的汉明距离。
 
@@ -60,8 +60,7 @@ class SimHashAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def find_similar_pairs(self, block_hashes: List[Tuple[str, str]],
-        threshold: int, hash_bits: int) ->List[Tuple[str, str, int]]:
+    def find_similar_pairs(self, block_hashes: List[Tuple[str, str]], threshold: int, hash_bits: int) -> List[Tuple[str, str, int]]:
         """
         (可选但推荐) 在一批哈希值中高效地找出汉明距离小于阈值的对。
         这可以避免 O(n^2) 的完全比较，尤其是在数据量大时。
