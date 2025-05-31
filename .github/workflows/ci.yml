@@ -43,6 +43,6 @@ jobs:
         poetry run mypy kd_tool || true
 
     - name: Black format check
+      continue-on-error: true
       run: |
-        continue-on-error: true
         poetry run black --check kd_tool
