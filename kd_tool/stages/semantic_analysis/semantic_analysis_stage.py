@@ -46,7 +46,6 @@ class SemanticAnalysisStage(StageInterface):
         self._storage = storage
         self._settings = settings
         self._adapter = adapter
-        self._is_model_loaded = False
 
     def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
         """
@@ -63,7 +62,6 @@ class SemanticAnalysisStage(StageInterface):
             run_logger.warning('语义分析阶段已禁用，跳过处理。')
             return context
         try:
-            self._ensure_model_loaded(run_logger)
             blocks_to_process = self._get_blocks_to_process(context)
             if len(blocks_to_process) < 2:
                 run_logger.info('没有足够的内容块进行语义比较。')
@@ -113,14 +111,6 @@ class SemanticAnalysisStage(StageInterface):
             run_logger.exception(error)
             context.add_error(error)
         return context
-
-    def _ensure_model_loaded(self, logger: LoggerProtocol):
-        if not self._is_model_loaded:
-            logger.info(f'正在加载语义模型: {self._settings.model_name_or_path}...')
-            self._adapter.load_model(self._settings.model_name_or_path,
-                self._settings.device)
-            self._is_model_loaded = True
-            logger.info('语义模型加载成功。')
 
     def _get_blocks_to_process(self, context: PipelineContextDTO) ->List[
         ContentBlockDTO]:

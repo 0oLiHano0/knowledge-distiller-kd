@@ -13,6 +13,7 @@ sentence_transformer_adapter.py - 基于 `sentence-transformers` 的适配器实
 """
 from typing import List, Optional, Any # 实际运行时可能不需要Any
 import numpy as np
+import threading
 try:
     from sentence_transformers import SentenceTransformer
     from sentence_transformers.util import cos_sim
@@ -29,33 +30,27 @@ class SentenceTransformerAdapter(SemanticAdapterInterface):
     使用 `sentence-transformers` 库实现语义分析功能的适配器。
     """
 
-    def __init__(self):
-        self._model: Optional[Any] = None # 实际运行时，会根据实际的模型类型进行类型注解“SentenceTransformer”
+    def __init__(self, model_name, device):
+        self._model_name = model_name
+        self._device = device
+        self._model = None
+        self._lock = threading.Lock()
 
-    def load_model(self, model_name_or_path: str, device: Optional[str]=None
-        ) ->None:
-        """加载模型。"""
-        if SentenceTransformer is None:
-            raise SemanticAdapterError('`sentence-transformers` 库未安装。')
-        try:
-            self._model = SentenceTransformer(model_name_or_path, device=device
-                )
-        except Exception as e:
-            raise ModelLoadingError(model_path=model_name_or_path,
-                original_error=e)
-
-    def calculate_embeddings(self, texts: List[str], batch_size: int
-        ) ->np.ndarray:
-        """计算嵌入向量。"""
+    def _ensure_model_loaded(self):
         if self._model is None:
-            raise SemanticAdapterError('模型尚未加载。请先调用 `load_model`。')
-        try:
-            embeddings = self._model.encode(texts, batch_size=batch_size,
-                show_progress_bar=False)
-            return np.array(embeddings)
-        except Exception as e:
-            raise EmbeddingCalculationError(block_id='<batch>',
-                original_error=e)
+            with self._lock:
+                if self._model is None:
+                    self._model = SentenceTransformer(self._model_name, device=self._device)
+
+    def calculate_embeddings(self, texts, batch_size):
+        self._ensure_model_loaded()
+        return self._model.encode(texts, batch_size=batch_size)
+
+    def calculate_pair_similarity(self, emb1, emb2):
+        # 这里假设emb1和emb2是numpy数组
+        from numpy import dot
+        from numpy.linalg import norm
+        return float(dot(emb1, emb2) / (norm(emb1) * norm(emb2)))
 
     def calculate_similarity_matrix(self, embeddings: np.ndarray) ->np.ndarray:
         """计算相似度矩阵。"""
