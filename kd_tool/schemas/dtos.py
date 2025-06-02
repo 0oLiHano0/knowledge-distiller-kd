@@ -3,9 +3,10 @@ kd_tool/schemas/dtos.py  ‑  KD_Tool 数据传输对象 (DTOs)  v4.6
 ================================================================
 WHY  : 各层之间的数据契约，保证结构化与类型安全。
 WHAT : 定义 FileRecordDTO / ContentBlockDTO / AnalysisResultDTO /
-       UserDecisionDTO / PipelineContextDTO 五大核心 DTO。
+       UserDecisionDTO 四个核心 DTO。
 HOW  : 依 Pydantic v2 构建，所有字段明确类型与验证，
        严格禁止与 ORM 混用，遵守架构设计总则 v4.0‑v4.6。
+- "PipelineContextDTO 仅在 core/core_dtos.py 定义，禁止在此重复定义。"
 """
 
 from __future__ import annotations
@@ -33,7 +34,6 @@ __all__ = [
     "ContentBlockDTO",
     "AnalysisResultDTO",
     "UserDecisionDTO",
-    "PipelineContextDTO",
 ]
 
 
@@ -43,7 +43,7 @@ __all__ = [
 class FileRecordDTO(BaseModel):
     """WHY  文件唯一标识；WHAT  贯穿全流程；HOW  Pydantic v2 DTO。"""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
 
     file_id: str = Field(  # noqa: WPS110 (保持业务词)
         default_factory=lambda: f"file_{uuid.uuid4().hex}",
@@ -94,7 +94,7 @@ class FileRecordDTO(BaseModel):
 class ContentBlockDTO(BaseModel):
     """WHY  文档基本分析单元；WHAT  存储文本块与哈希；HOW  DTO。"""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
 
     block_id: str = Field(
         default_factory=lambda: f"block_{uuid.uuid4().hex}",
@@ -131,7 +131,7 @@ class ContentBlockDTO(BaseModel):
 class AnalysisResultDTO(BaseModel):
     """WHY  块对分析结果；WHAT  提供统一输出；HOW  DTO。"""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
 
     pair_analysis_id: str = Field(description="块对+类型 唯一哈希")
     block_id_1: str = Field(description="内容块一 ID")
@@ -176,7 +176,7 @@ class AnalysisResultDTO(BaseModel):
 class UserDecisionDTO(BaseModel):
     """WHY  人机决策记录；WHAT  输入给 CleanupStage；HOW  DTO。"""
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     pair_analysis_id: str = Field(description="对应 AnalysisResultDTO ID")
     decision: DecisionType = Field(default=DecisionType.UNDECIDED, description="决策枚举")
@@ -195,19 +195,3 @@ class UserDecisionDTO(BaseModel):
         if isinstance(v, datetime):
             return v.astimezone(timezone.utc)
         raise TypeError("decided_at 必须为 datetime 或 ISO str")
-
-
-# =============================================================================
-# PipelineContextDTO
-# =============================================================================
-class PipelineContextDTO(BaseModel):
-    """WHY  管理一次文件处理流水线的临时上下文。"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    context_id: str = Field(default_factory=lambda: uuid.uuid4().hex, description="上下文 ID")
-    file_records: Dict[str, FileRecordDTO] = Field(default_factory=dict, description="file_id → DTO")
-    content_blocks: Dict[str, ContentBlockDTO] = Field(default_factory=dict, description="block_id → DTO")
-    analysis_results: Dict[str, AnalysisResultDTO] = Field(default_factory=dict, description="pair_id → DTO")
-    decisions: Dict[str, UserDecisionDTO] = Field(default_factory=dict, description="pair_id → DTO")
-    # 仅保留字段和Pydantic校验器，所有辅助/业务方法已移除。

@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 class CzkawkaSettings(BaseModel):
     """Czkawka 工具相关的具体配置。"""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     executable_path: Path = Field(..., description='Czkawka CLI 工具的可执行文件路径。')
     directories_to_scan: List[Path] = Field(..., description='需要进行扫描的根目录列表。')
     scan_mode: Literal['duplicates'] = Field('duplicates', description=
@@ -42,6 +42,7 @@ class PrefilterStageSettings(BaseModel):
     WHAT: 只包含本阶段所需配置。
     HOW: 通过依赖注入传递。
     """
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description="是否启用本阶段")
     tool: Literal['czkawka'] = Field(default='czkawka', description=
         '当前阶段使用的预过滤工具。**规范**: 未来可扩展支持其他工具。')

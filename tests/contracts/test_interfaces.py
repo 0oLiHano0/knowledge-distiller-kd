@@ -15,6 +15,7 @@ from tests.contracts.helpers import get_public_methods_from_class, compare_metho
 # 确保 StorageInterface 可导入
 from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.storage.sqlite_storage import SQLiteStorage
+from kd_tool.logging.protocols import LoggerProtocol
 # 导入 InMemoryStorage 作为测试替身，并验证其契约
 from tests.storage.in_memory_storage import InMemoryStorage
 # 以后可以导入更多:

@@ -1,14 +1,11 @@
 """
 =================================================
-core_dtos.py - KD_Tool 核心数据传输对象 (v4.6)
+core_dtos.py - KD_Tool 核心数据传输对象 (v4.7)
 =================================================
 
 **模块功能**:
 
 - **核心职责**: 定义 `core` 层特有的、关键的数据传输对象。
-- **v4.6 核心变更**:
-    - **[架构指令]** `PipelineContextDTO` 从原 `schemas` 目录迁移至此。
-    - **[架构指令]** `PipelineContextDTO` 是本模块当前唯一的 DTO。
 
 ---
 """
@@ -26,15 +23,16 @@ from kd_tool.core.errors import KDToolError
 class PipelineContextDTO(BaseModel):
     """
     管道上下文数据传输对象 (Pipeline Context DTO)。
-    **核心职责**: 在 Orchestrator 控制的流水线中，作为数据和状态的载体，从一个 Stage 传递到下一个 Stage。
+    **核心职责**: 
+    - 在 Orchestrator 控制的流水线中，作为数据和状态的载体，从一个 Stage 传递到下一个 Stage。
+    - 全局唯一上下文，唯一持有task_id，作为流水线执行的唯一标识符。task id 为uuid，仅在此维护。
     **规范**:
     - 它的生命周期与一次 `Orchestrator.run` 调用绑定。
     - **[架构指令] 严禁**将其设计为有状态对象；它只是数据的容器。
-    - Stage **必须**通过修改此对象来传递结果。
-    - **[架构指令 v4.6] 必须** 包含 `task_id` 和 `run_logger`，作为任务的唯一标识和日志记录器。
+    - Stage **必须**通过更新此对象来传递结果。
+    - **[架构指令 v4.7] 必须** 包含 `task_id` 和 `run_logger`，作为任务的唯一标识和日志记录器。
     """    
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True,
-        validate_assignment=True)
+    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
     task_id: UUID = Field(default_factory=uuid4, description=
         '本次流水线执行的唯一标识符 (UUID)。')
     initial_input_paths: List[Path] = Field(default_factory=list,

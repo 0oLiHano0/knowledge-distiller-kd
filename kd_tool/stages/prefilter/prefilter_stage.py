@@ -8,9 +8,9 @@ prefilter_stage.py.md - PrefilterStage 实现 (v4.6)
 - 负责执行文件级预过滤（如去重）的阶段。
 - **v4.6 核心变更**:
     - **[架构指令]** 导入路径已更新，以反映 DTOs 和 Settings Models 的新位置。
-    - **[架构指令]** 创建 `FileRecordDTO` 时，不再包含 `task_id` 字段。
+    - **[架构指令]** 创建 `FileRecordDTO` 时，不包含 `task_id` 字段。
       （`task_id` 由 `PipelineContextDTO` 管理）。
-    - **[架构指令]** 调用 `StorageInterface.register_files` 时，不再传递 `task_id`。
+    - **[架构指令]** 调用 `StorageInterface.register_files` 时，不传递 `task_id`。
 
 **架构师说明**:
 - **[规范] 状态精确**: Stage 在完成其核心职责后，应尽可能精确地更新 DTO 的

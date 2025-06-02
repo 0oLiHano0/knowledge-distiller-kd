@@ -1,15 +1,18 @@
 """
 =================================================
-factory.py - BlockMergerStage 工厂 (v4.6)
+factory.py - BlockMergerStage 工厂 (v4.7)
 =================================================
----
+
+**模块功能**:
+
+- 负责创建和配置 `BlockMergingStage` 实例。
+- 与 Storage 解耦，仅依赖于 context 和 settings。
+
 """
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.stages.blockmerging.block_merging_stage import BlockMergingStage
 from kd_tool.stages.blockmerging.settings_models import BlockMergerStageSettings
-from kd_tool.storage.storage_interface import StorageInterface
-from pydantic import BaseModel
 
 class BlockMergerStageFactory:
     """
@@ -21,15 +24,14 @@ class BlockMergerStageFactory:
         初始化块合并阶段工厂。
         """
         self._logger = logger.bind(factory_name='BlockMergerStageFactory')
-        self._logger.info('BlockMergerStageFactory initialized.')
+        self._logger.info('BlockMergerStageFactory 初始化完成.')
 
-    def create(self, settings: BlockMergerStageSettings, storage:
-        StorageInterface) ->StageInterface:
+    def create(self, settings: BlockMergerStageSettings) ->StageInterface:
         """
         创建并返回一个配置好的 BlockMergerStage 实例。
         """
-        self._logger.info(f'Creating BlockMergerStage instance...')
+        self._logger.info(f'创建 BlockMergerStage 实例...')
         stage_instance = BlockMergingStage(logger=self._logger.bind(
-            stage_name='BlockMerger'), settings=settings, storage=storage)
-        self._logger.success('BlockMergerStage instance created successfully.')
+            stage_name='BlockMerger'), settings=settings)
+        self._logger.success('BlockMergerStage 实例创建成功.')
         return stage_instance

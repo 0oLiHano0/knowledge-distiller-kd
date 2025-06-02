@@ -24,7 +24,7 @@ class CleanupStageSettings(BaseModel):
                    其配置将涉及具体的文件操作（标记、移动、删除）等。
                    **安全第一**: 默认配置应采用最安全的方式 (mark_only)。
     """
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description='是否启用 P09 - 清理阶段。')
     action_map: Dict[DecisionType, Literal['mark_only', 'move_to_trash',
         'permanent_delete', 'ignore']] = Field(default_factory=lambda : {

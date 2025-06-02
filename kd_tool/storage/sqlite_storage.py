@@ -21,7 +21,8 @@ from kd_tool.storage.errors import (
 )
 from kd_tool.storage.models_sqlalchemy import Base, ContentBlockORM
 from kd_tool.storage.settings_models import StorageSettingsDTO
-from kd_tool.storage.storage_interface import LoggerProtocol, StorageInterface
+from kd_tool.storage.storage_interface import StorageInterface
+from kd_tool.logging.protocols import LoggerProtocol
 
 
 class SQLiteStorage(StorageInterface):

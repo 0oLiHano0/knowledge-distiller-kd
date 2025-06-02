@@ -9,7 +9,8 @@ from __future__ import annotations
 from kd_tool.storage.errors import StorageInitializationError
 from kd_tool.storage.settings_models import StorageBackend, StorageSettingsDTO
 from kd_tool.storage.sqlite_storage import SQLiteStorage
-from kd_tool.storage.storage_interface import LoggerProtocol, StorageInterface
+from kd_tool.storage.storage_interface import StorageInterface
+from kd_tool.logging.protocols import LoggerProtocol
 
 
 class FactoryError(StorageInitializationError):

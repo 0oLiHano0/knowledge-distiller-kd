@@ -14,7 +14,7 @@ import abc
 from pathlib import Path
 from typing import List
 from kd_tool.stages.prefilter.dtos import CzkawkaScanOutputDTO
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class CzkawkaDuplicateResultDTO(BaseModel):
@@ -24,6 +24,7 @@ class CzkawkaDuplicateResultDTO(BaseModel):
     original_file: Path = Field(..., description='作为基准的原始文件路径')
     duplicates: List[Path] = Field(..., description='与原始文件重复的文件路径列表')
     size_bytes: int = Field(..., description='文件大小（字节）')
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
 class CzkawkaScanOutputDTO(BaseModel):
@@ -34,6 +35,7 @@ class CzkawkaScanOutputDTO(BaseModel):
         '所有被 Czkawka 扫描到的文件列表')
     duplicate_groups: List[CzkawkaDuplicateResultDTO] = Field(...,
         description='找到的所有重复文件组列表')
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
 class CzkawkaAdapterInterface(abc.ABC):

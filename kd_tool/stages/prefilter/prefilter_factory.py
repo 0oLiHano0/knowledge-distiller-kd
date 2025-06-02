@@ -1,16 +1,13 @@
 """
 =================================================
-prefilter_factory.py.md - PrefilterStage 工厂 (v4.6)
+prefilter_factory.py - PrefilterStage 工厂 (v4.7)
 =================================================
 
 **模块功能**:
 
 - 负责创建并组装 PrefilterStage 实例及其依赖。
-- **v4.6 核心变更**:
-    - **[架构指令]** `PrefilterStageSettings` 的导入路径已更新为指向本地的 `settings_models.py`。
-    - **[架构指令]** 核心接口和错误类的导入路径已更新，以反映其在项目中的标准位置。
+- 与 Storage 解耦，仅依赖于 context 和 settings。
 
----
 """
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.core.interfaces import StageInterface
@@ -19,8 +16,6 @@ from kd_tool.stages.prefilter.prefilter_stage import PrefilterStage
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from kd_tool.stages.prefilter.czkawka_adapter import CzkawkaAdapter
 from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
-from kd_tool.storage.storage_interface import StorageInterface
-from pydantic import BaseModel
 from typing import Optional
 
 class FactoryConfigurationError(KDToolError):
@@ -44,27 +39,25 @@ class PrefilterStageFactory:
             logger (LoggerProtocol): **[必须]** 日志记录器实例。
         """
         self._logger = logger.bind(factory_name='PrefilterStageFactory')
-        self._logger.info('PrefilterStageFactory initialized.')
+        self._logger.info('PrefilterStageFactory 初始化完成.')
 
     def create(
         self,
         settings: PrefilterStageSettings,
-        storage: StorageInterface,
         adapter: Optional[CzkawkaAdapterInterface] = None
     ) -> 'PrefilterStage':
         """
         创建并返回一个配置好的 PrefilterStage 实例。
         **参数**:
             settings (PrefilterStageSettings): **[必须]** Prefilter 阶段的配置 DTO。
-            storage (StorageInterface): **[必须]** 存储服务接口实例。
             adapter (Optional[CzkawkaAdapterInterface]): **[可选]** CzkawkaAdapter 实例。
         **返回**:
             StageInterface: 一个实现了 `StageInterface` 的 `PrefilterStage` 实例。
         """
-        self._logger.info('Creating PrefilterStage instance...')
+        self._logger.info('创建 PrefilterStage 实例...')
         if settings.tool == 'czkawka' and not settings.czkawka:
             self._logger.error(
-                "Czkawka settings are missing, but it's the selected tool. Cannot create CzkawkaAdapter."
+                "Czkawka 配置缺失。无法创建 CzkawkaAdapter."
                 )
             raise FactoryConfigurationError(message=
                 "PrefilterStage 配置错误：工具设置为 'czkawka'，但 'czkawka' 配置块缺失。")
@@ -76,8 +69,10 @@ class PrefilterStageFactory:
             self._logger.error(f'Unsupported prefilter tool: {settings.tool}')
             raise FactoryConfigurationError(message=
                 f'不支持的预过滤工具: {settings.tool}')
-        stage_instance = PrefilterStage(logger=self._logger.bind(stage_name
-            ='Prefilter'), settings=settings, storage=storage,
-            czkawka_adapter=czkawka_adapter_instance)
-        self._logger.success('PrefilterStage instance created successfully.')
+        stage_instance = PrefilterStage(
+            logger=self._logger.bind(stage_name='Prefilter'),
+            settings=settings,
+            adapter=czkawka_adapter_instance
+        )
+        self._logger.success('PrefilterStage 实例创建成功.')
         return stage_instance

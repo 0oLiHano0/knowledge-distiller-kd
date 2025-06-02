@@ -20,7 +20,7 @@ from kd_tool.schemas.enums import BlockType
 
 class CodeBlockMergeSettings(BaseModel):
     """代码块合并规则的具体配置。"""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description='是否启用代码块合并。')
     max_lines_between_blocks_to_merge: int = Field(default=1, description=
         '允许合并的连续代码块之间的最大空行数（或非代码元素数）。')
@@ -30,7 +30,7 @@ class CodeBlockMergeSettings(BaseModel):
 
 class TextBlockMergeSettings(BaseModel):
     """文本块（Text, ListItem 等）合并规则的具体配置。"""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description='是否启用文本块合并。')
     short_text_char_threshold: PositiveInt = Field(default=50, description=
         '被视为空短文本块的字符数阈值，这类块更容易被合并。')
@@ -42,7 +42,7 @@ class TextBlockMergeSettings(BaseModel):
 
 class BlockMergerStageSettings(BaseModel):
     """P04 - 块合并阶段的配置。"""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description='是否启用 P04 - 块合并阶段。')
     types_to_attempt_merge: List[BlockType] = Field(default=[BlockType.
         CODE_SNIPPET, BlockType.NARRATIVE_TEXT, BlockType.LIST_ITEM],

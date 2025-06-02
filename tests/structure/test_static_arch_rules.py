@@ -27,6 +27,10 @@ import importlib
 from pathlib import Path
 import inspect # 用于后续可能的其他检查
 import pytest # 确保导入 pytest 以使用其特性，如 pytest.fail
+import importlib.util
+import sys
+import pydantic
+import types
 
 import kd_tool # 顶级包
 
@@ -310,18 +314,27 @@ def test_required_storage_interfaces_exist():
     what: 检查 `kd_tool.storage.storage_interface` 模块是否包含预期的接口名称。
     how: 动态导入并使用 `hasattr` 检查。
     """
-    # 确保从正确的、您已确认的权威位置导入
-    from kd_tool.storage import storage_interface as storage_iface_module #
+    from kd_tool.storage import storage_interface as storage_iface_module
 
     expected_storage_interfaces = (
-        "StorageInterface", #
-        "LoggerProtocol", #
+        "StorageInterface",
     )
     missing_interfaces = [
         attr for attr in expected_storage_interfaces if not hasattr(storage_iface_module, attr)
     ]
     assert not missing_interfaces, \
         f"存储接口缺失，请在 kd_tool/storage/storage_interface.py 中定义: {', '.join(missing_interfaces)}"
+
+
+def test_required_logger_protocol_exists():
+    """
+    why: 确保日志协议 LoggerProtocol 存在于 logging 层。
+    what: 检查 `kd_tool.logging.protocols` 模块是否包含 LoggerProtocol。
+    how: 动态导入并使用 hasattr 检查。
+    """
+    from kd_tool.logging import protocols as logging_protocols_module
+    assert hasattr(logging_protocols_module, "LoggerProtocol"), \
+        "LoggerProtocol 未在 kd_tool/logging/protocols.py 中定义"
 
 
 def test_no_relative_imports_in_project():
@@ -419,3 +432,79 @@ def test_orm_isolation():
                 for alias in node.names:
                     if alias.name in ("Base", "Session"):
                         raise AssertionError(f"{py_file} 不应直接导入 ORM 基类/Session: {alias.name}")
+
+def iter_py_files(root_dir: Path):
+    """
+    why: 递归获取指定目录下所有 .py 文件路径。
+    what: 用于后续自动发现所有 DTO/配置模型定义。
+    how: 递归遍历。
+    """
+    for path in root_dir.rglob("*.py"):
+        if path.name == "__init__.py":
+            continue
+        yield path
+
+
+def import_module_from_path(module_path: Path):
+    """
+    why: 动态导入指定路径的 Python 模块。
+    what: 便于后续反射获取 BaseModel 子类。
+    how: 使用 importlib.util。
+    """
+    module_name = module_path.stem + "_archcheck"
+    spec = importlib.util.spec_from_file_location(module_name, str(module_path))
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    try:
+        spec.loader.exec_module(module)
+        return module
+    except Exception:
+        return None
+
+
+def get_all_pydantic_models(module: types.ModuleType):
+    """
+    why: 获取模块内所有 Pydantic BaseModel 子类。
+    what: 用于后续配置检查。
+    how: 反射+issubclass。
+    """
+    models = []
+    for name, obj in inspect.getmembers(module):
+        if inspect.isclass(obj) and issubclass(obj, pydantic.BaseModel) and obj is not pydantic.BaseModel:
+            models.append((name, obj))
+    return models
+
+
+def test_pydantic_dto_config_conformance():
+    """
+    why: 保证所有 Pydantic DTO/配置模型 extra='forbid'、validate_assignment=True、frozen=False。
+    what: 自动发现并检查所有 BaseModel 子类。
+    how: 动态导入+反射+断言。
+    """
+    root_dir = Path(__file__).parent.parent.parent / "kd_tool"
+    errors = []
+    for py_file in iter_py_files(root_dir):
+        module = import_module_from_path(py_file)
+        if module is None:
+            continue  # 跳过无法导入的模块
+        for class_name, model_cls in get_all_pydantic_models(module):
+            # 获取 model_config 或 Config
+            config = getattr(model_cls, "model_config", None)
+            if config is None and hasattr(model_cls, "Config"):
+                config = getattr(model_cls.Config, "__dict__", {})
+            # 检查 extra
+            extra = getattr(config, "extra", config.get("extra") if config else None)
+            if extra != "forbid":
+                errors.append(f"{py_file}:{class_name} 必须设置 extra='forbid'")
+            # 检查 validate_assignment
+            validate_assignment = getattr(config, "validate_assignment", config.get("validate_assignment") if config else None)
+            if validate_assignment is not True:
+                errors.append(f"{py_file}:{class_name} 必须设置 validate_assignment=True")
+            # 检查 frozen
+            frozen = getattr(config, "frozen", config.get("frozen") if config else None)
+            if frozen is True:
+                errors.append(f"{py_file}:{class_name} 不允许设置 frozen=True，必须可变")
+    if errors:
+        pytest.fail("\n".join(errors))

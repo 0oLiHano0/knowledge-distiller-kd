@@ -1,16 +1,14 @@
 """
 =================================================
-factory.py - P09 清理阶段工厂 (v4.6)
+factory.py - CleanupStage 工厂 (v4.7)
 =================================================
 **模块功能**:
 
 - 负责创建和配置 `CleanupStage` 实例。
 - **规范**: 负责创建文件系统适配器 (如果未提供)。
-
----
+- 与 Storage 解耦，仅依赖于 context 和 settings。
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.storage.storage_interface import StorageInterface
 from typing import Optional
 from kd_tool.stages.cleanup.settings_models import CleanupStageSettings
 from kd_tool.stages.cleanup.cleanup_stage import CleanupStage
@@ -27,7 +25,7 @@ class CleanupStageFactory:
         """工厂构造函数。"""
         self._logger = logger.bind(factory='CleanupStageFactory')
 
-    def create(self, storage: StorageInterface, settings:
+    def create(self, settings:
         CleanupStageSettings, adapter: Optional[FileSystemAdapterInterface]
         =None) ->CleanupStage:
         """
@@ -39,7 +37,6 @@ class CleanupStageFactory:
             adapter = RealFileSystemAdapter(logger=self._logger.bind(
                 component='FileSystemAdapter'))
             self._logger.debug('默认 RealFileSystemAdapter 创建成功。')
-        stage_instance = CleanupStage(logger=self._logger, storage=storage,
-            settings=settings, fs_adapter=adapter)
+        stage_instance = CleanupStage(logger=self._logger, settings=settings, fs_adapter=adapter)
         self._logger.success('CleanupStage 实例创建成功。')
         return stage_instance

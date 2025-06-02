@@ -1,20 +1,18 @@
 """
 =================================================
-factory.py.md - DocumentProcessingStage 工厂伪代码
+factory.py - DocumentProcessingStage 工厂 (v4.7)
 =================================================
 
 **模块功能**:
 
 - 负责创建并组装 DocumentProcessingStage 实例及其依赖。
-- 遵循方案二，将工厂置于其对应的 Stage 目录中。
+- 与 Storage 解耦，仅依赖于 context 和 settings。
 
----
 """
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.stages.docprocessing.document_processing_stage import DocumentProcessingStage
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
-from kd_tool.storage.storage_interface import StorageInterface
 
 class DocumentProcessingStageFactory:
     """
@@ -30,10 +28,9 @@ class DocumentProcessingStageFactory:
         """
         self._logger = logger.bind(factory_name=
             'DocumentProcessingStageFactory')
-        self._logger.info('DocumentProcessingStageFactory initialized.')
+        self._logger.info('DocumentProcessingStageFactory 初始化完成.')
 
-    def create(self, settings: DocumentProcessingStageSettings, storage:
-        StorageInterface) ->StageInterface:
+    def create(self, settings: DocumentProcessingStageSettings) ->StageInterface:
         """
         创建并返回一个配置好的 DocumentProcessingStage 实例。
 
@@ -44,10 +41,9 @@ class DocumentProcessingStageFactory:
         Returns:
             一个实现了 StageInterface 的 DocumentProcessingStage 实例。
         """
-        self._logger.info(f'Creating DocumentProcessingStage instance...')
+        self._logger.info(f'创建 DocumentProcessingStage 实例...')
         stage_instance = DocumentProcessingStage(logger=self._logger.bind(
-            stage_name='DocumentProcessing'), settings=settings, storage=
-            storage)
+            stage_name='DocumentProcessing'), settings=settings)
         self._logger.success(
-            'DocumentProcessingStage instance created successfully.')
+            'DocumentProcessingStage 实例创建成功.')
         return stage_instance

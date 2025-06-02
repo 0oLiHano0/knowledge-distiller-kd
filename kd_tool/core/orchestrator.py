@@ -103,6 +103,7 @@ class Orchestrator:
         why: 统一入口，调度所有阶段。
         what: 依次调用各阶段的process方法，管理 PipelineContextDTO 的生命周期。
         how: 严格按照规范创建 PipelineContextDTO，并注入绑定的 logger 和 task_id。
+        task id仅在此处生成，所有Stage通过context.task_id获取
         """
         # ARCHITECT_TODO: 步骤 1 - 为本次运行生成唯一的 task_id。
         #   规范: 必须是 UUID。

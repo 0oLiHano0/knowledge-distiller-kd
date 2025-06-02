@@ -39,6 +39,8 @@ from tests.storage.in_memory_storage import InMemoryStorage # 导入 InMemorySto
 # TODO: 确保 StorageInterface 已导入或可访问
 # from kd_tool.core.interfaces import StorageInterface # StorageInterface 已在上方导入
 
+from kd_tool.core.core_dtos import PipelineContextDTO
+
 def test_storage_factory_uses_di():
     """
     why: StorageFactory 必须通过构造函数注入依赖。

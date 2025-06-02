@@ -6,6 +6,7 @@ how: 用 inspect 检查源码。
 import inspect
 import pytest
 from kd_tool.core.application_builder import ApplicationBuilder
+from kd_tool.core.core_dtos import PipelineContextDTO
 
 def test_app_builder_uses_di_and_factory():
     """增强：收集所有依赖注入/工厂/实例化相关问题，一次性输出。"""

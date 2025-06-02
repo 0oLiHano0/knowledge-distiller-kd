@@ -16,6 +16,6 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class MD5AnalysisStageSettings(BaseModel):
     """P05 - MD5 分析阶段的配置。"""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description=
         '是否启用 P05 - MD5 分析阶段 (用于精确去重)。')

@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 class DocumentProcessingStageSettings(BaseModel):
     """P03 - 文档处理阶段 (原始提取) 的配置模型。"""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description='是否启用 P03 - 文档处理阶段。')
     parsing_strategy: Literal['auto', 'fast', 'hi_res'] = Field(default=
         'auto', description='底层解析库 (如 `unstructured`) 使用的解析策略。')

@@ -8,7 +8,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 class StorageBackend(str, Enum):
@@ -17,6 +17,7 @@ class StorageBackend(str, Enum):
 
 class StorageSettingsDTO(BaseModel):
     """WHY 提供配置；WHAT backend、url 等；HOW 由外部注入。"""
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     backend: StorageBackend = Field(default=StorageBackend.SQLITE)
     db_path: Path = Field(default=Path("./kd_tool.db"))
     echo_sql: bool = False

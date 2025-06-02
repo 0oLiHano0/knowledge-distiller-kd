@@ -21,7 +21,8 @@ from pathlib import Path
 from pydantic import BaseModel
 
 # 新日志层导入
-from kd_tool.logging import LoggerProtocol, LoggerFactory
+from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.logging.factory import LoggerFactory
 
 # 核心接口和组件导入
 from kd_tool.core.interfaces import StageInterface
@@ -31,7 +32,7 @@ from kd_tool.core.errors import KDToolError
 from kd_tool.core.orchestrator_factory import OrchestratorFactory
 
 # DTOs 导入
-from kd_tool.schemas.dtos import PipelineContextDTO # 如果Application中需要，保留
+from kd_tool.core.core_dtos import PipelineContextDTO # 如果Application中需要，保留
 
 # 存储工厂导入
 from kd_tool.storage.storage_factory import StorageFactory

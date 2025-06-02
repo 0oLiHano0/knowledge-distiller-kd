@@ -1,17 +1,15 @@
 """
 =================================================
-factory.py - P07 语义分析阶段工厂 (v4.6)
+factory.py - SemanticAnalysisStage 工厂 (v4.7)
 =================================================
 
 **模块功能**:
 
 - 负责创建和配置 `SemanticAnalysisStage` 实例。
-- **规范**: 遵循类式工厂模式，处理适配器的创建。
+- 与 Storage 解耦，仅依赖于 context 和 settings。
 
----
 """
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.stages.semantic_analysis.settings_models import SemanticAnalysisStageSettings
 from kd_tool.stages.semantic_analysis.semantic_analysis_stage import SemanticAnalysisStage
 from kd_tool.stages.semantic_analysis.adapter_interface import SemanticAdapterInterface
@@ -27,7 +25,7 @@ class SemanticAnalysisStageFactory:
         """工厂构造函数。"""
         self._logger = logger.bind(factory='SemanticAnalysisStageFactory')
 
-    def create(self, storage: StorageInterface, settings:
+    def create(self, settings:
         SemanticAnalysisStageSettings, adapter: Optional[
         SemanticAdapterInterface]=None) ->SemanticAnalysisStage:
         """
@@ -48,7 +46,6 @@ class SemanticAnalysisStageFactory:
                 )
             adapter = SentenceTransformerAdapter()
             self._logger.debug('默认 SentenceTransformerAdapter 创建成功。')
-        stage_instance = SemanticAnalysisStage(logger=self._logger, storage
-            =storage, settings=settings, adapter=adapter)
+        stage_instance = SemanticAnalysisStage(logger=self._logger, settings=settings, adapter=adapter)
         self._logger.success('SemanticAnalysisStage 实例创建成功。')
         return stage_instance

@@ -21,7 +21,7 @@ class OrchestratorSettings(BaseModel):
     Orchestrator 模块的配置设置。
     **规范**: 定义流水线调度和执行行为的参数。
     """
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     on_pipeline_error_policy: Literal['HALT_ON_FIRST_ERROR',
         'CONTINUE_IGNORING_ERROR'] = Field(default='HALT_ON_FIRST_ERROR',
         description=
@@ -32,13 +32,7 @@ class OrchestratorSettings(BaseModel):
         **编码要求**: Orchestrator 的 `run` 方法必须根据此策略进行错误处理。
         """
         )
-    default_task_id_prefix: str = Field(default='kd_task_', description=
-        """
-        为生成的 task_id 添加的可选前缀。
-        **规范**: 主要用于日志追踪和调试。
-        **编码要求**: 在 Orchestrator 创建 PipelineContextDTO 时使用。
-        """
-        )
+
     default_stage_order: List[str] = Field(default=['prefilter',
         'document_processing', 'block_merging', 'md5_analysis',
         'simhash_analysis', 'semantic_analysis', 'decision', 'cleanup'],

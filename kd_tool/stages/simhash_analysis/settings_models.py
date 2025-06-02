@@ -18,7 +18,7 @@ from math import ceil
 
 class SimHashAnalysisStageSettings(BaseModel):
     """P06 - SimHash 分析阶段的配置。"""
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description='是否启用 P06 - SimHash 分析阶段 (用于近似去重)。')
     hash_bits: int = Field(default=64, description="SimHash 指纹的位数。64 或 128。")
     hamming_distance_ratio: float = Field(

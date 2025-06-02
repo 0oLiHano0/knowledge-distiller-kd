@@ -21,7 +21,7 @@ class SemanticAnalysisStageSettings(BaseModel):
     P07 - 语义分析阶段的配置。
     **规范**: 定义语义分析模型、阈值和执行参数。
     """
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_assignment=True)
     enabled: bool = Field(default=True, description=
         '是否启用 P07 - 语义分析阶段 (用于语义去重)。')
     model_name_or_path: str = Field(default=

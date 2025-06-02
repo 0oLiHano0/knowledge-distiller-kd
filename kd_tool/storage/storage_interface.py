@@ -9,7 +9,7 @@ from __future__ import annotations
 import abc
 from typing import List, Optional, Protocol
 
-from kd_tool.schemas.dtos import ContentBlockDTO, PipelineContextDTO  # 仅导入 DTO，无 ORM 依赖
+from kd_tool.core.core_dtos import ContentBlockDTO, PipelineContextDTO  # 仅导入 DTO，无 ORM 依赖
 from kd_tool.core.errors import KDToolError
 
 
@@ -45,13 +45,3 @@ class StorageInterface(abc.ABC):
     def save_pipeline_context(self, context: PipelineContextDTO) -> None:
         """批量持久化整个流水线上下文，内部自动处理事务。"""
 
-
-# ---- 协议（可选）-------------------------------------------------
-# class LoggerProtocol(Protocol):
-#     """WHY 日志协议；WHAT 供 DI；HOW 兼容 Loguru。"""
-#     def debug(self, msg: str, *a, **kw): ...
-#     def info(self, msg: str, *a, **kw): ...
-#     def warning(self, msg: str, *a, **kw): ...
-#     def error(self, msg: str, *a, **kw): ...
-#     def exception(self, msg: str, *a, **kw): ...
-#     def success(self, msg: str, *a, **kw): ...

@@ -14,7 +14,7 @@ from kd_tool.schemas.dtos import ContentBlockDTO, FileRecordDTO
 from kd_tool.schemas.enums import BlockType, ProcessingStatus
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
 from kd_tool.stages.docprocessing.errors import DocumentProcessingError, FileReadError, ParsingError, DTOConversionError, UnsupportedFileTypeError
-from kd_tool.storage.storage_interface import StorageInterface
+
 
 
 class _InternalParserWrapper:
@@ -23,13 +23,13 @@ class _InternalParserWrapper:
         self._logger = logger.bind(parser_wrapper=self.__class__.__name__)
         self._strategy = strategy
         self._logger.info(
-            f"InternalParserWrapper initialized with strategy: '{self._strategy}'."
+            f"初始化完成. 策略: '{self._strategy}'."
             )
 
     def parse_file_to_raw_elements(self, file_path: Path) ->List[Dict[str, Any]
         ]:
         self._logger.debug(
-            f'Attempting to parse file: {file_path} using strategy: {self._strategy}'
+            f'尝试解析文件: {file_path} 使用策略: {self._strategy}'
             )
         if 'nonexistent_file.txt' in str(file_path):
             raise FileReadError(file_path, original_exception=
@@ -62,7 +62,7 @@ class DocumentProcessingStage(StageInterface):
         self._parser = _InternalParserWrapper(logger=self._logger, strategy
             =self._settings.parsing_strategy)
         self._logger.info(
-            f"DocumentProcessingStage (P03 - Raw Extraction) initialized. Supported extensions: {self._settings.supported_extensions}. Parsing strategy: '{self._settings.parsing_strategy}'."
+            f"DocumentProcessingStage 初始化完成. 支持的扩展名: {self._settings.supported_extensions}. 解析策略: '{self._settings.parsing_strategy}'."
             )
 
     def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
@@ -90,7 +90,7 @@ class DocumentProcessingStage(StageInterface):
                     file_path)
                 if not raw_elements:
                     logger.warning(
-                        f'P03 - No raw elements extracted from {file_path}. File processed as empty.'
+                        f'没有从 {file_path} 提取到原始元素. 文件处理为空.'
                         )
                     file_record.processing_status = (ProcessingStatus.
                         BLOCK_EXTRACTION_FAILED)
@@ -119,7 +119,7 @@ class DocumentProcessingStage(StageInterface):
                     })
             except DocumentProcessingError as e:
                 logger.error(
-                    f'P03 - Controlled error during processing of {file_path}: {e.message}'
+                    f'处理 {file_path} 时控制错误: {e.message}'
                     , context_info=e.context_info)
                 context.add_error(e)
                 if file_id in context.file_records:
@@ -132,7 +132,7 @@ class DocumentProcessingStage(StageInterface):
                         timezone.utc).isoformat(), 'error': e.to_dict()})
             except Exception as e:
                 logger.exception(
-                    f'P03 - Unexpected critical error processing file {file_path}.'
+                    f'处理 {file_path} 时发生严重错误.'
                     )
                 wrapped_error = DocumentProcessingError(message=
                     f'Unexpected critical error: {str(e)}',
@@ -162,7 +162,7 @@ class DocumentProcessingStage(StageInterface):
         dtos: List[ContentBlockDTO] = []
         for index, raw_element in enumerate(raw_elements):
             element_info_for_error = (
-                f"Raw element at index {index} (type: {raw_element.get('type', 'N/A')})"
+                f"原始元素索引 {index} (类型: {raw_element.get('type', 'N/A')})"
                 )
             try:
                 element_text = str(raw_element.get('text', ''))

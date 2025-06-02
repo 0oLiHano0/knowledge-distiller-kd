@@ -70,3 +70,25 @@ testpaths = ["tests"]
 python_files = "test_*.py"
 python_classes = "Test*"
 python_functions = "test_*"
+
+# -------------------------------
+# 类型检查与开发规范
+# -------------------------------
+# 架构师注释：所有核心/业务代码必须补全类型提示，禁止Any、object等模糊类型。
+# 架构师注释：CI和本地开发均需通过mypy类型检查，确保类型安全。
+# 架构师注释：如需跳过类型检查，必须加显式注释并说明原因。
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+check_untyped_defs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_unused_ignores = true
+strict_optional = true
+no_implicit_optional = true
+warn_return_any = true
+disallow_any_unimported = true
+disallow_any_expr = true
+disallow_any_decorated = true
+disallow_any_explicit = true
