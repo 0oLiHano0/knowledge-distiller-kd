@@ -36,7 +36,9 @@ from kd_tool.stages.semantic_analysis.errors import SemanticAnalysisError, Model
 class SemanticAnalysisStage(StageInterface):
     """
     P07 - 语义分析阶段。
-    负责计算内容块的语义相似度，并找出相似的内容块对。
+    负责内容块的语义相似度分析。
+    
+    性能警告：默认批量比较为O(n^2)暴力实现，数据量大时不可用。必须实现降采样、索引或近似算法以满足性能目标。
     """
 
     def __init__(self, logger: LoggerProtocol, settings: SemanticAnalysisStageSettings, adapter: SemanticAdapterInterface):
@@ -112,6 +114,9 @@ class SemanticAnalysisStage(StageInterface):
 
     def _get_pairs_to_compare(self, block_ids: List[str], context:
         PipelineContextDTO, logger: LoggerProtocol) ->List[Tuple[str, str]]:
+        """
+        O(n^2)暴力枚举所有块对，数据量大时严重影响性能。强烈建议用索引、降采样或近似算法优化。
+        """
         pairs = []
         n = len(block_ids)
         if self._settings.comparison_strategy == 'all_pairs':

@@ -35,6 +35,8 @@ class SimHashAnalysisStage(StageInterface):
     """
     P06 - SimHash 分析阶段。
     负责计算内容块的 SimHash 指纹，并找出相似的内容块对。
+    
+    性能警告：默认批量比较为O(n^2)暴力实现，数据量大时不可用。必须实现降采样、索引或近似算法以满足性能目标。
     """
 
     def __init__(self, logger: LoggerProtocol, settings:
@@ -187,6 +189,9 @@ class SimHashAnalysisStage(StageInterface):
 
     def _brute_force_comparison(self, block_hashes: List[Tuple[str, str]],
         threshold: int, logger: LoggerProtocol) ->List[Tuple[str, str, int]]:
+        """
+        O(n^2)暴力比较，数据量大时严重影响性能。强烈建议用索引、降采样或近似算法优化。
+        """
         pairs = []
         n = len(block_hashes)
         for i in range(n):

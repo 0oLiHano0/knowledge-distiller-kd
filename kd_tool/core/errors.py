@@ -15,9 +15,18 @@ class KDToolError(Exception):
     WHAT: 作为所有自定义异常的基类。
     HOW: 支持原始异常链。
     """
-    def __init__(self, message: str, original_exception: Exception = None):
+    def __init__(self, message: str, original_exception: Exception = None, **kwargs):
         super().__init__(message)
         self.original_exception = original_exception
+        self.context_info = kwargs if kwargs else {}
+
+    def __str__(self):
+        base_str = self.args[0]
+        if self.context_info:
+            base_str += f" | context: {self.context_info}"
+        if self.original_exception:
+            base_str += f" (Caused by: {type(self.original_exception).__name__}: {str(self.original_exception)})"
+        return base_str
 
 class ConfigError(KDToolError):
     """配置相关错误。"""

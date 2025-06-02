@@ -3,19 +3,6 @@
 """
 
 import pytest
-# TODO: 导入 StorageInterface 的具体实现类和相关的依赖
-# from kd_tool.storage.your_storage_impl import YourStorageImpl
-
-# TODO: 编写测试用例来验证 StorageInterface 具体实现的正确性
-# 例如：
-# def test_save_and_load_pipeline_context():
-#     storage = YourStorageImpl(...)
-#     context = PipelineContextDTO(...)
-#     storage.save_pipeline_context(context)
-#     loaded_context = storage.load_pipeline_context(context.id)
-#     assert loaded_context == context
-
-# TODO: 添加其他测试用例，覆盖 StorageInterface 的所有方法 
 
 """
 测试 storage 层 StorageFactory 的架构符合性。
@@ -30,16 +17,14 @@ import pytest
 import sys
 from unittest.mock import Mock # 用于模拟依赖
 
-# TODO: 导入 StorageFactory, StorageInterface, InMemoryStorage 以及可能需要的配置/日志模拟对象
 from kd_tool.storage.storage_factory import StorageFactory
 from kd_tool.storage.storage_interface import StorageInterface # 确保 StorageInterface 可导入
 from tests.storage.in_memory_storage import InMemoryStorage # 导入 InMemoryStorage 工具
-# from unittest.mock import Mock # 用于模拟依赖
 
-# TODO: 确保 StorageInterface 已导入或可访问
-# from kd_tool.core.interfaces import StorageInterface # StorageInterface 已在上方导入
 
 from kd_tool.core.core_dtos import PipelineContextDTO
+from kd_tool.storage.settings_models import StorageBackend, StorageSettingsDTO
+from kd_tool.storage.sqlite_storage import SQLiteStorage
 
 def test_storage_factory_uses_di():
     """
@@ -49,7 +34,6 @@ def test_storage_factory_uses_di():
     """
     errors = []
 
-    # TODO: 导入 StorageFactory
     from kd_tool.storage.storage_factory import StorageFactory # StorageFactory 已在上方导入
     
     # 确保 StorageFactory 已导入或可访问
@@ -77,11 +61,7 @@ def test_storage_factory_creates_storage_instance():
     """
     errors = []
 
-    # TODO: 导入 StorageFactory, InMemoryStorage, StorageInterface 和 Mock
-    # from kd_tool.storage.storage_factory import StorageFactory # 已导入
-    # from tests.storage.in_memory_storage import InMemoryStorage # 已导入
-    # from kd_tool.core.interfaces import StorageInterface # 已导入
-    # from unittest.mock import Mock # 已导入
+
     
     # 确保必要的类已导入或可访问
     if 'StorageFactory' not in globals() and 'StorageFactory' not in locals():
@@ -111,9 +91,7 @@ def test_storage_factory_creates_storage_instance():
         # 实例化工厂，这可能抛出 TypeError
         factory = StorageFactory(mock_logger, mock_settings)
         
-        # TODO: 如果 create 方法需要参数，请根据实际情况模拟
-        # instance = factory.create(some_parameter)
-        # 假设 create 方法不接收参数，或者使用默认参数
+        
         instance = factory.create() 
         
         if not isinstance(instance, StorageInterface):
@@ -135,3 +113,42 @@ def test_storage_factory_creates_storage_instance():
 # TODO: 添加其他测试用例，例如测试工厂根据配置返回不同 Storage 实现的功能 (如果已实现)
 
 # TODO: 添加其他测试用例，覆盖 StorageInterface 的所有方法 
+
+@pytest.mark.parametrize("backend,expected_cls", [
+    # 目前工厂仅支持 SQLITE
+    (StorageBackend.SQLITE, SQLiteStorage),
+])
+def test_factory_returns_correct_storage_type(backend, expected_cls):
+    """
+    why: StorageFactory 应根据 backend 返回正确类型的 Storage 实例。
+    what: 验证不同 backend 配置下，工厂产出的实例类型是否正确。
+    how: 参数化传入 backend，断言 create() 返回的实例类型。
+    """
+    mock_logger = Mock()
+    settings = StorageSettingsDTO(backend=backend, db_path=":memory:", echo_sql=False, backend_type="sqlite")
+    factory = StorageFactory(mock_logger, settings)
+    storage = factory.create()
+    assert isinstance(storage, expected_cls)
+
+def test_factory_injects_logger_and_settings():
+    """
+    why: StorageFactory 产出的 Storage 实例应持有 logger 和 settings。
+    what: 检查 create() 返回的实例是否正确保存注入的依赖。
+    how: 通过 getattr 检查 logger 和 settings 属性。
+    """
+    mock_logger = Mock()
+    settings = StorageSettingsDTO(backend=StorageBackend.SQLITE, db_path=":memory:", echo_sql=False, backend_type="sqlite")
+    factory = StorageFactory(mock_logger, settings)
+    storage = factory.create()
+    assert getattr(storage, "_logger", None) is mock_logger
+    assert getattr(storage, "_settings", None) == settings
+
+def test_settings_dto_invalid_backend_raises():
+    """
+    why: StorageSettingsDTO 应在非法 backend 时抛出校验异常。
+    what: 直接实例化 DTO，断言抛出 ValidationError。
+    how: 使用 pytest.raises 捕获异常。
+    """
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError):
+        StorageSettingsDTO(backend="invalid", db_path=":memory:", echo_sql=False, backend_type="invalid") 

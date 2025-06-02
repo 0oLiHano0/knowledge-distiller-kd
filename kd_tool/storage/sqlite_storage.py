@@ -69,20 +69,25 @@ class SQLiteStorage(StorageInterface):
 
     # ---------- CRUD ----------
     def save_content_blocks(self, blocks: List[ContentBlockDTO]) -> None:
-        """批量写入。"""
-        with self._Session() as session:
-            try:
+        """
+        批量写入。
+        强制要求：如检测到外部事务（self._session存在），所有写操作不得自动commit，必须由外部统一提交。
+        否则（无事务）自动管理session和commit。
+        """
+        if hasattr(self, "_session") and self._session is not None:
+            # 在显式事务中，复用 session，不自动 commit，必须由外部统一提交
+            session = self._session
+            for dto in blocks:
+                obj = ContentBlockORM(md5=dto.md5, content=dto.content.encode("utf-8"))
+                session.add(obj)
+            # 由外部 commit
+        else:
+            # 无显式事务，自动管理 session 和 commit
+            with self._Session() as session:
                 for dto in blocks:
-                    # ORM ↔ DTO 转换
-                    obj = ContentBlockORM(
-                        md5=dto.md5,
-                        content=dto.content.encode("utf-8"),
-                    )
+                    obj = ContentBlockORM(md5=dto.md5, content=dto.content.encode("utf-8"))
                     session.add(obj)
                 session.commit()
-            except SQLAlchemyError as e:
-                self._logger.exception("写入失败")
-                raise DuplicateContentError() from e
 
     def get_content_block(self, md5: str) -> Optional[ContentBlockDTO]:
         with self._Session() as session:
