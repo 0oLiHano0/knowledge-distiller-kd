@@ -7,14 +7,14 @@ cleanup_stage.py - P09 清理阶段实现 (v4.6)
 
 - 实现 `StageInterface`，执行清理流程。
 - **职责**:
-    1. 读取 `UserDecisionDTO`。
-    2. 确定哪些文件需要执行操作。
-    3. 根据 `CleanupStageSettings` 执行操作 (标记、移动、删除)。
-    4. 更新 `FileRecordDTO` 状态。
-- **架构挑战**: 将基于 *块对* 的决策转换为基于 *文件* 的操作。
-               **初步策略**: 如果一个文件的 *所有* 内容块都被标记为 DELETE (或与被标记为 DELETE 的块高度相似)，
-                            则该文件可以被清理。如果一个文件包含 KEEP 和 DELETE 块，则不能删除文件。
-                            本伪代码将简化此逻辑，主要演示流程。
+    1. 读取 `UserDecisionDTO`，根据决策结果确定每个文件的最终清理动作。
+    2. 通过文件系统适配器（fs_adapter）对物理文件执行实际操作（如标记、移动到回收站、永久删除）。
+    3. 将每个文件的处理结果（如"已标记删除""已移动到回收站""已永久删除"）同步到 context.file_records。
+    4. 不直接进行数据库/存储写入，所有状态变更仅写入 context，由 Orchestrator 统一调度和持久化。
+- **架构意义**:
+    - CleanupStage 是业务动作的唯一执行者，是决策落地和物理操作的桥梁。
+    - 保证业务闭环，实现物理世界与数据世界的同步。
+    - 便于审计、回滚和幂等性控制。
 
 ---
 """
@@ -34,14 +34,13 @@ from kd_tool.storage.storage_interface import StorageInterface
 class CleanupStage(StageInterface):
     """
     P09 - 清理阶段。
-    负责执行决策结果。
+    负责根据上游决策结果，执行实际的文件清理动作（如标记、移动、删除），并将结果同步到 context。
+    不直接写库，所有状态变更由 Orchestrator 统一持久化。
     """
 
-    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
-        CleanupStageSettings, fs_adapter: FileSystemAdapterInterface):
+    def __init__(self, logger: LoggerProtocol, settings: CleanupStageSettings, fs_adapter: FileSystemAdapterInterface):
         """构造函数，通过 DI 注入所有依赖。"""
         self._logger = logger.bind(stage='CleanupStage')
-        self._storage = storage
         self._settings = settings
         self._fs_adapter = fs_adapter
 
@@ -79,9 +78,9 @@ class CleanupStage(StageInterface):
                     record.processing_status = ProcessingStatus.CLEANUP_FAILED
                     updated_records.append(record)
             if updated_records:
-                run_logger.info(f'正在将 {len(updated_records)} 个文件记录的状态更新到存储...')
-                self._storage.save_file_records(updated_records, context.
-                    task_id)
+                run_logger.info(f'将 {len(updated_records)} 个文件记录的状态更新到 context...')
+                for record in updated_records:
+                    context.file_records[record.file_id] = record
             run_logger.success('清理阶段执行完毕。')
         except Exception as e:
             error = CleanupError(f'清理阶段发生未知错误: {e}')

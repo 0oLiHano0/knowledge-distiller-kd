@@ -33,7 +33,7 @@ from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.core.core_settings_models import OrchestratorSettings
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.errors import KDToolError
-
+from kd_tool.storage.storage_interface import StorageInterface
 
 class OrchestratorError(KDToolError):
     """Orchestrator 操作相关的基本异常。"""
@@ -82,7 +82,8 @@ class Orchestrator:
         stage_modules: Dict[str, StageInterface],
         default_stage_order: List[str],
         settings: OrchestratorSettings,
-        logger: LoggerProtocol
+        logger: LoggerProtocol,
+        storage: StorageInterface
     ):
         """
         why: 依赖注入所有阶段、配置、日志。
@@ -93,6 +94,7 @@ class Orchestrator:
         self._default_stage_order = default_stage_order
         self._settings = settings
         self._logger = logger # Orchestrator 自身的 logger
+        self._storage = storage
         # PSEUDO: 初始化时可以进行流水线定义校验等
         self._validate_pipeline_definition(stage_modules, default_stage_order)
 
@@ -166,6 +168,7 @@ class Orchestrator:
 
         # ARCHITECT_TODO: 步骤 6 - 流水线执行完毕，返回最终的 context。
         context.run_logger.info("Orchestrator: Pipeline run finished.")
+        self._storage.save_pipeline_context(context)
         return context
 
     def _validate_pipeline_definition(self, stage_modules: Dict[str,

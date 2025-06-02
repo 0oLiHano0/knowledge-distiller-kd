@@ -36,14 +36,11 @@ class DecisionStage(StageInterface):
     负责根据分析结果生成决策建议。
     """
 
-    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
-        DecisionStageSettings):
+    def __init__(self, logger: LoggerProtocol, settings: DecisionStageSettings):
         """构造函数，通过 DI 注入所有依赖。"""
         self._logger = logger.bind(stage='DecisionStage')
-        self._storage = storage
         self._settings = settings
-        self._sorted_rules = sorted(self._settings.rules, key=lambda r: r.
-            rule_priority, reverse=True)
+        self._sorted_rules = sorted(self._settings.rules, key=lambda r: r.rule_priority, reverse=True)
 
     def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
         """
@@ -97,9 +94,6 @@ class DecisionStage(StageInterface):
             run_logger.info(f'生成了 {len(decisions_to_add)} 个用户决策。')
             for decision_dto in decisions_to_add:
                 context.add_user_decision(decision_dto)
-            if decisions_to_add:
-                self._save_user_decisions(decisions_to_add, run_logger, context
-                    )
             run_logger.success('决策阶段执行完毕。')
         except MissingAnalysisDataError as mae:
             run_logger.error(f'决策阶段因缺少分析数据而中止: {mae}', exc_info=True)
@@ -166,15 +160,3 @@ class DecisionStage(StageInterface):
                 semantic_result.score < rule.semantic_similarity_min):
                 return False
         return True
-
-    def _save_user_decisions(self, decisions: List[UserDecisionDTO], logger:
-        LoggerProtocol, context: PipelineContextDTO) ->None:
-        """将用户决策持久化到存储。"""
-        logger.info(f'正在将 {len(decisions)} 个用户决策保存到存储...')
-        try:
-            self._storage.save_user_decisions(decisions)
-            logger.debug(f'成功保存 {len(decisions)} 个用户决策。')
-        except Exception as e:
-            err = DecisionError(f'保存用户决策到存储时失败: {e}', original_exception=e)
-            logger.error(err)
-            context.add_error(err)

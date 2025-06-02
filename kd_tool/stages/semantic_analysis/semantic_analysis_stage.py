@@ -30,7 +30,7 @@ from kd_tool.schemas.enums import AnalysisType
 from kd_tool.stages.semantic_analysis.settings_models import SemanticAnalysisStageSettings
 from kd_tool.stages.semantic_analysis.adapter_interface import SemanticAdapterInterface
 from kd_tool.stages.semantic_analysis.errors import SemanticAnalysisError, ModelLoadingError, EmbeddingCalculationError, SimilarityCalculationError
-from kd_tool.storage.storage_interface import StorageInterface
+
 
 
 class SemanticAnalysisStage(StageInterface):
@@ -39,24 +39,20 @@ class SemanticAnalysisStage(StageInterface):
     负责计算内容块的语义相似度，并找出相似的内容块对。
     """
 
-    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
-        SemanticAnalysisStageSettings, adapter: SemanticAdapterInterface):
+    def __init__(self, logger: LoggerProtocol, settings: SemanticAnalysisStageSettings, adapter: SemanticAdapterInterface):
         """构造函数，通过 DI 注入所有依赖。"""
         self._logger = logger.bind(stage='SemanticAnalysisStage')
-        self._storage = storage
         self._settings = settings
         self._adapter = adapter
 
-    def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
+    def process(self, context: PipelineContextDTO) -> PipelineContextDTO:
         """
         执行语义分析流水线阶段。
         **[指令]** 必须使用 `context.run_logger` 进行日志记录。
         **[指令]** 创建 `AnalysisResultDTO` 时 **严禁** 包含 `task_id` 字段。
-        **[指令]** 调用 `storage.save_analysis_results` 时
-                  **不再需要** 传递 `task_id` 参数。
+        **[指令]** 严禁直接调用 `storage` 进行写入操作，**必须**通过 `PipelineContextDTO` 进行状态同步。
         """
-        run_logger = context.run_logger.bind(stage_name=self.__class__.__name__
-            )
+        run_logger = context.run_logger.bind(stage_name=self.__class__.__name__)
         run_logger.info('开始执行语义分析阶段...')
         if not self._settings.enabled:
             run_logger.warning('语义分析阶段已禁用，跳过处理。')
@@ -92,9 +88,6 @@ class SemanticAnalysisStage(StageInterface):
             run_logger.info(f'生成了 {len(analysis_results)} 个语义分析结果。')
             for result in analysis_results:
                 context.add_analysis_result(result)
-            if analysis_results:
-                self._save_analysis_results(analysis_results, run_logger,
-                    context)
             run_logger.success('语义分析阶段执行完毕。')
         except ModelLoadingError as mle:
             run_logger.error(f'语义模型加载失败: {mle}', exc_info=True)
@@ -180,16 +173,3 @@ class SemanticAnalysisStage(StageInterface):
             except Exception as e:
                 logger.error(f'计算 {b1_id} 和 {b2_id} 语义相似度时出错: {e}')
         return results
-
-    def _save_analysis_results(self, results: List[AnalysisResultDTO],
-        logger: LoggerProtocol, context: PipelineContextDTO) ->None:
-        """将分析结果持久化到存储。"""
-        logger.info(f'正在将 {len(results)} 个语义分析结果保存到存储...')
-        try:
-            self._storage.save_analysis_results(results)
-            logger.debug(f'成功保存 {len(results)} 个分析结果。')
-        except Exception as e:
-            err = SemanticAnalysisError(f'保存语义分析结果到存储时失败: {e}',
-                original_exception=e)
-            logger.error(err)
-            context.add_error(err)

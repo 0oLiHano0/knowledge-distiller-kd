@@ -12,9 +12,10 @@ simhash_analysis_stage.py - P06 SimHash 分析阶段实现 (v4.6)
     3. 比较块之间的 SimHash 指纹。
     4. 生成 `AnalysisResultDTO` 并添加到 `PipelineContextDTO` 和存储中。
 - **规范**:
-    - **必须**通过构造函数注入 `Logger`、`StorageInterface`、`SimHashAnalysisStageSettings` 和 `SimHashAdapterInterface`。
+    - **必须**通过构造函数注入 `Logger`、`SimHashAnalysisStageSettings` 和 `SimHashAdapterInterface`。
     - **严禁**包含任何 SimHash 计算的**具体**实现细节，**必须**使用 `SimHashAdapterInterface`。
     - **必须**处理 `SimHashAnalysisError` 并记录到 `PipelineContextDTO`。
+    - **严禁**直接调用 `storage` 进行写入操作，**必须**通过 `PipelineContextDTO` 进行状态同步。
     - **必须**使用 `run_logger` 进行日志记录。
 
 ---
@@ -28,7 +29,6 @@ from kd_tool.schemas.enums import AnalysisType
 from kd_tool.stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
 from kd_tool.stages.simhash_analysis.errors import SimHashAnalysisError, SimHashCalculationError, SimHashComparisonError
-from kd_tool.storage.storage_interface import StorageInterface
 
 
 class SimHashAnalysisStage(StageInterface):
@@ -37,13 +37,12 @@ class SimHashAnalysisStage(StageInterface):
     负责计算内容块的 SimHash 指纹，并找出相似的内容块对。
     """
 
-    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
+    def __init__(self, logger: LoggerProtocol, settings:
         SimHashAnalysisStageSettings, adapter: SimHashAdapterInterface):
         """
         **规范**: 构造函数，**必须**通过 DI 注入所有依赖。
         """
         self._logger = logger.bind(stage='SimHashAnalysisStage')
-        self._storage = storage
         self._settings = settings
         self._adapter = adapter
 
@@ -52,8 +51,7 @@ class SimHashAnalysisStage(StageInterface):
         执行 SimHash 分析流水线阶段。
         **[指令]** 必须使用 `context.run_logger` 进行日志记录。
         **[指令]** 创建 `ContentBlockDTO` (更新时) 和 `AnalysisResultDTO` 时 **严禁** 包含 `task_id` 字段。
-        **[指令]** 调用 `storage.save_content_blocks` 和 `storage.save_analysis_results` 时
-                  **不再需要** 传递 `task_id` 参数 (除非存储接口方法本身需要，但目前设计是不需要)。
+        **[指令]** 严禁直接调用 `storage` 进行写入操作，**必须**通过 `PipelineContextDTO` 进行状态同步。
         """
         run_logger = context.run_logger.bind(stage_name=self.__class__.__name__
             )
@@ -73,7 +71,7 @@ class SimHashAnalysisStage(StageInterface):
             for error in calculation_errors:
                 context.add_error(error)
             if blocks_with_hash:
-                self._update_storage_hashes(blocks_with_hash, run_logger,
+                self._update_context_hashes(blocks_with_hash, run_logger,
                     context)
             all_blocks_for_comparison = self._get_all_blocks_for_comparison(
                 context)
@@ -82,11 +80,8 @@ class SimHashAnalysisStage(StageInterface):
             analysis_results = self._compare_hashes_and_generate_results(
                 all_blocks_for_comparison, run_logger, context.task_id)
             run_logger.info(f'生成了 {len(analysis_results)} 个 SimHash 分析结果。')
-            for result in analysis_results:
-                context.add_analysis_result(result)
-            if analysis_results:
-                self._save_analysis_results(analysis_results, run_logger,
-                    context)
+            self._save_analysis_results_to_context(analysis_results, run_logger,
+                context)
             run_logger.success('SimHash 分析阶段执行完毕。')
         except Exception as e:
             error = SimHashAnalysisError(f'SimHash 分析阶段发生未知错误: {e}',
@@ -126,14 +121,15 @@ class SimHashAnalysisStage(StageInterface):
                 errors.append(err)
         return calculated_blocks, errors
 
-    def _update_storage_hashes(self, blocks: List[ContentBlockDTO], logger:
+    def _update_context_hashes(self, blocks: List[ContentBlockDTO], logger:
         LoggerProtocol, context: PipelineContextDTO) ->None:
-        logger.info(f'正在将 {len(blocks)} 个新的 SimHash 值更新到存储...')
+        logger.info(f'正在将 {len(blocks)} 个新的 SimHash 值更新到 context...')
         try:
-            self._storage.save_content_blocks(blocks)
+            for block in blocks:
+                context.content_blocks[block.block_id] = block
             logger.debug(f'成功更新 {len(blocks)} 个 SimHash 值。')
         except Exception as e:
-            err = SimHashAnalysisError(f'更新 SimHash 值到存储时失败: {e}',
+            err = SimHashAnalysisError(f'更新 SimHash 值到 context 时失败: {e}',
                 original_exception=e)
             logger.error(err)
             context.add_error(err)
@@ -205,14 +201,8 @@ class SimHashAnalysisStage(StageInterface):
                     logger.warning(f'比较 {b1_id} 和 {b2_id} 时出错: {e}')
         return pairs
 
-    def _save_analysis_results(self, results: List[AnalysisResultDTO],
+    def _save_analysis_results_to_context(self, results: List[AnalysisResultDTO],
         logger: LoggerProtocol, context: PipelineContextDTO) ->None:
-        logger.info(f'正在将 {len(results)} 个 SimHash 分析结果保存到存储...')
-        try:
-            self._storage.save_analysis_results(results)
-            logger.debug(f'成功保存 {len(results)} 个分析结果。')
-        except Exception as e:
-            err = SimHashAnalysisError(f'保存 SimHash 分析结果到存储时失败: {e}',
-                original_exception=e)
-            logger.error(err)
-            context.add_error(err)
+        for result in results:
+            context.add_analysis_result(result)
+        # ...日志和错误处理

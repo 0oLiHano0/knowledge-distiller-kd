@@ -31,25 +31,21 @@ from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from kd_tool.stages.prefilter.dtos import CzkawkaScanOutputDTO
 from kd_tool.stages.prefilter.errors import PrefilterError
-from kd_tool.storage.storage_interface import StorageInterface
-from pydantic import BaseModel
 
 class PrefilterStage(StageInterface):
     """
     WHY: 文件级去重阶段。
     WHAT: 负责调用底层去重工具，生成初步文件唯一性判断。
-    HOW: 依赖注入logger、settings、storage、adapter。
+    HOW: 依赖注入logger、settings、adapter。
     """
     def __init__(
         self,
         logger: LoggerProtocol,
         settings: PrefilterStageSettings,
-        storage: StorageInterface,
         adapter: CzkawkaAdapterInterface
     ):
         self._logger = logger
         self._settings = settings
-        self._storage = storage
         self._adapter = adapter
 
     def process(self, context: PipelineContextDTO) -> PipelineContextDTO:
@@ -58,13 +54,14 @@ class PrefilterStage(StageInterface):
         **[指令]** 必须使用 `context.run_logger` 进行日志记录。
         **[指令]** 从 `context.task_id` 获取当前任务ID。
         **[指令]** 创建 `FileRecordDTO` 时 **严禁** 包含 `task_id` 字段。
+        **[指令]** 严禁直接调用 `storage` 进行写入操作，**必须**通过 `PipelineContextDTO` 进行状态同步。
         """
         run_logger: LoggerProtocol = context.run_logger.bind(stage_name=self.
             __class__.__name__)
         task_id: UUID = context.task_id
-        run_logger.info('Starting prefilter stage...')
+        run_logger.info('预过滤阶段开始...')
         if not self._settings.enabled:
-            run_logger.warning('PrefilterStage is disabled. Skipping.')
+            run_logger.warning('预过滤阶段已禁用. 跳过.')
             return context
         if self._settings.tool != 'czkawka':
             error = PrefilterError(
@@ -73,54 +70,53 @@ class PrefilterStage(StageInterface):
             run_logger.error(error)
             return context
         try:
-            run_logger.info('Running Czkawka to scan and find duplicates...')
+            run_logger.info('运行 Czkawka 扫描并查找重复项...')
             scan_output: CzkawkaScanOutputDTO = (self._adapter.
                 scan_and_find_duplicates())
             run_logger.success(
-                f'Czkawka finished. Scanned {len(scan_output.all_scanned_files)} files. Found {len(scan_output.duplicate_groups)} duplicate groups.'
+                f'Czkawka 完成. 扫描了 {len(scan_output.all_scanned_files)} 个文件. 找到了 {len(scan_output.duplicate_groups)} 个重复组.'
                 )
             file_dtos_to_register: List[FileRecordDTO] = []
             if self._settings.register_files_in_storage:
-                run_logger.info('Registering scan results in storage...')
-                file_dtos_to_register = self._register_scan_results(scan_output
-                    , run_logger)
+                run_logger.info('注册扫描结果到存储...')
+                file_dtos_to_register = self._prepare_scan_results(scan_output, run_logger)
                 run_logger.success(
-                    f'Scan results processing complete. Prepared {len(file_dtos_to_register)} files for registration/update.'
+                    f'扫描结果处理完成. 准备注册/更新 {len(file_dtos_to_register)} 个文件.'
                     )
             else:
                 run_logger.warning(
-                    'Registering files in storage is disabled by settings.')
+                    '注册文件到存储已禁用.')
             if file_dtos_to_register:
                 run_logger.info(
-                    f'Updating PipelineContextDTO with {len(file_dtos_to_register)} FileRecordDTOs...'
+                    f'更新 PipelineContextDTO 的 FileRecordDTOs... {len(file_dtos_to_register)}'
                     )
                 for dto in file_dtos_to_register:
                     context.add_file_record(dto)
                 run_logger.success(
-                    'PipelineContextDTO updated with prefilter results.')
+                    'PipelineContextDTO 更新完成.')
             else:
                 run_logger.info(
-                    'No new FileRecordDTOs to add to PipelineContextDTO from prefilter stage.'
+                    '预过滤阶段没有新的 FileRecordDTOs 添加到 PipelineContextDTO.'
                     )
             context.shared_data['prefilter_summary'] = {'scanned_files_count':
                 len(scan_output.all_scanned_files),
                 'duplicate_groups_count': len(scan_output.duplicate_groups),
                 'processed_for_registration_count': len(file_dtos_to_register)}
         except PrefilterError as e:
-            run_logger.error(f'Error during PrefilterStage execution: {e}',
+            run_logger.error(f'预过滤阶段执行错误: {e}',
                 exc_info=True)
             context.add_error(e)
         except Exception as e:
             run_logger.exception(
-                'Unexpected error during PrefilterStage execution.')
+                '预过滤阶段执行意外错误.')
             error = PrefilterError(
-                f'Prefilter execution failed with unexpected error: {e}',
+                f'预过滤执行失败: {e}',
                 original_exception=e)
             context.add_error(error)
-        run_logger.info('Prefilter stage finished.')
+        run_logger.info('预过滤阶段完成.')
         return context
 
-    def _register_scan_results(self, scan_output: CzkawkaScanOutputDTO,
+    def _prepare_scan_results(self, scan_output: CzkawkaScanOutputDTO,
         run_logger: LoggerProtocol) ->List[FileRecordDTO]:
         """
         将 Czkawka 扫描到的所有文件信息转换为 FileRecordDTO 列表，并调用存储服务注册。
@@ -131,7 +127,7 @@ class PrefilterStage(StageInterface):
         files_to_register_map: Dict[Path, FileRecordDTO] = {}
         processed_paths_from_duplicates = set()
         run_logger.debug(
-            f'Processing {len(scan_output.duplicate_groups)} duplicate groups...'
+            f'处理 {len(scan_output.duplicate_groups)} 个重复组...'
             )
         for group in scan_output.duplicate_groups:
             original_path = group.original_file.resolve()
@@ -153,10 +149,10 @@ class PrefilterStage(StageInterface):
                         'czkawka_group_size_bytes': group.size_bytes})
                 processed_paths_from_duplicates.add(dup_path)
         run_logger.debug(
-            f'Processed {len(processed_paths_from_duplicates)} files from duplicate groups.'
+            f'处理 {len(processed_paths_from_duplicates)} 个文件来自重复组.'
             )
         run_logger.debug(
-            f'Processing {len(scan_output.all_scanned_files)} total scanned files to find unique ones...'
+            f'处理 {len(scan_output.all_scanned_files)} 个扫描文件以查找唯一文件...'
             )
         for file_path_obj in scan_output.all_scanned_files:
             file_path = file_path_obj.resolve()
@@ -167,7 +163,7 @@ class PrefilterStage(StageInterface):
                 except OSError as e:
                     size = -1
                     run_logger.warning(
-                        f'Could not get size for file: {file_path}. Error: {e}'
+                        f'无法获取文件大小: {file_path}. 错误: {e}'
                         )
                 files_to_register_map[file_path] = FileRecordDTO(original_path
                     =file_path, size_bytes=size, processing_status=
@@ -176,22 +172,10 @@ class PrefilterStage(StageInterface):
         file_dtos_list = list(files_to_register_map.values())
         if file_dtos_list:
             run_logger.info(
-                f'Attempting to register/update a total of {len(file_dtos_list)} files in storage...'
+                f'尝试注册/更新 {len(file_dtos_list)} 个文件到存储...'
                 )
-            try:
-                returned_dtos_from_storage = self._storage.register_files(
-                    file_dtos_list)
-                run_logger.success(
-                    f'Bulk registration/update complete. Storage returned {len(returned_dtos_from_storage)} DTOs.'
-                    )
-                return returned_dtos_from_storage
-            except Exception as e:
-                run_logger.exception(
-                    'Failed to register/update files in storage.')
-                raise PrefilterError(
-                    f'Failed to register/update files in storage: {e}',
-                    original_exception=e) from e
+            return file_dtos_list
         else:
             run_logger.warning(
-                'No files found to register or update in storage.')
+                '没有文件找到注册或更新到存储.')
         return []

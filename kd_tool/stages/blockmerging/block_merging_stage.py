@@ -4,7 +4,6 @@ import copy
 import uuid
 import datetime
 from kd_tool.core.interfaces import StageInterface
-from kd_tool.storage.storage_interface import StorageInterface as CoreStorageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.schemas.dtos import ContentBlockDTO
 from kd_tool.schemas.enums import BlockType, ProcessingStatus
@@ -14,38 +13,46 @@ from typing import Optional
 
 class BlockMergingStage(StageInterface):
     """
-    P04 - 块合并阶段实现。
-    根据规则合并由 P03 提取的初步内容块。
+    WHY: 块合并阶段，提升内容块质量，减少冗余，为后续分析提供更优输入。
+    WHAT: 按规则合并同类型内容块，更新 PipelineContextDTO。
+    HOW: 依赖注入 logger/settings，process 只操作 context，不直接写库。
     """
 
-    def __init__(self, logger: LoggerProtocol, storage: CoreStorageInterface,
-        settings: BlockMergerStageSettings) ->None:
-        self._logger = logger.bind(stage='BlockMergingStageP04')
-        self._storage = storage
+    def __init__(self, logger: LoggerProtocol, settings: BlockMergerStageSettings):
+        """
+        WHY: 初始化依赖。
+        WHAT: 记录日志器和配置。
+        HOW: 通过依赖注入赋值。
+        """
+        self._logger = logger
         self._settings = settings
         self._logger.info(
-            f'BlockMergingStage (P04) initialized with settings: {self._settings.model_dump_json(indent=2)}'
+            f'初始化完成. 设置: {self._settings.model_dump_json(indent=2)}'
             )
 
     def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
-        task_id_str = context.get_task_id_str()
-        logger = context.run_logger.bind(stage='BlockMergingStageP04')
-        logger.info('P04 - Block Merging Stage starting...')
+        """
+        WHY: 执行块合并，提升后续分析质量。
+        WHAT: 合并同类型内容块，更新 context。
+        HOW: 只操作 context，不写库，异常写入 context.errors。
+        """
+        logger = context.run_logger.bind(stage='BlockMergingStage')
+        logger.info('块合并阶段开始...')
         if not self._settings.enabled:
-            logger.warning('P04 - BlockMergingStage is disabled. Skipping.')
+            logger.warning('块合并阶段已禁用. 跳过.')
             return context
         input_blocks_from_context = [block for block in context.
             content_blocks.values()]
         if not input_blocks_from_context:
             logger.info(
-                'P04 - No content blocks found in context from P03 for merging. Skipping.'
+                '没有找到内容块. 跳过.'
                 )
             return context
         blocks_by_file_id: Dict[str, List[ContentBlockDTO]] = {}
         for block_dto in input_blocks_from_context:
             if not isinstance(block_dto, ContentBlockDTO):
                 logger.warning(
-                    f'P04 - Skipping non-ContentBlockDTO item in context.content_blocks: {type(block_dto)}'
+                    f'跳过非 ContentBlockDTO 项: {type(block_dto)}'
                     )
                 continue
             blocks_by_file_id.setdefault(block_dto.file_id, []).append(
@@ -56,7 +63,7 @@ class BlockMergingStage(StageInterface):
                 float('inf'))
         if not blocks_by_file_id:
             logger.info(
-                'P04 - No valid ContentBlockDTOs found after grouping. Skipping merging.'
+                '没有找到有效的 ContentBlockDTOs. 跳过合并.'
                 )
             return context
         logger.info(
@@ -67,7 +74,7 @@ class BlockMergingStage(StageInterface):
         error_files_count = 0
         for file_id, original_blocks_in_file in blocks_by_file_id.items():
             logger.debug(
-                f'P04 - Merging blocks for file_id: {file_id} (original count: {len(original_blocks_in_file)})'
+                f'合并块: {file_id} (原始数量: {len(original_blocks_in_file)})'
                 )
             current_file_processing_blocks = [copy.deepcopy(b) for b in
                 original_blocks_in_file]
@@ -97,7 +104,7 @@ class BlockMergingStage(StageInterface):
                 for final_block in current_file_processing_blocks:
                     final_merged_blocks_map[final_block.block_id] = final_block
                 logger.info(
-                    f'P04 - File {file_id}: original blocks {len(original_blocks_in_file)}, merged to {len(current_file_processing_blocks)} blocks.'
+                    f'文件 {file_id}: 原始块 {len(original_blocks_in_file)}, 合并到 {len(current_file_processing_blocks)} 块.'
                     )
                 if file_id in context.file_records:
                     file_record = context.file_records[file_id]
@@ -113,7 +120,7 @@ class BlockMergingStage(StageInterface):
                         })
             except BlockMergingError as e:
                 logger.error(
-                    f'P04 - Controlled block merging error for file {file_id}: {e.message}'
+                    f'控制块合并错误: {file_id}: {e.message}'
                     , context_info=e.context_info)
                 context.add_error(e)
                 error_files_count += 1
@@ -129,7 +136,7 @@ class BlockMergingStage(StageInterface):
                         isoformat(), 'error': e.to_dict()})
             except Exception as e:
                 logger.exception(
-                    f'P04 - Unexpected critical error merging blocks for file {file_id}.'
+                    f'合并块时发生意外严重错误: {file_id}.'
                     )
                 wrapped_error = MergingFailedError(reason=
                     f'Unexpected critical error: {str(e)}',
@@ -150,8 +157,12 @@ class BlockMergingStage(StageInterface):
         context.content_blocks = final_merged_blocks_map
         final_block_count_total = len(final_merged_blocks_map)
         logger.info(
-            f'P04 - Block Merging Stage finished. Original total blocks: {original_block_count_total}, Final merged block count: {final_block_count_total}. Files with errors during merge: {error_files_count}.'
+            f'块合并阶段完成. 原始总块数: {original_block_count_total}, 最终合并块数: {final_block_count_total}. 合并时发生错误文件数: {error_files_count}.'
             )
+        # 文件状态更新
+        for file_id, file_record in context.file_records.items():
+            file_record.processing_status = ProcessingStatus.BLOCK_EXTRACTION_COMPLETED
+        logger.info('P04 - Block Merging Stage finished.')
         return context
 
     def _merge_specific_type_blocks(self, input_blocks: List[
@@ -160,13 +171,13 @@ class BlockMergingStage(StageInterface):
         TextBlockMergeSettings], file_id_for_log: str, run_logger: LoggerProtocol,
         preserve_min_len: Optional[int]=None) ->List[ContentBlockDTO]:
         """
-        通用的、按类型合并块的辅助方法。
-        **[指令]** 创建新的 `ContentBlockDTO` 时 **严禁** 包含 `task_id` 字段。
-        **[指令]** 使用传入的 `run_logger` 进行日志记录。
+        WHY: 合并同类型内容块，减少冗余。
+        WHAT: 按类型和规则合并，生成新块。
+        HOW: 只操作内存数据，不写库，日志详细。
         """
         logger = run_logger.bind(method='_merge_specific_type_blocks')
         logger.debug(
-            f"P04 - Applying specific merge for type(s) '{str(target_type)}' on {len(input_blocks)} blocks for file {file_id_for_log}."
+            f"应用特定合并: {str(target_type)} 在 {len(input_blocks)} 块上 for file {file_id_for_log}."
             )
         if not input_blocks or not getattr(merge_settings, 'enabled', False):
             return input_blocks
@@ -237,7 +248,7 @@ class BlockMergingStage(StageInterface):
                     page_number, metadata=final_metadata)
                 processed_blocks.append(new_merged_block)
                 logger.trace(
-                    f'P04 - Merged {last_merged_original_block_index - i + 1} blocks of type {current_block.block_type} into new block {new_merged_block.block_id} for file {file_id_for_log}.'
+                    f'合并 {last_merged_original_block_index - i + 1} 个块 of type {current_block.block_type} into new block {new_merged_block.block_id} for file {file_id_for_log}.'
                     )
                 i = last_merged_original_block_index + 1
             else:

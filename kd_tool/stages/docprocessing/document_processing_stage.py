@@ -2,8 +2,6 @@
 =================================================
 document_processing_stage.py - P03 文档处理阶段 (v4.6)
 =================================================
-... (模块注释保持不变) ...
----
 """
 from typing import List, Any, Dict
 from pathlib import Path
@@ -57,10 +55,9 @@ class DocumentProcessingStage(StageInterface):
     负责将文件解析为初步的 ContentBlockDTO 列表。
     """
 
-    def __init__(self, logger: LoggerProtocol, storage: StorageInterface, settings:
+    def __init__(self, logger: LoggerProtocol, settings:
         DocumentProcessingStageSettings) ->None:
         self._logger = logger.bind(stage='DocumentProcessingStageP03')
-        self._storage = storage
         self._settings = settings
         self._parser = _InternalParserWrapper(logger=self._logger, strategy
             =self._settings.parsing_strategy)
@@ -69,29 +66,21 @@ class DocumentProcessingStage(StageInterface):
             )
 
     def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
-        task_id = context.get_task_id_str()
-        logger = context.run_logger.bind(stage='DocumentProcessingStageP03')
-        logger.info('P03 - Document Processing (Raw Extraction) starting...')
+        logger = context.run_logger.bind(stage='DocumentProcessingStage')
+        logger.info('文档处理阶段开始...')
         if not self._settings.enabled:
-            logger.warning(
-                'P03 - DocumentProcessingStage is disabled. Skipping.')
+            logger.warning('文档处理阶段已禁用，跳过。')
             return context
-        files_to_process = [record for record in context.file_records.
-            values() if record.processing_status == ProcessingStatus.PENDING]
+
+        files_to_process = [record for record in context.file_records.values()
+                            if record.processing_status == ProcessingStatus.PENDING]
         if not files_to_process:
-            logger.info(
-                'P03 - No pending files found for document processing. Skipping.'
-                )
+            logger.info('没有待处理文件，跳过。')
             return context
-        logger.info(
-            f'P03 - Found {len(files_to_process)} pending files to process.')
-        processed_file_count = 0
-        total_blocks_generated_in_run = 0
+
         for file_record in files_to_process:
             file_path = file_record.original_path
             file_id = file_record.file_id
-            current_file_block_count = 0
-            logger.debug(f'P03 - Processing file: {file_path} (ID: {file_id})')
             try:
                 if file_path.suffix.lower(
                     ) not in self._settings.supported_extensions:
@@ -112,29 +101,22 @@ class DocumentProcessingStage(StageInterface):
                         'timestamp': datetime.datetime.now(datetime.
                         timezone.utc).isoformat(), 'details':
                         'No raw elements extracted.'})
-                    processed_file_count += 1
                     continue
                 preliminary_blocks = self._convert_raw_elements_to_dtos(
                     raw_elements, file_id=file_id,
                     file_path_for_error_reporting=file_path)
                 for block_dto in preliminary_blocks:
                     context.add_content_block(block_dto)
-                    current_file_block_count += 1
-                total_blocks_generated_in_run += current_file_block_count
                 file_record.processing_status = (ProcessingStatus.
                     BLOCK_EXTRACTION_COMPLETED)
                 file_record.metadata['p03_extracted_block_count'
-                    ] = current_file_block_count
+                    ] = len(preliminary_blocks)
                 file_record.processing_history.append({'stage': 'P03',
                     'status': ProcessingStatus.BLOCK_EXTRACTION_COMPLETED.
                     value, 'timestamp': datetime.datetime.now(datetime.
                     timezone.utc).isoformat(), 'details':
-                    f'Extracted {current_file_block_count} preliminary blocks.'
+                    f'Extracted {len(preliminary_blocks)} preliminary blocks.'
                     })
-                processed_file_count += 1
-                logger.success(
-                    f'P03 - Successfully extracted {current_file_block_count} preliminary blocks from: {file_path}'
-                    )
             except DocumentProcessingError as e:
                 logger.error(
                     f'P03 - Controlled error during processing of {file_path}: {e.message}'
@@ -165,9 +147,9 @@ class DocumentProcessingStage(StageInterface):
                         value, 'timestamp': datetime.datetime.now(datetime.
                         timezone.utc).isoformat(), 'error': wrapped_error.
                         to_dict()})
-        logger.info(
-            f'P03 - Document Processing (Raw Extraction) finished. Successfully processed files: {processed_file_count}/{len(files_to_process)}. Total preliminary blocks generated in this run: {total_blocks_generated_in_run}.'
-            )
+            if file_id in context.file_records:
+                context.file_records[file_id] = file_record
+        logger.info('文档处理阶段完成。')
         return context
 
     def _convert_raw_elements_to_dtos(self, raw_elements: List[Dict[str,
