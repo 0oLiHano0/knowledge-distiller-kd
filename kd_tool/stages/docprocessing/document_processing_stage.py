@@ -14,39 +14,7 @@ from kd_tool.schemas.dtos import ContentBlockDTO, FileRecordDTO
 from kd_tool.schemas.enums import BlockType, ProcessingStatus
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
 from kd_tool.stages.docprocessing.errors import DocumentProcessingError, FileReadError, ParsingError, DTOConversionError, UnsupportedFileTypeError
-
-
-
-class _InternalParserWrapper:
-
-    def __init__(self, logger: LoggerProtocol, strategy: str):
-        self._logger = logger.bind(parser_wrapper=self.__class__.__name__)
-        self._strategy = strategy
-        self._logger.info(
-            f"初始化完成. 策略: '{self._strategy}'."
-            )
-
-    def parse_file_to_raw_elements(self, file_path: Path) ->List[Dict[str, Any]
-        ]:
-        self._logger.debug(
-            f'尝试解析文件: {file_path} 使用策略: {self._strategy}'
-            )
-        if 'nonexistent_file.txt' in str(file_path):
-            raise FileReadError(file_path, original_exception=
-                FileNotFoundError('Simulated file not found'))
-        if 'fail_parse.docx' in str(file_path):
-            raise ParsingError(file_path, 'unstructured',
-                original_exception=ValueError(
-                'Simulated unstructured parsing failure'))
-        return [{'type': 'Title', 'text':
-            f'Document Title for {file_path.name}', 'metadata': {
-            'page_number': 1, 'source_id': 'elem_001'}}, {'type':
-            'NarrativeText', 'text': 'This is the first paragraph.',
-            'metadata': {'page_number': 1, 'source_id': 'elem_002'}}, {
-            'type': 'ListItem', 'text': 'First item in a list.', 'metadata':
-            {'page_number': 1, 'source_id': 'elem_003'}}, {'type': 'Code',
-            'text': "print('Hello')", 'metadata': {'page_number': 2,
-            'language': 'python', 'source_id': 'elem_004'}}]
+from kd_tool.stages.docprocessing.adapter_interface import ParserAdapterInterface
 
 
 class DocumentProcessingStage(StageInterface):
@@ -55,15 +23,13 @@ class DocumentProcessingStage(StageInterface):
     负责将文件解析为初步的 ContentBlockDTO 列表。
     """
 
-    def __init__(self, logger: LoggerProtocol, settings:
-        DocumentProcessingStageSettings) ->None:
+    def __init__(self, logger: LoggerProtocol, settings: DocumentProcessingStageSettings, parser_adapter: ParserAdapterInterface) -> None:
         self._logger = logger.bind(stage='DocumentProcessingStageP03')
         self._settings = settings
-        self._parser = _InternalParserWrapper(logger=self._logger, strategy
-            =self._settings.parsing_strategy)
+        self._parser = parser_adapter
         self._logger.info(
             f"DocumentProcessingStage 初始化完成. 支持的扩展名: {self._settings.supported_extensions}. 解析策略: '{self._settings.parsing_strategy}'."
-            )
+        )
 
     def process(self, context: PipelineContextDTO) ->PipelineContextDTO:
         logger = context.run_logger.bind(stage='DocumentProcessingStage')

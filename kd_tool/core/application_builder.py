@@ -165,24 +165,23 @@ class ApplicationBuilder:
         how: 依次通过各自工厂创建。
         """
         storage = self._get_storage_instance()
-        stages: Dict[str, StageInterface]
-        stages = {}
+        stages: Dict[str, StageInterface] = {}
         if self._config.prefilter.enabled:
-            stages['prefilter'] = PrefilterStageFactory(self._logger).create(self._config.prefilter, storage)
+            stages['prefilter'] = PrefilterStageFactory(self._logger).create(self._config.prefilter)
         if self._config.document_processing.enabled:
-            stages['document_processing'] = DocumentProcessingStageFactory(self._logger).create(self._config.document_processing, storage)
+            stages['document_processing'] = DocumentProcessingStageFactory(self._logger).create(self._config.document_processing)
         if self._config.block_merging.enabled:
-            stages['block_merging'] = BlockMergerStageFactory(self._logger).create(self._config.block_merging, storage)
+            stages['block_merging'] = BlockMergerStageFactory(self._logger).create(self._config.block_merging)
         if self._config.md5_analysis.enabled:
-            stages['md5_analysis'] = MD5AnalysisStageFactory(self._logger).create(self._config.md5_analysis, storage)
+            stages['md5_analysis'] = MD5AnalysisStageFactory(self._logger).create(self._config.md5_analysis)
         if self._config.simhash_analysis.enabled:
             stages['simhash_analysis'] = SimHashAnalysisStageFactory(self._logger).create(storage, self._config.simhash_analysis)
         if self._config.semantic_analysis.enabled:
             stages['semantic_analysis'] = SemanticAnalysisStageFactory(self._logger).create(storage, self._config.semantic_analysis)
         if self._config.decision.enabled:
-            stages['decision'] = DecisionStageFactory(self._logger).create(storage, self._config.decision)
+            stages['decision'] = DecisionStageFactory(self._logger).create(self._config.decision)
         if self._config.cleanup.enabled:
-            stages['cleanup'] = CleanupStageFactory(self._logger).create(storage, self._config.cleanup)
+            stages['cleanup'] = CleanupStageFactory(self._logger).create(self._config.cleanup)
         return stages
 
     def build(self) -> Application:

@@ -11,6 +11,8 @@ from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
 from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.stages.docprocessing.adapter_interface import ParserAdapterInterface
+from pathlib import Path
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -26,6 +28,10 @@ class DummyStorage(StorageInterface):
     def delete_block(self, *a, **kw): pass
     def update_block(self, *a, **kw): pass
     # 其他方法可按需补充
+
+class DummyParserAdapter(ParserAdapterInterface):
+    def parse_file_to_raw_elements(self, file_path: Path):
+        return []
 
 @pytest.fixture
 def dummy_storage():
@@ -57,13 +63,14 @@ def dummy_settings():
 def test_init_signature(dummy_logger, dummy_settings):
     """
     为什么: 检查 DocProcessingStage 的 __init__ 是否支持依赖注入。
-    做什么: 断言 __init__ 参数包含 logger 和 settings。
+    做什么: 断言 __init__ 参数包含 logger、settings、parser_adapter。
     怎么做: 用 inspect 获取签名。
     """
     sig = inspect.signature(DocumentProcessingStage.__init__)
     params = list(sig.parameters.keys())
     assert 'logger' in params
     assert 'settings' in params
+    assert 'parser_adapter' in params
 
 def test_is_stateless(dummy_logger, dummy_settings):
     """
@@ -71,7 +78,7 @@ def test_is_stateless(dummy_logger, dummy_settings):
     做什么: 断言实例属性不包含除依赖外的可变状态。
     怎么做: 实例化后检查 __dict__。
     """
-    stage = DocumentProcessingStage(dummy_logger, dummy_settings)
+    stage = DocumentProcessingStage(dummy_logger, dummy_settings, DummyParserAdapter())
     allowed = {'_logger', '_settings', '_parser'}
     assert set(stage.__dict__.keys()) <= allowed
 
@@ -93,7 +100,7 @@ def test_process_interaction(dummy_logger, dummy_settings):
     做什么: 伪造 context，调用 process。
     怎么做: 用 DummySettings 和 PipelineContextDTO。
     """
-    stage = DocumentProcessingStage(dummy_logger, dummy_settings)
+    stage = DocumentProcessingStage(dummy_logger, dummy_settings, DummyParserAdapter())
     context = PipelineContextDTO(run_logger=dummy_logger)
     result = stage.process(context)
     assert isinstance(result, PipelineContextDTO) 
