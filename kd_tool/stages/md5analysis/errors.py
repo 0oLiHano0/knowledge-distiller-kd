@@ -11,10 +11,18 @@ class MD5AnalysisError(KDToolError):
         - 构造时自动设置 'module' = 'MD5AnalysisStage'。
     """
 
-    def __init__(self, message: str, original_exception: Optional[Exception
-        ]=None, **kwargs: Any):
-        super().__init__(message, original_exception=original_exception,
-            module='MD5AnalysisStage', **kwargs)
+    def __init__(
+        self,
+        message: str,
+        original_exception: Optional[Exception] = None,
+        **kwargs: Any,
+    ):
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            module="MD5AnalysisStage",
+            **kwargs,
+        )
 
 
 class MD5InputError(MD5AnalysisError):
@@ -29,11 +37,21 @@ class MD5InputError(MD5AnalysisError):
         - **必须包含** `block_id` 和具体 `reason` 作为上下文信息。
     """
 
-    def __init__(self, block_id: str, reason: str, original_exception:
-        Optional[Exception]=None, **kwargs: Any):
-        message = f'MD5 分析输入错误 (Block ID: {block_id}): {reason}'
-        super().__init__(message, original_exception=original_exception,
-            block_id=block_id, reason=reason, **kwargs)
+    def __init__(
+        self,
+        block_id: str,
+        reason: str,
+        original_exception: Optional[Exception] = None,
+        **kwargs: Any,
+    ):
+        message = f"MD5 分析输入错误 (Block ID: {block_id}): {reason}"
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            block_id=block_id,
+            reason=reason,
+            **kwargs,
+        )
 
 
 class MD5CalculationError(MD5AnalysisError):
@@ -47,13 +65,14 @@ class MD5CalculationError(MD5AnalysisError):
         - **必须包含** `block_id` 和原始异常作为上下文信息。
     """
 
-    def __init__(self, block_id: str, original_exception: Exception, **
-        kwargs: Any):
+    def __init__(self, block_id: str, original_exception: Exception, **kwargs: Any):
         message = f"为 Block ID '{block_id}' 计算 MD5 时发生内部错误。"
-        super().__init__(message, original_exception=original_exception,
-            block_id=block_id, **kwargs)
+        super().__init__(
+            message, original_exception=original_exception, block_id=block_id, **kwargs
+        )
 
 
 class MD5AnalysisStageError(KDToolError):
     """WHY: MD5分析阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+
     pass

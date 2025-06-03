@@ -11,6 +11,7 @@ adapter_interface.py - SimHash 适配器接口定义 (v4.5)
 
 ---
 """
+
 from abc import ABC, abstractmethod
 from typing import List, Tuple
 
@@ -60,7 +61,9 @@ class SimHashAdapterInterface(ABC):
         pass
 
     @abstractmethod
-    def find_similar_pairs(self, block_hashes: List[Tuple[str, str]], threshold: int, hash_bits: int) -> List[Tuple[str, str, int]]:
+    def find_similar_pairs(
+        self, block_hashes: List[Tuple[str, str]], threshold: int, hash_bits: int
+    ) -> List[Tuple[str, str, int]]:
         """
         (可选但推荐) 在一批哈希值中高效地找出汉明距离小于阈值的对。
         这可以避免 O(n^2) 的完全比较，尤其是在数据量大时。

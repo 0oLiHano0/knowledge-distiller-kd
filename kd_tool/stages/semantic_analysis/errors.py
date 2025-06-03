@@ -10,11 +10,13 @@ errors.py - P07 语义分析阶段错误定义 (v4.6)
 
 ---
 """
+
 from kd_tool.core.errors import KDToolError
 
 
 class SemanticAnalysisError(KDToolError):
     """语义分析阶段的基础错误类型。"""
+
     pass
 
 
@@ -33,19 +35,24 @@ class EmbeddingCalculationError(SemanticAnalysisError):
     def __init__(self, block_id: str, original_error: Exception):
         self.block_id = block_id
         self.original_error = original_error
-        super().__init__(f"为内容块 '{block_id}' 计算语义嵌入时发生错误: {original_error}")
+        super().__init__(
+            f"为内容块 '{block_id}' 计算语义嵌入时发生错误: {original_error}"
+        )
 
 
 class SimilarityCalculationError(SemanticAnalysisError):
     """当计算向量间相似度失败时抛出。"""
+
     pass
 
 
 class SemanticAdapterError(SemanticAnalysisError):
     """当语义分析适配器发生错误时抛出。"""
+
     pass
 
 
 class SemanticAnalysisStageError(KDToolError):
     """WHY: 语义分析阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+
     pass

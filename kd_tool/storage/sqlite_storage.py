@@ -85,7 +85,9 @@ class SQLiteStorage(StorageInterface):
             # 无显式事务，自动管理 session 和 commit
             with self._Session() as session:
                 for dto in blocks:
-                    obj = ContentBlockORM(md5=dto.md5, content=dto.content.encode("utf-8"))
+                    obj = ContentBlockORM(
+                        md5=dto.md5, content=dto.content.encode("utf-8")
+                    )
                     session.add(obj)
                 session.commit()
 

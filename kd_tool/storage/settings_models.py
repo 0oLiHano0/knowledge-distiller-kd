@@ -12,11 +12,12 @@ from pydantic import BaseModel, Field, field_validator, ConfigDict
 
 
 class StorageBackend(str, Enum):
-    SQLITE = "sqlite"   # 未来可扩展 "postgres", "duckdb" 等
+    SQLITE = "sqlite"  # 未来可扩展 "postgres", "duckdb" 等
 
 
 class StorageSettingsDTO(BaseModel):
     """WHY 提供配置；WHAT backend、url 等；HOW 由外部注入。"""
+
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
     backend: StorageBackend = Field(default=StorageBackend.SQLITE)
     db_path: Path = Field(default=Path("./kd_tool.db"))

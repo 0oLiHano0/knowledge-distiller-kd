@@ -15,6 +15,7 @@ application_builder.py - 应用程序构建器 (v4.6 - 新日志层集成)
 
 ---
 """
+
 import traceback
 from typing import Dict, List, Optional
 from pathlib import Path
@@ -32,7 +33,7 @@ from kd_tool.core.errors import KDToolError
 from kd_tool.core.orchestrator_factory import OrchestratorFactory
 
 # DTOs 导入
-from kd_tool.core.core_dtos import PipelineContextDTO # 如果Application中需要，保留
+from kd_tool.core.core_dtos import PipelineContextDTO  # 如果Application中需要，保留
 
 # 存储工厂导入
 from kd_tool.storage.storage_factory import StorageFactory
@@ -48,6 +49,7 @@ from kd_tool.stages.decision.factory import DecisionStageFactory
 from kd_tool.stages.cleanup.factory import CleanupStageFactory
 
 from kd_tool.storage.storage_interface import StorageInterface
+
 
 # 占位符：实现或导入真实的配置加载逻辑
 def load_config(path: str) -> AppConfig:
@@ -88,36 +90,47 @@ class Application:
         **可能抛出的异常**:
             KDToolError 或其子类: 如果流水线执行中发生无法恢复的错误。
         """
-        self.logger.info(f'🚀 应用程序启动，开始运行默认流水线，输入路径: {input_paths_str}') #
+        self.logger.info(
+            f"🚀 应用程序启动，开始运行默认流水线，输入路径: {input_paths_str}"
+        )  #
         try:
             input_paths = [Path(p).resolve() for p in input_paths_str]
-            self.logger.debug(f'解析后的输入路径: {[str(p) for p in input_paths]}') #
+            self.logger.debug(f"解析后的输入路径: {[str(p) for p in input_paths]}")  #
 
             context: PipelineContextDTO = self.orchestrator.run(input_paths)
 
             if context.errors:
-                self.logger.error(f'⚠️ 流水线执行完成，但检测到 {len(context.errors)} 个错误：') #
+                self.logger.error(
+                    f"⚠️ 流水线执行完成，但检测到 {len(context.errors)} 个错误："
+                )  #
                 for i, error in enumerate(context.errors):
-                    self.logger.error(f'  {i + 1}. [{type(error).__name__}] {error}') #
+                    self.logger.error(f"  {i + 1}. [{type(error).__name__}] {error}")  #
                     if error.original_exception:
                         # Loguru 的 opt(exception=...) 很好，但 Protocol 中没有。
                         # 我们使用 exception() 方法，如果存在的话，或者退回到 error()。
                         try:
-                           # 假设 LoggerProtocol 有 exception 方法
-                           self.logger.exception(f'     原始异常详情 (Error {i + 1}):') #
+                            # 假设 LoggerProtocol 有 exception 方法
+                            self.logger.exception(
+                                f"     原始异常详情 (Error {i + 1}):"
+                            )  #
                         except AttributeError:
-                           self.logger.error(f'     原始异常详情 (Error {i + 1}): {error.original_exception}') #
+                            self.logger.error(
+                                f"     原始异常详情 (Error {i + 1}): {error.original_exception}"
+                            )  #
 
                 raise KDToolError(
-                    f'流水线执行完成，但包含 {len(context.errors)} 个错误。详情请查看日志。') #
+                    f"流水线执行完成，但包含 {len(context.errors)} 个错误。详情请查看日志。"
+                )  #
             else:
-                self.logger.info('✅ 流水线执行成功完成，未发现错误！') # 使用 info 或 success (如果 protocol 支持)
+                self.logger.info(
+                    "✅ 流水线执行成功完成，未发现错误！"
+                )  # 使用 info 或 success (如果 protocol 支持)
         except KDToolError as e:
-            self.logger.error(f'❌ 流水线执行期间发生受控错误: {e}') #
+            self.logger.error(f"❌ 流水线执行期间发生受控错误: {e}")  #
             raise
         except Exception as e:
-            self.logger.error(f'💥 流水线执行期间发生未捕获的严重错误: {e}') #
-            raise KDToolError(f'未捕获的严重错误: {e}', original_exception=e) from e #
+            self.logger.error(f"💥 流水线执行期间发生未捕获的严重错误: {e}")  #
+            raise KDToolError(f"未捕获的严重错误: {e}", original_exception=e) from e  #
 
 
 class ApplicationBuilder:
@@ -167,21 +180,37 @@ class ApplicationBuilder:
         storage = self._get_storage_instance()
         stages: Dict[str, StageInterface] = {}
         if self._config.prefilter.enabled:
-            stages['prefilter'] = PrefilterStageFactory(self._logger).create(self._config.prefilter)
+            stages["prefilter"] = PrefilterStageFactory(self._logger).create(
+                self._config.prefilter
+            )
         if self._config.document_processing.enabled:
-            stages['document_processing'] = DocumentProcessingStageFactory(self._logger).create(self._config.document_processing)
+            stages["document_processing"] = DocumentProcessingStageFactory(
+                self._logger
+            ).create(self._config.document_processing)
         if self._config.block_merging.enabled:
-            stages['block_merging'] = BlockMergerStageFactory(self._logger).create(self._config.block_merging)
+            stages["block_merging"] = BlockMergerStageFactory(self._logger).create(
+                self._config.block_merging
+            )
         if self._config.md5_analysis.enabled:
-            stages['md5_analysis'] = MD5AnalysisStageFactory(self._logger).create(self._config.md5_analysis)
+            stages["md5_analysis"] = MD5AnalysisStageFactory(self._logger).create(
+                self._config.md5_analysis
+            )
         if self._config.simhash_analysis.enabled:
-            stages['simhash_analysis'] = SimHashAnalysisStageFactory(self._logger).create(storage, self._config.simhash_analysis)
+            stages["simhash_analysis"] = SimHashAnalysisStageFactory(
+                self._logger
+            ).create(storage, self._config.simhash_analysis)
         if self._config.semantic_analysis.enabled:
-            stages['semantic_analysis'] = SemanticAnalysisStageFactory(self._logger).create(storage, self._config.semantic_analysis)
+            stages["semantic_analysis"] = SemanticAnalysisStageFactory(
+                self._logger
+            ).create(storage, self._config.semantic_analysis)
         if self._config.decision.enabled:
-            stages['decision'] = DecisionStageFactory(self._logger).create(self._config.decision)
+            stages["decision"] = DecisionStageFactory(self._logger).create(
+                self._config.decision
+            )
         if self._config.cleanup.enabled:
-            stages['cleanup'] = CleanupStageFactory(self._logger).create(self._config.cleanup)
+            stages["cleanup"] = CleanupStageFactory(self._logger).create(
+                self._config.cleanup
+            )
         return stages
 
     def build(self) -> Application:
@@ -194,6 +223,6 @@ class ApplicationBuilder:
         orchestrator = self._orchestrator_factory.create(
             stage_modules=stages,
             default_stage_order=self._config.orchestrator.default_stage_order,
-            settings=self._config.orchestrator
+            settings=self._config.orchestrator,
         )
         return Application(orchestrator, self._logger)

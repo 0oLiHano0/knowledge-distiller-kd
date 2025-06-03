@@ -43,7 +43,9 @@ __all__ = [
 class FileRecordDTO(BaseModel):
     """WHY  文件唯一标识；WHAT  贯穿全流程；HOW  Pydantic v2 DTO。"""
 
-    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        extra="forbid", validate_assignment=True, arbitrary_types_allowed=True
+    )
 
     file_id: str = Field(  # noqa: WPS110 (保持业务词)
         default_factory=lambda: f"file_{uuid.uuid4().hex}",
@@ -57,22 +59,27 @@ class FileRecordDTO(BaseModel):
     )
     size_bytes: Optional[int] = Field(default=None, ge=0, description="文件大小，字节")
     last_modified_at: Optional[datetime] = Field(
-        default=None, description="文件最后修改 UTC 时间",
+        default=None,
+        description="文件最后修改 UTC 时间",
     )
     registered_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc),
         description="注册时间 UTC",
     )
     processing_status: ProcessingStatus = Field(
-        default=ProcessingStatus.PENDING, description="处理状态枚举",
+        default=ProcessingStatus.PENDING,
+        description="处理状态枚举",
     )
     processing_history: List[Dict[str, Any]] = Field(
-        default_factory=list, description="状态变更历史",
+        default_factory=list,
+        description="状态变更历史",
     )
     metadata: Dict[str, Any] = Field(default_factory=dict, description="扩展元数据")
 
     # ---- 验证 ---------------------------------------------------------------
-    @field_validator("last_modified_at", "registered_at", mode="before", check_fields=False)
+    @field_validator(
+        "last_modified_at", "registered_at", mode="before", check_fields=False
+    )
     @classmethod
     def _ensure_utc(cls, v: Any) -> Any:  # noqa: N805 (Pydantic 规范)
         """保证日期字段为 UTC。"""
@@ -87,14 +94,15 @@ class FileRecordDTO(BaseModel):
         return v_dt.astimezone(timezone.utc)
 
 
-
 # =============================================================================
 # ContentBlockDTO
 # =============================================================================
 class ContentBlockDTO(BaseModel):
     """WHY  文档基本分析单元；WHAT  存储文本块与哈希；HOW  DTO。"""
 
-    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        extra="forbid", validate_assignment=True, arbitrary_types_allowed=True
+    )
 
     block_id: str = Field(
         default_factory=lambda: f"block_{uuid.uuid4().hex}",
@@ -103,12 +111,17 @@ class ContentBlockDTO(BaseModel):
     file_id: str = Field(description="所属 FileRecordDTO.file_id")
     text_content: str = Field(description="原始文本内容")
     analysis_text: Optional[str] = Field(
-        default=None, description="标准化文本，默认 text_content",
+        default=None,
+        description="标准化文本，默认 text_content",
     )
     block_type: BlockType = Field(description="内容块类型枚举")
-    order_in_document: Optional[int] = Field(default=None, ge=0, description="文档内顺序")
+    order_in_document: Optional[int] = Field(
+        default=None, ge=0, description="文档内顺序"
+    )
     page_number: Optional[int] = Field(default=None, ge=1, description="页码")
-    text_hash_md5: Optional[str] = Field(default=None, max_length=32, description="标准化文本 MD5")
+    text_hash_md5: Optional[str] = Field(
+        default=None, max_length=32, description="标准化文本 MD5"
+    )
     simhash_value: Optional[str] = Field(
         default=None,
         pattern=r"^[0-9a-fA-F]{16}$|^[0-9a-fA-F]{32}$",
@@ -118,7 +131,9 @@ class ContentBlockDTO(BaseModel):
 
     # ---- 自动回填 -----------------------------------------------------------
     @model_validator(mode="after")
-    def _fill_analysis_text(self) -> "ContentBlockDTO":  # noqa: D401 (Pydantic 自身返回类型)
+    def _fill_analysis_text(
+        self,
+    ) -> "ContentBlockDTO":  # noqa: D401 (Pydantic 自身返回类型)
         """若 analysis_text 为空，则使用 text_content。"""
         if self.analysis_text is None:
             object.__setattr__(self, "analysis_text", self.text_content)
@@ -131,13 +146,17 @@ class ContentBlockDTO(BaseModel):
 class AnalysisResultDTO(BaseModel):
     """WHY  块对分析结果；WHAT  提供统一输出；HOW  DTO。"""
 
-    model_config = ConfigDict(extra="forbid", validate_assignment=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(
+        extra="forbid", validate_assignment=True, arbitrary_types_allowed=True
+    )
 
     pair_analysis_id: str = Field(description="块对+类型 唯一哈希")
     block_id_1: str = Field(description="内容块一 ID")
     block_id_2: str = Field(description="内容块二 ID")
     analysis_type: AnalysisType = Field(description="分析类型枚举")
-    score: Optional[float] = Field(default=None, ge=0.0, le=1.0, description="相似度分数")
+    score: Optional[float] = Field(
+        default=None, ge=0.0, le=1.0, description="相似度分数"
+    )
     details: Dict[str, Any] = Field(default_factory=dict, description="分析附加详情")
 
     # ---- 内部工具 -----------------------------------------------------------
@@ -153,7 +172,11 @@ class AnalysisResultDTO(BaseModel):
     @classmethod
     def _populate_id(cls, data: Dict[str, Any]) -> Dict[str, Any]:
         if "pair_analysis_id" not in data:
-            cls_fields = (data.get("block_id_1"), data.get("block_id_2"), data.get("analysis_type"))
+            cls_fields = (
+                data.get("block_id_1"),
+                data.get("block_id_2"),
+                data.get("analysis_type"),
+            )
             if all(cls_fields):
                 data["pair_analysis_id"] = cls._make_id(*cls_fields)
             else:
@@ -179,9 +202,12 @@ class UserDecisionDTO(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
     pair_analysis_id: str = Field(description="对应 AnalysisResultDTO ID")
-    decision: DecisionType = Field(default=DecisionType.UNDECIDED, description="决策枚举")
+    decision: DecisionType = Field(
+        default=DecisionType.UNDECIDED, description="决策枚举"
+    )
     decided_at: datetime = Field(
-        default_factory=lambda: datetime.now(timezone.utc), description="决策时间 UTC",
+        default_factory=lambda: datetime.now(timezone.utc),
+        description="决策时间 UTC",
     )
     decided_by: Optional[str] = Field(default=None, description="决策者标识符")
     notes: Optional[str] = Field(default=None, max_length=1024, description="备注")

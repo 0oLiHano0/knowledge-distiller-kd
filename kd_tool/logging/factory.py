@@ -10,7 +10,6 @@ factory.py - 日志工厂 (v4.1)
 ---
 """
 
-
 # kd_tool/logging/factory.py
 from __future__ import annotations
 
@@ -18,6 +17,7 @@ from loguru import logger as _loguru_logger
 from kd_tool.logging.settings import LoggingSettingsDTO
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.logging.errors import LoggingError
+
 
 class LoggerFactory:
     """
@@ -28,20 +28,20 @@ class LoggerFactory:
 
     def __init__(self, settings: LoggingSettingsDTO) -> None:
         """
-        WHY : 立即应用配置，确保确定性  
-        WHAT: 保存基础 logger  
+        WHY : 立即应用配置，确保确定性
+        WHAT: 保存基础 logger
         HOW : 若失败抛 LoggingError
         """
         try:
             self._base = _loguru_logger.bind(app="kd_tool")
             self._configure(settings)
-        except Exception as exc:   # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001
             raise LoggingError("日志配置失败") from exc
 
     def get_logger(self, *, task_id: str | None = None) -> LoggerProtocol:
         """
-        WHY : 为调用方提供上下文日志  
-        WHAT: 返回 LoggerProtocol 子实例  
+        WHY : 为调用方提供上下文日志
+        WHAT: 返回 LoggerProtocol 子实例
         HOW : 使用 loguru.bind 追加字段
         """
         return self._base if task_id is None else self._base.bind(task_id=task_id)
@@ -49,11 +49,11 @@ class LoggerFactory:
     # ---------------- private ----------------
     def _configure(self, cfg: LoggingSettingsDTO) -> None:
         """
-        WHY : 根据 DTO 设置输出目标  
-        WHAT: 配置 stdout 及可选文件 sink  
+        WHY : 根据 DTO 设置输出目标
+        WHAT: 配置 stdout 及可选文件 sink
         HOW : 调用 loguru.add
         """
-        _loguru_logger.remove()                           # 清除默认 sink
+        _loguru_logger.remove()  # 清除默认 sink
         fmt = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {extra[task_id]:-<8} | {message}"
         _loguru_logger.add(
             sink=lambda m: print(m, end=""),

@@ -10,11 +10,13 @@ errors.py - P06 SimHash 分析阶段错误定义 (v4.5)
 
 ---
 """
+
 from kd_tool.core.errors import KDToolError
 
 
 class SimHashAnalysisError(KDToolError):
     """SimHash 分析阶段的基础错误类型。"""
+
     pass
 
 
@@ -25,19 +27,23 @@ class SimHashCalculationError(SimHashAnalysisError):
         self.block_id = block_id
         self.original_error = original_error
         super().__init__(
-            f"为内容块 '{block_id}' 计算 SimHash 时发生错误: {original_error}")
+            f"为内容块 '{block_id}' 计算 SimHash 时发生错误: {original_error}"
+        )
 
 
 class SimHashAdapterError(SimHashAnalysisError):
     """当 SimHash 适配器 (例如，与外部库交互) 发生错误时抛出。"""
+
     pass
 
 
 class SimHashComparisonError(SimHashAnalysisError):
     """当比较 SimHash 值时发生意外错误时抛出。"""
+
     pass
 
 
 class SimHashAnalysisStageError(KDToolError):
     """WHY: SimHash分析阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+
     pass

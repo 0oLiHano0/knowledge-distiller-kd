@@ -10,6 +10,7 @@ adapter_interface.py - 文件系统适配器接口定义 (v4.7)
 
 ---
 """
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 
@@ -23,7 +24,7 @@ class FileSystemAdapterInterface(ABC):
     def move_file(self, source_path: Path, target_path: Path) -> None:
         """
         移动文件从源路径到目标路径。
-        **规范**: 
+        **规范**:
         - 必须处理源文件不存在、目标已存在、权限不足等情况。
         - 必须确保目标目录存在。
         - **必须**抛出 `FileOperationError` 如果失败。
@@ -34,7 +35,7 @@ class FileSystemAdapterInterface(ABC):
     def delete_file(self, file_path: Path) -> None:
         """
         永久删除指定路径的文件。
-        **规范**: 
+        **规范**:
         - 必须处理文件不存在、权限不足等情况。
         - **警告**: 这是破坏性操作。
         - **必须**抛出 `FileOperationError` 如果失败。
@@ -45,7 +46,7 @@ class FileSystemAdapterInterface(ABC):
     def ensure_directory_exists(self, dir_path: Path) -> None:
         """
         确保指定的目录存在，如果不存在则创建它。
-        **规范**: 
+        **规范**:
         - 必须处理创建失败（如权限不足）的情况。
         - **必须**抛出 `FileOperationError` 或类似错误如果失败。
         """

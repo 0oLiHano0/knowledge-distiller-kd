@@ -3,6 +3,7 @@ WHY: 定义文档处理阶段相关自定义异常。
 WHAT: 仅声明异常类，便于后续扩展。
 HOW: 继承 KDToolError，方法体留白。
 """
+
 from typing import Optional, Any
 from pathlib import Path
 from kd_tool.core.errors import KDToolError
@@ -18,8 +19,13 @@ class DocumentProcessingError(KDToolError):
           以区分于其他可能的文档处理相关错误（例如未来更高级的处理阶段）。
     """
 
-    def __init__(self, message: str, original_exception: Optional[Exception
-        ]=None, file_path: Optional[Path]=None, **kwargs: Any):
+    def __init__(
+        self,
+        message: str,
+        original_exception: Optional[Exception] = None,
+        file_path: Optional[Path] = None,
+        **kwargs: Any,
+    ):
         """
         构造 DocumentProcessingError。
 
@@ -30,9 +36,13 @@ class DocumentProcessingError(KDToolError):
             **kwargs: 任何需要传递给 KDToolError 以增强上下文的额外键值对。
         """
         if file_path:
-            kwargs['file_path'] = str(file_path)
-        super().__init__(message, original_exception=original_exception,
-            module='DocumentProcessingStageP03', **kwargs)
+            kwargs["file_path"] = str(file_path)
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            module="DocumentProcessingStageP03",
+            **kwargs,
+        )
 
 
 class FileReadError(DocumentProcessingError):
@@ -48,9 +58,10 @@ class FileReadError(DocumentProcessingError):
     """
 
     def __init__(self, file_path: Path, original_exception: Exception):
-        message = f'读取文件失败: {file_path}'
-        super().__init__(message, original_exception=original_exception,
-            file_path=file_path)
+        message = f"读取文件失败: {file_path}"
+        super().__init__(
+            message, original_exception=original_exception, file_path=file_path
+        )
 
 
 class UnsupportedFileTypeError(DocumentProcessingError):
@@ -66,11 +77,19 @@ class UnsupportedFileTypeError(DocumentProcessingError):
         - **必须包含** `file_path` 和检测到的 `file_type` (通常是扩展名) 作为上下文。
     """
 
-    def __init__(self, file_path: Path, detected_file_type: str,
-        original_exception: Optional[Exception]=None):
+    def __init__(
+        self,
+        file_path: Path,
+        detected_file_type: str,
+        original_exception: Optional[Exception] = None,
+    ):
         message = f"不支持的文件类型 '{detected_file_type}' (文件: {file_path})。"
-        super().__init__(message, original_exception=original_exception,
-            file_path=file_path, detected_file_type=detected_file_type)
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            file_path=file_path,
+            detected_file_type=detected_file_type,
+        )
 
 
 class ParsingError(DocumentProcessingError):
@@ -86,11 +105,16 @@ class ParsingError(DocumentProcessingError):
           以及原始异常作为上下文信息。
     """
 
-    def __init__(self, file_path: Path, parser_name: str,
-        original_exception: Exception):
+    def __init__(
+        self, file_path: Path, parser_name: str, original_exception: Exception
+    ):
         message = f"使用解析器 '{parser_name}' 解析文件 '{file_path}' 时失败。"
-        super().__init__(message, original_exception=original_exception,
-            file_path=file_path, parser_name=parser_name)
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            file_path=file_path,
+            parser_name=parser_name,
+        )
 
 
 class DTOConversionError(DocumentProcessingError):
@@ -107,15 +131,19 @@ class DTOConversionError(DocumentProcessingError):
           作为上下文信息。
     """
 
-    def __init__(self, file_path: Path, element_info: str,
-        original_exception: Exception):
-        message = (
-            f"在文件 '{file_path}' 中，转换元素 '{element_info}' 为 ContentBlockDTO 时失败。"
-            )
-        super().__init__(message, original_exception=original_exception,
-            file_path=file_path, element_info=element_info)
+    def __init__(
+        self, file_path: Path, element_info: str, original_exception: Exception
+    ):
+        message = f"在文件 '{file_path}' 中，转换元素 '{element_info}' 为 ContentBlockDTO 时失败。"
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            file_path=file_path,
+            element_info=element_info,
+        )
 
 
 class DocProcessingStageError(KDToolError):
     """WHY: 文档处理阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+
     pass

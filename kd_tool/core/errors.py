@@ -6,6 +6,7 @@
 - WHAT: 定义 KDToolError 及其核心属性和行为。
 - HOW: 仅依赖标准库，所有自定义异常均继承自 KDToolError。
 """
+
 from typing import Optional, Any, Dict
 
 
@@ -15,6 +16,7 @@ class KDToolError(Exception):
     WHAT: 作为所有自定义异常的基类。
     HOW: 支持原始异常链。
     """
+
     def __init__(self, message: str, original_exception: Exception = None, **kwargs):
         super().__init__(message)
         self.original_exception = original_exception
@@ -28,16 +30,24 @@ class KDToolError(Exception):
             base_str += f" (Caused by: {type(self.original_exception).__name__}: {str(self.original_exception)})"
         return base_str
 
+
 class ConfigError(KDToolError):
     """配置相关错误。"""
+
 
 class DependencyInjectionError(KDToolError):
     """依赖注入相关错误。"""
 
+
 class OrchestratorError(KDToolError):
     """编排器相关错误。"""
 
-    def __init__(self, message: str, original_exception: Optional[Exception]=None, **kwargs: Any):
+    def __init__(
+        self,
+        message: str,
+        original_exception: Optional[Exception] = None,
+        **kwargs: Any,
+    ):
         """
         WHY: 构造异常时收集所有关键信息。
         WHAT: message 为主描述，original_exception 支持异常链，kwargs 存储上下文。
@@ -57,7 +67,5 @@ class OrchestratorError(KDToolError):
         base_str = self.message
         # 如有原始异常，追加其类型和消息
         if self.original_exception:
-            base_str += (
-                f' (Caused by: {type(self.original_exception).__name__}: {str(self.original_exception)})'
-            )
+            base_str += f" (Caused by: {type(self.original_exception).__name__}: {str(self.original_exception)})"
         return base_str

@@ -23,6 +23,7 @@ class StorageFactory:
     WHAT: 根据配置创建StorageInterface实例。
     HOW: 依赖注入logger 和 settings。
     """
+
     def __init__(self, logger: LoggerProtocol, settings: StorageSettingsDTO):
         self._logger = logger
         self._settings = settings

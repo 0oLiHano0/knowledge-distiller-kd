@@ -11,13 +11,13 @@ errors.py - 日志错误 (v4.1)
 ---
 """
 
-
 # kd_tool/logging/errors.py
 from kd_tool.core.errors import KDToolError
 
+
 class LoggingError(KDToolError):
     """
-    WHY : 细分日志相关异常，便于捕获  
-    WHAT: 初始化或写入失败时抛出  
+    WHY : 细分日志相关异常，便于捕获
+    WHAT: 初始化或写入失败时抛出
     HOW : 继承项目统一错误基类
     """

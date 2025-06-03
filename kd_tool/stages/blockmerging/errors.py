@@ -11,10 +11,18 @@ class BlockMergingError(KDToolError):
         - 在构造时，固定 'module' 上下文信息为 'BlockMergingStageP04'。
     """
 
-    def __init__(self, message: str, original_exception: Optional[Exception
-        ]=None, **kwargs: Any):
-        super().__init__(message, original_exception=original_exception,
-            module='BlockMergingStageP04', **kwargs)
+    def __init__(
+        self,
+        message: str,
+        original_exception: Optional[Exception] = None,
+        **kwargs: Any,
+    ):
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            module="BlockMergingStageP04",
+            **kwargs,
+        )
 
 
 class MergeRuleConflictError(BlockMergingError):
@@ -29,13 +37,19 @@ class MergeRuleConflictError(BlockMergingError):
         - **可选包含** 导致冲突的 `conflicting_block_ids`。
     """
 
-    def __init__(self, rule_description: str, conflicting_block_ids:
-        Optional[List[str]]=None, original_exception: Optional[Exception]=None
-        ):
-        message = f'块合并规则冲突或无法应用: {rule_description}'
-        super().__init__(message, original_exception=original_exception,
-            rule_description=rule_description, conflicting_block_ids=
-            conflicting_block_ids)
+    def __init__(
+        self,
+        rule_description: str,
+        conflicting_block_ids: Optional[List[str]] = None,
+        original_exception: Optional[Exception] = None,
+    ):
+        message = f"块合并规则冲突或无法应用: {rule_description}"
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            rule_description=rule_description,
+            conflicting_block_ids=conflicting_block_ids,
+        )
 
 
 class InvalidBlockSequenceError(BlockMergingError):
@@ -50,10 +64,17 @@ class InvalidBlockSequenceError(BlockMergingError):
         - **可选包含** 相关的 `block_ids_involved`。
     """
 
-    def __init__(self, message: str, block_ids_involved: Optional[List[str]
-        ]=None, original_exception: Optional[Exception]=None):
-        super().__init__(message, original_exception=original_exception,
-            block_ids_involved=block_ids_involved)
+    def __init__(
+        self,
+        message: str,
+        block_ids_involved: Optional[List[str]] = None,
+        original_exception: Optional[Exception] = None,
+    ):
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            block_ids_involved=block_ids_involved,
+        )
 
 
 class MergingFailedError(BlockMergingError):
@@ -68,13 +89,22 @@ class MergingFailedError(BlockMergingError):
         - **可选包含** 正在处理的 `processing_block_ids`。
     """
 
-    def __init__(self, reason: str, original_exception: Optional[Exception]
-        =None, processing_block_ids: Optional[List[str]]=None):
-        message = f'块合并操作失败: {reason}'
-        super().__init__(message, original_exception=original_exception,
-            reason=reason, processing_block_ids=processing_block_ids)
+    def __init__(
+        self,
+        reason: str,
+        original_exception: Optional[Exception] = None,
+        processing_block_ids: Optional[List[str]] = None,
+    ):
+        message = f"块合并操作失败: {reason}"
+        super().__init__(
+            message,
+            original_exception=original_exception,
+            reason=reason,
+            processing_block_ids=processing_block_ids,
+        )
 
 
 class BlockMergingStageError(KDToolError):
     """WHY: 块合并阶段通用异常；WHAT: 统一捕获；HOW: 继承 KDToolError。"""
+
     pass

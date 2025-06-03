@@ -9,12 +9,16 @@ from __future__ import annotations
 import abc
 from typing import List, Optional, Protocol
 
-from kd_tool.core.core_dtos import ContentBlockDTO, PipelineContextDTO  # 仅导入 DTO，无 ORM 依赖
+from kd_tool.core.core_dtos import (
+    ContentBlockDTO,
+    PipelineContextDTO,
+)  # 仅导入 DTO，无 ORM 依赖
 from kd_tool.core.errors import KDToolError
 
 
 class TransactionError(KDToolError):
     """事务生命周期错误。"""
+
     pass
 
 
@@ -44,4 +48,3 @@ class StorageInterface(abc.ABC):
 
     def save_pipeline_context(self, context: PipelineContextDTO) -> None:
         """批量持久化整个流水线上下文，内部自动处理事务。"""
-

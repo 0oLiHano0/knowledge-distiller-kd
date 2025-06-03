@@ -5,6 +5,7 @@
 from __future__ import annotations
 from typing import Protocol, runtime_checkable, abstractmethod
 
+
 @runtime_checkable
 class LoggerProtocol(Protocol):
     """
@@ -12,6 +13,7 @@ class LoggerProtocol(Protocol):
     WHAT: 供依赖注入，兼容Loguru。
     HOW: 只定义接口，无实现。
     """
+
     def debug(self, msg: str, *a, **kw): ...
     def info(self, msg: str, *a, **kw): ...
     def warning(self, msg: str, *a, **kw): ...

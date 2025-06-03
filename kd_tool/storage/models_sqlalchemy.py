@@ -16,9 +16,12 @@ Base = declarative_base()
 
 class ContentBlockORM(Base):
     """WHY 映射表；WHAT 存储文本块+哈希；HOW 供 SQLiteStorage 使用。"""
+
     __tablename__ = "content_blocks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     md5: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
-    created_at: Mapped[dt.datetime] = mapped_column(DateTime, default=dt.datetime.utcnow)
+    created_at: Mapped[dt.datetime] = mapped_column(
+        DateTime, default=dt.datetime.utcnow
+    )
