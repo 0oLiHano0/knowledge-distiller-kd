@@ -39,29 +39,14 @@ def iter_source_files(package) -> list[Path]:
     """
     why: 获取指定包下的所有 .py 文件路径，用于后续的静态分析。
     what: 遍历包目录，收集所有Python源文件。
-    how: 使用 `pkgutil.get_loader` 获取包加载器，然后通过其路径递归查找。
-         由于已创建 kd_tool/__init__.py，预期加载器应具有 path 属性。
+    how: 使用 importlib.util.find_spec 获取包路径，然后递归查找。
+         由于已创建 kd_tool/__init__.py，预期spec.submodule_search_locations可用。
     """
-    pk_loader = pkgutil.get_loader(package.__name__)
-    
-    # 确保加载器有效并且可以获取路径信息
-    assert pk_loader and (hasattr(pk_loader, "path") or hasattr(pk_loader, "get_filename")), \
+    spec = importlib.util.find_spec(package.__name__)
+    assert spec is not None and spec.submodule_search_locations, \
         f"无法获取包 {package.__name__} 的路径信息。请确保它是具有 __init__.py 的常规包。"
-
-    package_root_path_str = ""
-    if hasattr(pk_loader, "path"): 
-        package_root_path_str = pk_loader.path
-    elif hasattr(pk_loader, "get_filename"):
-        init_file_path = Path(pk_loader.get_filename(package.__name__))
-        package_root_path_str = str(init_file_path.parent)
-    
-    assert package_root_path_str, f"未能从加载器 {pk_loader} 中确定包 {package.__name__} 的根路径。"
-
+    package_root_path_str = list(spec.submodule_search_locations)[0]
     root = Path(package_root_path_str)
-    # 如果路径指向 __init__.py 文件，实际的包根目录是其父目录
-    if root.is_file() and root.name == "__init__.py":
-        root = root.parent
-        
     return [p for p in root.rglob("*.py") if p.is_file()]
 
 
