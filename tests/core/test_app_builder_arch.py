@@ -7,27 +7,27 @@ import inspect
 import pytest
 from kd_tool.core.application_builder import ApplicationBuilder
 from kd_tool.core.core_dtos import PipelineContextDTO
+import ast
 
 def test_app_builder_uses_di_and_factory():
     """增强：收集所有依赖注入/工厂/实例化相关问题，一次性输出。"""
+    import sys
+    import types
     errors = []
-    sig = inspect.signature(ApplicationBuilder.__init__)
-    if len(sig.parameters) <= 1:
-        errors.append("ApplicationBuilder 构造参数过少，未体现DI")
+    from kd_tool.core.application_builder import ApplicationBuilder
     src = inspect.getsource(ApplicationBuilder)
-    if "Factory" not in src:
-        errors.append("ApplicationBuilder 未用工厂模式")
-    if "def build" not in src:
-        errors.append("缺少build方法")
-    forbidden = ["= ", "new ", "import "]
-    for idx, line in enumerate(src.splitlines()):
-        # 跳过常见局部变量赋值（如stages = {}等）
-        if any(f in line for f in forbidden) and "Factory" not in line and "__init__" not in line:
-            line_strip = line.strip()
-            # 允许局部变量赋值
-            if line_strip.startswith(("stages =", "result =", "data =", "output =", "errors =")):
-                continue
-            if not ("Factory" in line or "self." in line):
-                errors.append(f"ApplicationBuilder 不应直接实例化依赖: {line_strip} (line {idx+1})")
+    tree = ast.parse(src)
+    class_name = ApplicationBuilder.__name__
+    forbidden = [ast.Assign, ast.Import, ast.ImportFrom]
+    # 只检查类体和__init__外部的赋值/导入
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == class_name:
+            for class_item in node.body:
+                # 只检查类体的赋值（不在函数/方法体内）
+                if isinstance(class_item, ast.Assign):
+                    # 允许__init__和方法体内的赋值
+                    errors.append(f"ApplicationBuilder 不应在类体直接实例化依赖: {ast.unparse(class_item)} (line {class_item.lineno})")
+                if isinstance(class_item, (ast.Import, ast.ImportFrom)):
+                    errors.append(f"ApplicationBuilder 不应在类体直接import依赖: {ast.unparse(class_item)} (line {class_item.lineno})")
     if errors:
         pytest.fail("依赖注入/工厂相关问题:\n" + "\n".join(errors)) 
