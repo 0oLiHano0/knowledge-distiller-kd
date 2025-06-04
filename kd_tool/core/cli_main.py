@@ -181,7 +181,6 @@ def run(
         if logger:
             logger.info("⚡️ 应用程序构建完成，准备启动流水线...")
     except KDToolError as e:
-
         typer.secho(
             f"❌ 严重错误: Logger未能成功初始化。", fg=typer.colors.RED, err=True
         )
@@ -196,7 +195,6 @@ def run(
             typer.secho("----------------------", fg=typer.colors.YELLOW, err=True)
         raise typer.Exit(code=2)
     except Exception as e:
-
         typer.secho(
             f"❌ 严重错误: 应用程序构建时发生未知错误: {e}",
             fg=typer.colors.RED,
@@ -233,11 +231,7 @@ def run(
             fg=typer.colors.RED,
             err=True,
         )
-        typer.secho(
-            "   请立即检查日志文件获取详细的堆栈跟踪信息。",
-            fg=typer.colors.RED,
-            err=True,
-        )
+        traceback.print_exc(file=sys.stderr)
         raise typer.Exit(code=5)
 
 

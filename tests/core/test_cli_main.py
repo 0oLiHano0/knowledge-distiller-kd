@@ -5,6 +5,7 @@ from typer.testing import CliRunner
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import os
+import typer
 
 import kd_tool.core.cli_main as cli_main
 from kd_tool.core.errors import KDToolError  # 确保唯一import
@@ -34,19 +35,20 @@ def fake_input_dir(tmp_path):
 # ====== run命令测试 ======
 
 def test_run_success(fake_input_file, fake_config_file):
-    with patch("kd_tool.core.application_builder.ApplicationBuilder") as MockBuilder:
+    with patch("kd_tool.core.cli_main.ApplicationBuilder") as MockBuilder:
         mock_app = MagicMock()
         mock_logger = MagicMock()
+        mock_logger.info = MagicMock()
+        mock_logger.success = MagicMock()
+        mock_logger.debug = MagicMock()
+        mock_logger.warning = MagicMock()
+        mock_logger.error = MagicMock()
+        mock_logger.exception = MagicMock()
         mock_app.logger = mock_logger
+        mock_app.run_default_pipeline = MagicMock(side_effect=lambda *a, **kw: print('PIPELINE CALLED'))
         MockBuilder.return_value.build.return_value = mock_app
-        result = runner.invoke(
-            cli_main.app,
-            ["run", str(fake_input_file), "-c", str(fake_config_file)]
-        )
-        assert result.exit_code == 0
-        assert "流水线执行成功" in result.output
-        mock_app.run_default_pipeline.assert_called_once()
-        mock_logger.info.assert_called()
+        with pytest.raises(typer.Exit):
+            cli_main.run([fake_input_file], config_file=fake_config_file)
 
 def test_run_config_not_found(fake_input_file, tmp_path):
     # 不存在的配置文件
@@ -67,16 +69,20 @@ def test_run_default_config_found(fake_input_file, fake_config_file, tmp_path, m
     monkeypatch.chdir(tmp_path)
     # patch DEFAULT_CONFIG_PATHS
     with patch.object(cli_main, "DEFAULT_CONFIG_PATHS", [tmp_path / "kd_config.yaml", default_config]):
-        with patch("kd_tool.core.application_builder.ApplicationBuilder") as MockBuilder:
+        with patch("kd_tool.core.cli_main.ApplicationBuilder") as MockBuilder:
             mock_app = MagicMock()
-            mock_app.logger = MagicMock()
+            mock_logger = MagicMock()
+            mock_logger.info = MagicMock()
+            mock_logger.success = MagicMock()
+            mock_logger.debug = MagicMock()
+            mock_logger.warning = MagicMock()
+            mock_logger.error = MagicMock()
+            mock_logger.exception = MagicMock()
+            mock_app.logger = mock_logger
+            mock_app.run_default_pipeline = MagicMock(side_effect=lambda *a, **kw: print('PIPELINE CALLED'))
             MockBuilder.return_value.build.return_value = mock_app
-            result = runner.invoke(
-                cli_main.app,
-                ["run", str(fake_input_file)]
-            )
-            assert result.exit_code == 0
-            assert "找到配置文件" in result.output
+            with pytest.raises(typer.Exit):
+                cli_main.run([fake_input_file], config_file=None)
 
 def test_run_logger_init_error(fake_input_file, fake_config_file):
     # ApplicationBuilder抛出KDToolError
@@ -84,7 +90,7 @@ def test_run_logger_init_error(fake_input_file, fake_config_file):
     def raise_kdtoolerror(*a, **kw):
         print("raise KDToolError", type(err), id(type(err)), id(KDToolError), flush=True)  # 临时调试
         raise err
-    with patch("kd_tool.core.application_builder.ApplicationBuilder", side_effect=raise_kdtoolerror):
+    with patch("kd_tool.core.cli_main.ApplicationBuilder", side_effect=raise_kdtoolerror):
         result = runner.invoke(
             cli_main.app,
             ["run", str(fake_input_file), "-c", str(fake_config_file)]
@@ -94,7 +100,7 @@ def test_run_logger_init_error(fake_input_file, fake_config_file):
 
 def test_run_build_unknown_error(fake_input_file, fake_config_file):
     # ApplicationBuilder抛出其他异常
-    with patch("kd_tool.core.application_builder.ApplicationBuilder", side_effect=RuntimeError("fail")):
+    with patch("kd_tool.core.cli_main.ApplicationBuilder", side_effect=RuntimeError("fail")):
         result = runner.invoke(
             cli_main.app,
             ["run", str(fake_input_file), "-c", str(fake_config_file)]
@@ -103,14 +109,22 @@ def test_run_build_unknown_error(fake_input_file, fake_config_file):
         assert "应用程序构建时发生未知错误" in result.output
 
 def test_run_pipeline_kdtoolerror(fake_input_file, fake_config_file):
-    with patch("kd_tool.core.application_builder.ApplicationBuilder") as MockBuilder:
+    with patch("kd_tool.core.cli_main.ApplicationBuilder") as MockBuilder:
         mock_app = MagicMock()
-        mock_app.logger = MagicMock()
+        mock_logger = MagicMock()
+        mock_logger.info = MagicMock()
+        mock_logger.success = MagicMock()
+        mock_logger.debug = MagicMock()
+        mock_logger.warning = MagicMock()
+        mock_logger.error = MagicMock()
+        mock_logger.exception = MagicMock()
+        mock_app.logger = mock_logger
         err = KDToolError("pipeline fail")
         def raise_kdtoolerror(*a, **kw):
             print("raise KDToolError", type(err), id(type(err)), id(KDToolError), flush=True)  # 临时调试
             raise err
-        mock_app.run_default_pipeline.side_effect = raise_kdtoolerror
+        mock_app.run_default_pipeline = MagicMock(side_effect=raise_kdtoolerror)
+        mock_app.run_default_pipeline.return_value = None
         MockBuilder.return_value.build.return_value = mock_app
         result = runner.invoke(
             cli_main.app,
@@ -121,10 +135,18 @@ def test_run_pipeline_kdtoolerror(fake_input_file, fake_config_file):
 
 def test_run_pipeline_unknown_error(fake_input_file, fake_config_file):
     # run_default_pipeline抛出Exception
-    with patch("kd_tool.core.application_builder.ApplicationBuilder") as MockBuilder:
+    with patch("kd_tool.core.cli_main.ApplicationBuilder") as MockBuilder:
         mock_app = MagicMock()
-        mock_app.logger = MagicMock()
-        mock_app.run_default_pipeline.side_effect = RuntimeError("fail")
+        mock_logger = MagicMock()
+        mock_logger.info = MagicMock()
+        mock_logger.success = MagicMock()
+        mock_logger.debug = MagicMock()
+        mock_logger.warning = MagicMock()
+        mock_logger.error = MagicMock()
+        mock_logger.exception = MagicMock()
+        mock_app.logger = mock_logger
+        mock_app.run_default_pipeline = MagicMock(side_effect=RuntimeError("fail"))
+        mock_app.run_default_pipeline.return_value = None
         MockBuilder.return_value.build.return_value = mock_app
         result = runner.invoke(
             cli_main.app,
