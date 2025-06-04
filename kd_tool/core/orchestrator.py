@@ -1,26 +1,76 @@
 """
+====================开发指引======================
+kd_tool/core/orchestrator.py - v4.2
 =================================================
-orchestrator.py - 流水线编排器核心 (v4.1)
-=================================================
 
-**模块功能**:
+**【文件定位】**  
+- 路径：kd_tool/core/orchestrator.py
+- 所属模块：核心服务层（Core Service Layer）
+- 作用：全局流水线编排器，负责调度各阶段模块，管理上下文生命周期。
 
-- **核心职责**: 作为流水线调度引擎，根据配置 (`OrchestratorSettings`) 和输入，
-              按顺序 (`default_stage_order` 或覆盖) 执行各个处理阶段 (`StageInterface`)。
-- **技术实现**: 管理流水线生命周期，创建并传递 `PipelineContextDTO`，处理阶段错误，记录关键信息。
-- **v4.1 核心变更**:
-    - **[指令] 必须** 使用 `PipelineContextDTO` 作为流水线数据和状态的 **唯一** 载体。
-    - **[指令] 必须** 调整 `run` 方法以创建和管理 `PipelineContextDTO`。
-    - **[指令] 必须** 确保 `StageInterface.process` 的调用签名与接口定义一致。
-    - **[指令] 必须** 废弃旧的 `OutputResult` 和基于 `Dict[str, Any]` 的上下文。
+**【模块职责（SRP）】**  
+- 唯一职责：作为 KD-Tool 的全局流程调度者，负责依次调用各阶段模块的 process 方法，管理 PipelineContextDTO 的生命周期，协调日志与错误处理。
 
-**架构约束**:
-- **[规范] 必须** 遵循依赖注入原则，其依赖 (`Logger`, `Settings`, `Stages`) **必须** 由工厂注入。
-- **[规范] 必须** 保持无状态。每次 `run` 调用都是独立的。
-- **[规范] 严禁** 包含任何具体阶段的业务逻辑。
-- **[规范] 必须** 负责宏观调度和错误处理策略的实施。
+**【依赖关系与注入】**  
+- 依赖项：
+    - stage_modules: Dict[str, StageInterface]（所有阶段模块实例，工厂注入）
+    - default_stage_order: List[str]（默认阶段顺序，工厂注入）
+    - settings: OrchestratorSettings（配置对象，工厂注入）
+    - logger: LoggerProtocol（日志协议，工厂注入）
+    - storage: StorageInterface（存储接口，工厂注入）
+- 注入方式：全部通过构造函数注入，严禁内部实例化依赖。
+- Mock点：logger、storage、stage_modules 可在单元测试中替换为 Mock 实现。
 
----
+**【输入输出规范】**  
+- Orchestrator.run(input_paths: List[Path]) -> PipelineContextDTO
+    - 输入：input_paths（待处理文件路径列表）
+    - 输出：PipelineContextDTO（包含 task_id、日志、阶段处理结果、错误等）
+    - 异常：抛出 OrchestratorError 及其子类，所有异常均需结构化处理并记录日志。
+- 仅通过 DTO（如 PipelineContextDTO）进行数据传递，严禁传递 ORM 实体。
+
+**【核心架构约束】**  
+- 严禁持久化状态，所有运行时上下文仅通过 context 传递。
+- 严禁包含具体业务逻辑，仅负责调度与生命周期管理。
+- 严禁直接依赖底层存储/模型，所有依赖均通过注入。
+- 必须类型注解，所有方法参数/返回值均需类型提示。
+- 日志上下文绑定仅在 run() 内部，禁止多次链式 bind。
+- 重要类/方法（如 Orchestrator、run、_validate_pipeline_definition、_determine_stages_to_run）需添加三段式注释（WHY/WHAT/HOW）。
+- 禁止直接实例化依赖、禁止业务逻辑与存储耦合。
+
+**【接口与DTO规范】**  
+- 关键接口：
+    - Orchestrator（主类）
+    - run(input_paths: List[Path]) -> PipelineContextDTO
+    - configure(**kwargs) -> None（预留，当前未实现）
+- DTO：
+    - PipelineContextDTO（上下文传递对象，Pydantic定义）
+    - OrchestratorSettings（配置对象，Pydantic定义）
+- 异常类：
+    - OrchestratorError 及其子类（如 StageExecutionError、InvalidPipelineDefinitionError）
+
+**【日志与安全】**  
+- 日志记录点：
+    - 每次 run() 生成唯一 task_id，并通过 logger.bind 绑定上下文
+    - 各阶段执行前后、异常捕获、流水线结束均需记录日志
+    - 日志级别：info（流程事件）、error（已知异常）、exception（未知异常）、debug（校验/调试信息）、warning（未实现方法）
+- 敏感信息处理：日志中不得输出敏感数据内容，仅记录元信息（如路径、task_id）。
+- 权限/安全：Orchestrator 不涉及权限控制，安全约束由上层调用方保证。
+
+**【任务清单】**  
+1. [已完成] 依赖注入与无状态性设计
+2. [已完成] 日志上下文绑定与日志协议合规
+3. [已完成] DTO与ORM分离、类型注解
+4. [已完成] 自定义异常体系与结构化错误处理
+5. [已完成] 阶段顺序与定义校验
+6. [已完成] 运行时阶段覆盖与跳过机制
+7. [已完成] configure方法预留与未实现警告
+8. [待完成] 单元测试用例完善（Mock依赖、异常分支、日志校验等）
+9. [待完成] 工厂模式集成与依赖组装规范文档补充
+
+**【其他说明】**  
+- 未来如需扩展动态阶段插拔、流水线分支、并行执行等高级特性，需在工厂与配置层预留扩展点。
+- 历史遗留：早期版本可能存在依赖实例化、日志污染等问题，已在当前版本修正。
+- TODO：完善 orchestrator 相关的工厂实现与集成测试，确保全链路可插拔与可观测性。
 """
 
 import uuid

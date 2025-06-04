@@ -1,19 +1,88 @@
 """
+====================开发指引======================
+kd_tool/core/application_builder.py - v4.7
 =================================================
-application_builder.py - 应用程序构建器 (v4.6 - 新日志层集成)
-=================================================
 
-**模块功能**:
+**【文件定位】**  
+- 所属包结构：kd_tool.core
+- 归属层次：组合根（Composition Root），负责组装 Application、Orchestrator、Logger、各阶段工厂等所有核心依赖。
+- 该文件是系统启动与依赖注入的唯一入口，直接影响全局架构解耦与可扩展性。
 
-- **核心职责**: 作为组合根 (Composition Root)，创建和组装所有核心组件，包括使用新的日志层。
-- **v4.6 核心变更**:
-    - **[指令] 必须** 移除对 `core.logging_setup` 的引用。
-    - **[指令] 必须** 引入并使用 `kd_tool.logging.LoggerFactory`。
-    - **[指令] 必须** 使用 `kd_tool.logging.LoggerProtocol` 作为日志记录器的类型。
-    - **[指令] 必须** 将 `LoggerProtocol` 实例正确注入到所有依赖项中。
-    - **[指令] 必须** 确保所有注释为中文。
+**【模块职责（SRP）】**  
+- 唯一职责：负责根据配置组装并注入所有核心依赖，生成可运行的 Application 实例，确保各阶段、存储、日志等服务的解耦与可插拔。
 
----
+**【依赖关系与注入】**  
+- 依赖外部服务/接口：
+    - AppConfig（配置对象，Pydantic模型）
+    - LoggerFactory、LoggerProtocol（日志工厂与协议）
+    - StorageFactory（存储工厂）
+    - OrchestratorFactory（编排器工厂）
+    - 各阶段工厂（PrefilterStageFactory、DocumentProcessingStageFactory、BlockMergerStageFactory、MD5AnalysisStageFactory、SimHashAnalysisStageFactory、SemanticAnalysisStageFactory、DecisionStageFactory、CleanupStageFactory）
+- 依赖注入方式：全部通过构造函数注入，严禁内部直接实例化依赖。
+- Mock点：所有工厂、Logger、配置对象均可注入Mock实现，便于单元测试。
+
+**【输入输出规范】**  
+- ApplicationBuilder
+    - 输入：配置路径（str）、AppConfig、LoggerFactory、LoggerProtocol、StorageFactory、OrchestratorFactory等
+    - 输出：Application实例
+    - 异常：KDToolError及其子类
+- Application
+    - run_default_pipeline(input_paths_str: List[str]) -> None
+        - 输入：输入路径字符串列表
+        - 输出：无（流程型，异常时抛出KDToolError）
+        - 异常：KDToolError及其子类
+- DTO/ORM边界：所有跨模块数据传递均使用DTO（如PipelineContextDTO），严禁直接传递ORM对象。
+
+**【核心架构约束】**  
+- 禁止直接实例化依赖，所有依赖必须通过注入或工厂模式创建。
+- 禁止业务逻辑与存储耦合，所有存储操作通过StorageInterface。
+- 必须类型注解，所有函数/方法参数与返回值均需类型提示。
+- 日志与异常处理：
+    - 日志必须通过LoggerProtocol注入，严禁全局/单例获取。
+    - 关键流程、异常、错误均需结构化日志记录，优先使用logger.exception。
+- 重要类/函数需三段式注释（WHY/WHAT/HOW）：
+    - ApplicationBuilder.__init__
+    - ApplicationBuilder._get_storage_instance
+    - ApplicationBuilder._create_stages
+    - ApplicationBuilder.build
+    - Application.run_default_pipeline
+- 禁止直接/链式bind持久化logger上下文，所有bind操作仅限本地变量。
+
+**【接口与DTO规范】**  
+- 关键接口：
+    - LoggerProtocol（日志协议，所有日志操作均通过该协议）
+    - StorageInterface（存储接口，所有存储操作均通过该接口）
+    - StageInterface（阶段接口，所有阶段模块均实现该接口）
+- DTO：
+    - PipelineContextDTO（流水线上下文与错误传递）
+- 异常类：
+    - KDToolError及其子类（所有可预见错误均需自定义异常）
+- 工厂/接口隔离：所有工厂与实现分离，接口定义与实现解耦。
+
+**【日志与安全】**  
+- 日志记录点：
+    - 应用启动、流水线启动/完成、阶段执行、异常捕获等关键节点
+    - 日志级别：info（流程）、debug（参数）、error/exception（错误）
+- 敏感信息处理：日志中严禁明文记录敏感数据，需脱敏或省略。
+- 权限/数据安全：如涉及，需在日志与异常中避免泄露内部实现细节。
+
+**【任务清单】**  
+1. **load_config函数**：已实现占位符函数，具备接口与警告提示，尚未实现真实的配置加载逻辑（如YAML/ENV/CLI解析）。
+2. **Application类**：已完整实现，包含Orchestrator与LoggerProtocol注入，run_default_pipeline方法实现了参数转换、异常处理、日志记录等关键流程，符合规范。
+3. **ApplicationBuilder类**：已完整实现，支持所有依赖注入，工厂模式组装，未见直接实例化依赖。
+4. **_get_storage_instance方法**：已实现，保证存储服务单例，依赖注入。
+5. **_create_stages方法**：已实现，依次通过各自工厂创建所有阶段模块，未见直接实例化。
+6. **build方法**：已实现，组装Orchestrator与Logger，返回完整Application实例。
+7. **类型注解**：所有方法、类、参数、返回值均有类型注解，符合要求。
+8. **三段式注释**：ApplicationBuilder及其关键方法、Application.run_default_pipeline均已补充WHY/WHAT/HOW三段式注释。
+9. **日志与异常处理**：日志与异常处理严格遵守架构规范，所有异常均结构化日志输出，敏感信息未见泄露。
+10. **单元测试**：当前文件未包含测试代码，未见单元测试实现，需在tests目录下补充。
+
+**【其他说明】**  
+- 未来如需扩展新阶段，仅需新增工厂并在_create_stages中注册，无需修改核心逻辑，完全符合开闭原则。
+- 若需支持多种配置来源（如YAML/ENV/CLI），load_config需适配多种解析方式。
+- 历史遗留/未来TODO：后续可考虑将ApplicationBuilder进一步解耦为多级工厂，支持插件化阶段注册。
+
 """
 
 import traceback
