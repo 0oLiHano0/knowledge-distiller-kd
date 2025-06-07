@@ -1,74 +1,53 @@
 """
-=================================================
-factory.py - 日志工厂 (v4.1)
-=================================================
-
-**模块功能**:
-
-- **核心职责**: 创建 `LoggerProtocol` 实例。
-- LoggerFactory：唯一与 loguru 耦合的地方，负责按配置装配 logger
----
+日志工厂模块
+-----------
+提供统一的日志配置接口。
 """
 
-# kd_tool/logging/factory.py
 from __future__ import annotations
+import sys
 
-from loguru import logger as _loguru_logger
-from kd_tool.logging.settings import LoggingSettingsDTO
-from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.logging.errors import LoggingError
+from loguru import logger
+
+from kd_tool.logging.settings import LoggingConfigDTO
 
 
-class LoggerFactory:
-    """
-    WHY: 日志工厂。
-    WHAT: 根据配置创建LoggerProtocol实例。
-    HOW: 依赖注入settings，工厂模式。
-    """
-
-    def __init__(self, settings: LoggingSettingsDTO) -> None:
-        """
-        WHY : 立即应用配置，确保确定性
-        WHAT: 保存基础 logger
-        HOW : 若失败抛 LoggingError
-        """
-        try:
-            self._base = _loguru_logger.bind(app="kd_tool")
-            self._configure(settings)
-        except Exception as exc:  # noqa: BLE001
-            raise LoggingError("日志配置失败") from exc
-
-    def get_logger(self, *, task_id: str | None = None) -> LoggerProtocol:
-        """
-        WHY : 为调用方提供上下文日志
-        WHAT: 返回 LoggerProtocol 子实例
-        HOW : 使用 loguru.bind 追加字段
-        """
-        return self._base if task_id is None else self._base.bind(task_id=task_id)
-
-    # ---------------- private ----------------
-    def _configure(self, cfg: LoggingSettingsDTO) -> None:
-        """
-        WHY : 根据 DTO 设置输出目标
-        WHAT: 配置 stdout 及可选文件 sink
-        HOW : 调用 loguru.add
-        """
-        _loguru_logger.remove()  # 清除默认 sink
-        fmt = "{time:YYYY-MM-DD HH:mm:ss.SSS} | {level:<8} | {extra[task_id]:-<8} | {message}"
-        _loguru_logger.add(
-            sink=lambda m: print(m, end=""),
-            level=cfg.level,
-            format=fmt,
-            enqueue=True,
-            serialize=cfg.log_serialize_json,
-        )
-        if cfg.log_file:
-            _loguru_logger.add(
-                cfg.log_file,
-                rotation=cfg.rotation,
-                retention=cfg.retention,
-                level=cfg.level,
-                format=fmt,
-                enqueue=True,
-                serialize=cfg.log_serialize_json,
+def configure_logging(use_env: bool = False) -> None:
+    """配置日志系统。"""
+    try:
+        # 加载配置
+        config = LoggingConfigDTO.from_env() if use_env else LoggingConfigDTO.default()
+        
+        # 移除所有现有处理器
+        logger.remove()
+        
+        # 配置控制台输出
+        if config.console.enabled:
+            logger.add(
+                sys.stdout,
+                format=config.format,
+                level=config.level.value,
+                colorize=config.console.colorize,
+                backtrace=config.console.backtrace,
+                diagnose=config.console.diagnose,
+                enqueue=config.console.enqueue,
+                catch=config.console.catch,
+                serialize=config.serialize
             )
+        
+        # 配置文件输出
+        if config.file.enabled:
+            logger.add(
+                str(config.file.path),  # 确保路径是字符串
+                format=config.file.format,
+                level=config.level.value,
+                rotation=config.file.rotation,
+                retention=config.file.retention,
+                compression=config.file.compression,
+                serialize=config.file.serialize,
+                enqueue=True,
+                catch=True
+            )
+            
+    except Exception as exc:
+        raise RuntimeError(f"日志配置失败: {str(exc)}") from exc

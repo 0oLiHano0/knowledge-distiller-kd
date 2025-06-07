@@ -124,11 +124,16 @@ from kd_tool.storage.storage_interface import StorageInterface
 def load_config(path: str) -> AppConfig:
     """
     加载应用程序配置。
-    【注意】这是一个占位符实现。您需要替换为从 YAML 或其他来源加载配置的真实逻辑。
+    【注意】占位符实现：返回一个带最小可用 StorageSettingsDTO.backend_type 的默认配置。
     """
-    print(f"警告：正在使用占位符 'load_config'。请实现从 {path} 加载配置的真实逻辑。")
-    # 这里返回一个默认配置，仅用于演示结构
-    return AppConfig()
+    print(
+        f"⚠️  使用占位默认配置；实际项目应从 {path} 加载 YAML / ENV 等配置文件。"
+    )
+    from kd_tool.storage.settings_models import StorageSettingsDTO
+
+    return AppConfig(
+        storage=StorageSettingsDTO(backend_type="sqlite")
+    )
 
 
 class Application:
@@ -210,11 +215,11 @@ class ApplicationBuilder:
     def __init__(
         self,
         config_path: str,
-        config: AppConfig,
-        logger_factory: LoggerFactory,
-        logger: LoggerProtocol,
-        storage_factory: StorageFactory,
-        orchestrator_factory: OrchestratorFactory,
+        config: Optional[AppConfig] = None,
+        logger_factory: Optional[LoggerFactory] = None,
+        logger: Optional[LoggerProtocol] = None,
+        storage_factory: Optional[StorageFactory] = None,
+        orchestrator_factory: Optional[OrchestratorFactory] = None,
         # 可扩展更多工厂
     ):
         """
@@ -222,12 +227,24 @@ class ApplicationBuilder:
         what: 允许外部传入 config、logger、factory。
         how: 通过工厂和依赖注入实现解耦。
         """
-        self._config = config
-        self._logger_factory = logger_factory
-        self._logger = logger
-        self._storage_factory = storage_factory
-        self._orchestrator_factory = orchestrator_factory
-        # ...其他工厂同理
+        # 1. 加载配置
+        self._config: AppConfig = config or load_config(config_path)
+
+        # 2. 初始化日志工厂和 logger
+        self._logger_factory: LoggerFactory = logger_factory or LoggerFactory(
+            self._config.logging
+        )
+        self._logger: LoggerProtocol = logger or self._logger_factory.get_logger()
+
+        # 3. 初始化存储工厂
+        self._storage_factory: StorageFactory = storage_factory or StorageFactory(
+            logger=self._logger, settings=self._config.storage
+        )
+
+        # 4. 初始化 OrchestratorFactory
+        self._orchestrator_factory: OrchestratorFactory = (
+            orchestrator_factory or OrchestratorFactory(self._logger)
+        )
         self._storage_instance: Optional[StorageInterface] = None
 
     def _get_storage_instance(self) -> StorageInterface:
@@ -237,7 +254,8 @@ class ApplicationBuilder:
         how: 只在首次调用时创建。
         """
         if self._storage_instance is None:
-            self._storage_instance = self._storage_factory.create(self._config.storage)
+            # StorageFactory.create() 已经封装了具体后端创建逻辑，不再需要额外参数
+            self._storage_instance = self._storage_factory.create()
         return self._storage_instance
 
     def _create_stages(self) -> Dict[str, StageInterface]:
@@ -246,7 +264,6 @@ class ApplicationBuilder:
         what: 返回所有已启用的阶段实例。
         how: 依次通过各自工厂创建。
         """
-        storage = self._get_storage_instance()
         stages: Dict[str, StageInterface] = {}
         if self._config.prefilter.enabled:
             stages["prefilter"] = PrefilterStageFactory(self._logger).create(
@@ -267,11 +284,11 @@ class ApplicationBuilder:
         if self._config.simhash_analysis.enabled:
             stages["simhash_analysis"] = SimHashAnalysisStageFactory(
                 self._logger
-            ).create(storage, self._config.simhash_analysis)
+            ).create(self._config.simhash_analysis)
         if self._config.semantic_analysis.enabled:
             stages["semantic_analysis"] = SemanticAnalysisStageFactory(
                 self._logger
-            ).create(storage, self._config.semantic_analysis)
+            ).create(self._config.semantic_analysis)
         if self._config.decision.enabled:
             stages["decision"] = DecisionStageFactory(self._logger).create(
                 self._config.decision
@@ -288,10 +305,15 @@ class ApplicationBuilder:
         what: 返回完整 Application 实例。
         how: 组装 orchestrator 和 logger。
         """
+        # 先确保存储实例可用，供 Orchestrator 注入
+        storage = self._get_storage_instance()
+
         stages = self._create_stages()
+
         orchestrator = self._orchestrator_factory.create(
             stage_modules=stages,
-            default_stage_order=self._config.orchestrator.default_stage_order,
             settings=self._config.orchestrator,
+            storage=storage,
         )
+
         return Application(orchestrator, self._logger)

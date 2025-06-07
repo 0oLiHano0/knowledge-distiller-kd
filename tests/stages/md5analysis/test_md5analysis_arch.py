@@ -11,6 +11,7 @@ from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.md5analysis.settings_models import MD5AnalysisStageSettings
+from tests.logging.dummy_logger import DummyLogger
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -32,17 +33,8 @@ def dummy_storage():
     return DummyStorage()
 
 @pytest.fixture
-def dummy_logger():
-    class DummyLogger(LoggerProtocol):
-        def debug(self, msg, *a, **kw): pass
-        def info(self, msg, *a, **kw): pass
-        def warning(self, msg, *a, **kw): pass
-        def error(self, msg, *a, **kw): pass
-        def exception(self, msg, *a, **kw): pass
-        def success(self, msg, *a, **kw): pass
-        def bind(self, **kw): return self
-        def trace(self, msg, *a, **kw): pass
-        def add(self, sink, **kwargs): pass
+def dummy_logger() -> LoggerProtocol:
+    """返回一个 DummyLogger 实例"""
     return DummyLogger()
 
 @pytest.fixture

@@ -17,11 +17,11 @@ from typing import Dict, List
 from kd_tool.logging.protocols import (
     LoggerProtocol,
 )  # kd_tool/logging/protocols.py 日志协议
-from kd_tool.core.core_settings_models import OrchestratorSettings, OrchestratorSettingsError
+from kd_tool.core.core_settings_models import OrchestratorSettings
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.orchestrator import Orchestrator
 from kd_tool.core.errors import KDToolError
-from kd_tool.core.config import load_orchestrator_settings_from_dict
+from kd_tool.storage.storage_interface import StorageInterface
 
 
 class FactoryError(KDToolError):
@@ -53,35 +53,31 @@ class OrchestratorFactory:
     def create(
         self,
         stage_modules: Dict[str, StageInterface],
-        config_dict: dict,
+        settings: OrchestratorSettings,
+        storage: StorageInterface,
     ) -> Orchestrator:
         """
-        **[指令]** 创建并返回一个配置好的 `Orchestrator` 实例。
-        **必须** 通过config.py加载配置，捕获并转换异常。
+        创建并返回一个配置好的 `Orchestrator` 实例。
 
-        **参数**:
-            stage_modules (Dict[str, StageInterface]): 阶段模块字典。
-            config_dict (dict): OrchestratorSettings配置字典。
+        参数:
+            stage_modules: 已实例化的 StageInterface 字典。
+            settings: 经 Pydantic 校验的 OrchestratorSettings 实例。
+            storage: StorageInterface 实例，用于流水线持久化。
 
-        **返回**:
-            Orchestrator: 一个准备好使用的 Orchestrator 实例。
+        返回:
+            Orchestrator: 完整配置好的编排器实例。
         """
         self._logger.info("尝试创建 Orchestrator 实例...")
         try:
-            settings = load_orchestrator_settings_from_dict(config_dict)
-            default_stage_order = settings.default_stage_order
-            self._logger.debug(f"使用的 OrchestratorSettings: {settings}")
             orchestrator_instance = Orchestrator(
                 stage_modules=stage_modules,
-                default_stage_order=default_stage_order,
+                default_stage_order=settings.default_stage_order,
                 settings=settings,
                 logger=self._logger,
+                storage=storage,
             )
             self._logger.success("Orchestrator 实例已成功创建。")
             return orchestrator_instance
-        except OrchestratorSettingsError as ose:
-            self._logger.error(f"配置校验失败: {ose}")
-            raise OrchestratorCreationError(message=str(ose), original_exception=ose)
         except Exception as e:
             self._logger.exception("创建 Orchestrator 实例时发生未预料的错误。")
             raise OrchestratorCreationError(message=str(e), original_exception=e) from e

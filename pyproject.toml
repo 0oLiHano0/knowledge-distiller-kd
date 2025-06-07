@@ -52,6 +52,7 @@ mistune = ">=3.0.1"
 # -------------------------------
 # CLI 入口
 # -------------------------------
+pytest-asyncio = "^1.0.0"
 [tool.poetry.scripts]
 kd-tool = "kd_tool.cli:main"
 

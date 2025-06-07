@@ -15,7 +15,7 @@ kd_tool/core/config.py - v4.7
 - 依赖外部服务/DTO：
     - StorageSettingsDTO（kd_tool.storage.settings_models）
     - OrchestratorSettings（kd_tool.core.core_settings_models）
-    - LoggingSettingsDTO（kd_tool.logging.settings）
+    - LoggingConfigDTO（kd_tool.logging.settings）
     - 各阶段配置 DTO（如 PrefilterStageSettings、MD5AnalysisStageSettings 等，均在各自模块 settings_models 中定义）
 - 依赖注入方式：所有依赖通过构造器注入（如工厂/服务/编排器），禁止直接实例化依赖。
 - Mock/替换需求：如需测试可通过 Pydantic 的 Config 或自定义 Mock DTO 实现。
@@ -26,7 +26,7 @@ kd_tool/core/config.py - v4.7
     - project_version: str
     - storage: StorageSettingsDTO
     - orchestrator: OrchestratorSettings
-    - logging: LoggingSettingsDTO
+    - logging: LoggingConfigDTO
     - prefilter: PrefilterStageSettings
     - document_processing: DocumentProcessingStageSettings
     - block_merging: BlockMergerStageSettings
@@ -79,7 +79,7 @@ kd_tool/core/config.py - v4.7
 from pydantic import BaseModel, Field, ConfigDict, ValidationError
 from kd_tool.core.core_settings_models import OrchestratorSettings, OrchestratorSettingsError
 from kd_tool.logging.settings import (
-    LoggingSettingsDTO,
+    LoggingConfigDTO,
 )  # kd_tool/logging/settings.py 日志配置
 from kd_tool.storage.settings_models import StorageSettingsDTO
 from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
@@ -115,8 +115,8 @@ class AppConfig(BaseModel):
     orchestrator: OrchestratorSettings = Field(
         default_factory=OrchestratorSettings, description="编排器配置。"
     )
-    logging: LoggingSettingsDTO = Field(
-        default_factory=LoggingSettingsDTO,  # kd_tool/logging/settings.py 日志配置
+    logging: LoggingConfigDTO = Field(
+        default_factory=LoggingConfigDTO,  # kd_tool/logging/settings.py 日志配置
         description="日志系统配置。",
     )
     prefilter: PrefilterStageSettings = Field(
