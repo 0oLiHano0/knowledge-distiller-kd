@@ -231,10 +231,9 @@ class ApplicationBuilder:
         self._config: AppConfig = config or load_config(config_path)
 
         # 2. 初始化日志工厂和 logger
-        self._logger_factory: LoggerFactory = logger_factory or LoggerFactory(
+        self._logger: LoggerProtocol = logger or LoggerFactory.create(
             self._config.logging
         )
-        self._logger: LoggerProtocol = logger or self._logger_factory.get_logger()
 
         # 3. 初始化存储工厂
         self._storage_factory: StorageFactory = storage_factory or StorageFactory(

@@ -13,7 +13,7 @@ from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings, CzkawkaSettings
 from kd_tool.stages.prefilter.adapter_interface import CzkawkaAdapterInterface
 from pathlib import Path
-from tests.logging.dummy_logger import DummyLogger
+from kd_tool.logging.providers.dummy_impl import DummyLogger  # type: ignore
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass

@@ -1,11 +1,11 @@
-# 对外只暴露 LoggerProtocol 和 LoggerFactory
-
-
+# =====================================================
 # kd_tool/logging/__init__.py
+# =====================================================
 """
-WHY : 对外集中导出
-WHAT: 暴露 LoggerFactory 与 LoggerProtocol
-HOW : 供其他模块绝对导入
+kd_tool.logging 模块的公共接口层，通过导入机制实现业务逻辑与底层实现的松耦合。
 """
-from kd_tool.logging.protocols import LoggerProtocol  # noqa: F401
-from kd_tool.logging.factory import LoggerFactory  # noqa: F401
+from __future__ import annotations
+
+from .factory import LoggerFactory
+from .settings import LoggingConfigDTO
+from . import providers  # 这样 loguru_impl.py 会被 import，注册逻辑会自动执行

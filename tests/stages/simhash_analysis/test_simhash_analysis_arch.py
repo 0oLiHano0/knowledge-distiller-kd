@@ -13,7 +13,7 @@ from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
 import numpy as np
-from tests.logging.dummy_logger import DummyLogger
+from kd_tool.logging.providers.dummy_impl import DummyLogger  # type: ignore
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -89,11 +89,19 @@ def test_process_signature():
 
 def test_process_interaction(dummy_logger, dummy_settings, dummy_adapter):
     """
-    为什么: 检查 process 方法能否与 PipelineContextDTO、StorageInterface 交互。
-    做什么: 伪造 context，调用 process。
-    怎么做: 用 DummyAdapter 和 PipelineContextDTO。
+    为什么: 检查 process 方法能否与 PipelineContextDTO、StorageInterface 交互，并断言日志行为。
+    做什么: 伪造 context，调用 process，检查 DummyLogger 记录。
+    怎么做: 用 DummyAdapter 和 PipelineContextDTO，断言日志内容。
     """
+    DummyLogger.pop_records()  # type: ignore  # 清空历史日志
+
     stage = SimHashAnalysisStage(dummy_logger, dummy_settings, dummy_adapter)
     context = PipelineContextDTO(run_logger=dummy_logger)
     result = stage.process(context)
-    assert isinstance(result, PipelineContextDTO) 
+    assert isinstance(result, PipelineContextDTO)
+
+    records = DummyLogger.pop_records()  # type: ignore
+    # 断言没有 error 日志
+    assert all(r["level"] != "ERROR" for r in records)
+    # 断言有日志消息包含 "processed" 或你期望的关键词
+    assert any("processed" in r["msg"] for r in records) 

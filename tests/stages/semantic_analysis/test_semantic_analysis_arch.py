@@ -13,7 +13,7 @@ from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.semantic_analysis.settings_models import SemanticAnalysisStageSettings
 from kd_tool.stages.semantic_analysis.adapter_interface import SemanticAdapterInterface
 import numpy as np
-from tests.logging.dummy_logger import DummyLogger
+from kd_tool.logging.providers.dummy_impl import DummyLogger  # type: ignore
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass

@@ -11,7 +11,7 @@ from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.md5analysis.settings_models import MD5AnalysisStageSettings
-from tests.logging.dummy_logger import DummyLogger
+from kd_tool.logging.providers.dummy_impl import DummyLogger  # type: ignore
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass

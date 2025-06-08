@@ -63,7 +63,7 @@ class KDToolError(Exception):
     HOW: 支持原始异常链。
     """
 
-    def __init__(self, message: str, original_exception: Exception = None, **kwargs):
+    def __init__(self, message: str, original_exception: Exception | None = None, **kwargs):
         super().__init__(message)
         self.original_exception = original_exception
         self.context_info = kwargs if kwargs else {}

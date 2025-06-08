@@ -110,7 +110,7 @@ class AppConfig(BaseModel):
     )
     project_version: str = Field(default="4.6.0-dev", description="项目的当前版本号。")
     storage: StorageSettingsDTO = Field(
-        default_factory=StorageSettingsDTO, description="存储服务配置。"
+        default_factory=lambda: StorageSettingsDTO(backend_type="sqlite"), description="存储服务配置。"
     )
     orchestrator: OrchestratorSettings = Field(
         default_factory=OrchestratorSettings, description="编排器配置。"

@@ -189,7 +189,7 @@ class PipelineContextDTO(BaseModel):
         blocks_to_process = []
         for block_id, block in self.content_blocks.items():
             if not block.analysis_text:
-                self.run_logger.trace(
+                self.run_logger.debug(
                     f"Block {block.block_id}缺少analysis_text, 跳过SimHash分析判断。"
                 )
                 if analysis_type != AnalysisType.SIMHASH:

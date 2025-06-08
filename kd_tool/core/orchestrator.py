@@ -87,6 +87,7 @@ from kd_tool.core.core_settings_models import OrchestratorSettings
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.errors import KDToolError
 from kd_tool.storage.storage_interface import StorageInterface
+from kd_tool.logging.errors import LoggingError, ErrorSeverity
 
 
 class OrchestratorError(KDToolError):
@@ -232,6 +233,28 @@ class Orchestrator:
                     context.run_logger.info(
                         f"Orchestrator: Stage '{stage_name}' completed."
                     )
+                except LoggingError as e:
+                    context.run_logger.error(
+                        f"Orchestrator: Logging error in stage '{stage_name}': {e}"
+                    )
+                    context.add_error(e)
+                    match e.severity:
+                        case ErrorSeverity.FATAL:
+                            context.run_logger.error(
+                                f"Orchestrator: Fatal logging error in stage '{stage_name}', halting pipeline."
+                            )
+                            break
+                        case ErrorSeverity.RECOVERABLE:
+                            context.run_logger.warning(
+                                f"Orchestrator: Recoverable logging error in stage '{stage_name}', continuing with fallback."
+                            )
+                            # 这里可以添加降级逻辑，比如切换到 stdout
+                            continue
+                        case ErrorSeverity.WARNING:
+                            context.run_logger.warning(
+                                f"Orchestrator: Warning logging error in stage '{stage_name}', continuing."
+                            )
+                            continue
                 except KDToolError as e:  # 假设 KDToolError 是项目的基础错误
                     context.run_logger.error(
                         f"Orchestrator: Error in stage '{stage_name}': {e}"
