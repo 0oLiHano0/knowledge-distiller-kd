@@ -15,15 +15,15 @@ from dataclasses import dataclass
 class LoggingConfigDTO:
     """日志记录层理解的最小设置。"""
 
-    level: str = "INFO"          # 例如 "DEBUG" / "WARNING"
-    console: bool = True         # 总是记录到 stdout/stderr？
-    file_enabled: bool = False   # 启用文件 sink？
+    level: str = "INFO"  # 例如 "DEBUG" / "WARNING"
+    console: bool = True  # 总是记录到 stdout/stderr？
+    file_enabled: bool = False  # 启用文件 sink？
     file_path: str = "kd_tool.log"  # 当 *file_enabled* 为 True 时使用的路径
-    
+
     # 新增配置项
-    rotation: str = "10 MB"      # 日志文件轮转大小
-    retention: str = "7 days"    # 日志文件保留时间
-    fmt: str = (                # 日志格式
+    rotation: str = "10 MB"  # 日志文件轮转大小
+    retention: str = "7 days"  # 日志文件保留时间
+    fmt: str = (  # 日志格式
         "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | "
         "<level>{level:<8}</level> | "
         "{name}:{function}:{line} - "

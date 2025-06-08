@@ -13,6 +13,7 @@ from kd_tool.logging.factory import register
 from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.logging.settings import LoggingConfigDTO
 
+
 @register("loguru")
 class LoguruLogger(LoggerProtocol):
     """由 *Loguru* 提供支持的 :class:`LoggerProtocol` 具体实现。"""
@@ -37,7 +38,7 @@ class LoguruLogger(LoggerProtocol):
                 enqueue=False,
                 backtrace=True,
                 diagnose=True,
-                format=cfg.fmt
+                format=cfg.fmt,
             )
 
         # 可选的文件 sink
@@ -50,14 +51,16 @@ class LoguruLogger(LoggerProtocol):
                 format=cfg.fmt,
                 delay=True,  # 延迟文件创建，直到第一次写入
                 backtrace=True,  # 添加回溯信息
-                diagnose=True    # 添加诊断信息
+                diagnose=True,  # 添加诊断信息
             )
 
         # 返回包装器实例
         return cls()
 
     # ──────────────────────────────── 代理方法 ───────────────────────────────
-    def debug(self, msg: str, *, extra: dict[str, Any] | None = None) -> None:  # noqa: D401
+    def debug(
+        self, msg: str, *, extra: dict[str, Any] | None = None
+    ) -> None:  # noqa: D401
         self._raw.debug(msg, extra=extra or {})
 
     def info(self, msg: str, *, extra: dict[str, Any] | None = None) -> None:

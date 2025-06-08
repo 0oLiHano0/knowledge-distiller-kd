@@ -3,15 +3,15 @@
 kd_tool/core/orchestrator.py - v4.2
 =================================================
 
-**【文件定位】**  
+**【文件定位】**
 - 路径：kd_tool/core/orchestrator.py
 - 所属模块：核心服务层（Core Service Layer）
 - 作用：全局流水线编排器，负责调度各阶段模块，管理上下文生命周期。
 
-**【模块职责（SRP）】**  
+**【模块职责（SRP）】**
 - 唯一职责：作为 KD-Tool 的全局流程调度者，负责依次调用各阶段模块的 process 方法，管理 PipelineContextDTO 的生命周期，协调日志与错误处理。
 
-**【依赖关系与注入】**  
+**【依赖关系与注入】**
 - 依赖项：
     - stage_modules: Dict[str, StageInterface]（所有阶段模块实例，工厂注入）
     - default_stage_order: List[str]（默认阶段顺序，工厂注入）
@@ -21,14 +21,14 @@ kd_tool/core/orchestrator.py - v4.2
 - 注入方式：全部通过构造函数注入，严禁内部实例化依赖。
 - Mock点：logger、storage、stage_modules 可在单元测试中替换为 Mock 实现。
 
-**【输入输出规范】**  
+**【输入输出规范】**
 - Orchestrator.run(input_paths: List[Path]) -> PipelineContextDTO
     - 输入：input_paths（待处理文件路径列表）
     - 输出：PipelineContextDTO（包含 task_id、日志、阶段处理结果、错误等）
     - 异常：抛出 OrchestratorError 及其子类，所有异常均需结构化处理并记录日志。
 - 仅通过 DTO（如 PipelineContextDTO）进行数据传递，严禁传递 ORM 实体。
 
-**【核心架构约束】**  
+**【核心架构约束】**
 - 严禁持久化状态，所有运行时上下文仅通过 context 传递。
 - 严禁包含具体业务逻辑，仅负责调度与生命周期管理。
 - 严禁直接依赖底层存储/模型，所有依赖均通过注入。
@@ -37,7 +37,7 @@ kd_tool/core/orchestrator.py - v4.2
 - 重要类/方法（如 Orchestrator、run、_validate_pipeline_definition、_determine_stages_to_run）需添加三段式注释（WHY/WHAT/HOW）。
 - 禁止直接实例化依赖、禁止业务逻辑与存储耦合。
 
-**【接口与DTO规范】**  
+**【接口与DTO规范】**
 - 关键接口：
     - Orchestrator（主类）
     - run(input_paths: List[Path]) -> PipelineContextDTO
@@ -48,7 +48,7 @@ kd_tool/core/orchestrator.py - v4.2
 - 异常类：
     - OrchestratorError 及其子类（如 StageExecutionError、InvalidPipelineDefinitionError）
 
-**【日志与安全】**  
+**【日志与安全】**
 - 日志记录点：
     - 每次 run() 生成唯一 task_id，并通过 logger.bind 绑定上下文
     - 各阶段执行前后、异常捕获、流水线结束均需记录日志
@@ -56,7 +56,7 @@ kd_tool/core/orchestrator.py - v4.2
 - 敏感信息处理：日志中不得输出敏感数据内容，仅记录元信息（如路径、task_id）。
 - 权限/安全：Orchestrator 不涉及权限控制，安全约束由上层调用方保证。
 
-**【任务清单】**  
+**【任务清单】**
 1. [已完成] 依赖注入与无状态性设计
 2. [已完成] 日志上下文绑定与日志协议合规
 3. [已完成] DTO与ORM分离、类型注解
@@ -67,7 +67,7 @@ kd_tool/core/orchestrator.py - v4.2
 8. [待完成] 单元测试用例完善（Mock依赖、异常分支、日志校验等）
 9. [待完成] 工厂模式集成与依赖组装规范文档补充
 
-**【其他说明】**  
+**【其他说明】**
 - 未来如需扩展动态阶段插拔、流水线分支、并行执行等高级特性，需在工厂与配置层预留扩展点。
 - 历史遗留：早期版本可能存在依赖实例化、日志污染等问题，已在当前版本修正。
 - TODO：完善 orchestrator 相关的工厂实现与集成测试，确保全链路可插拔与可观测性。

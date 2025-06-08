@@ -3,15 +3,15 @@
 kd_tool/core/application_builder.py - v4.7
 =================================================
 
-**【文件定位】**  
+**【文件定位】**
 - 所属包结构：kd_tool.core
 - 归属层次：组合根（Composition Root），负责组装 Application、Orchestrator、Logger、各阶段工厂等所有核心依赖。
 - 该文件是系统启动与依赖注入的唯一入口，直接影响全局架构解耦与可扩展性。
 
-**【模块职责（SRP）】**  
+**【模块职责（SRP）】**
 - 唯一职责：负责根据配置组装并注入所有核心依赖，生成可运行的 Application 实例，确保各阶段、存储、日志等服务的解耦与可插拔。
 
-**【依赖关系与注入】**  
+**【依赖关系与注入】**
 - 依赖外部服务/接口：
     - AppConfig（配置对象，Pydantic模型）
     - LoggerFactory、LoggerProtocol（日志工厂与协议）
@@ -21,7 +21,7 @@ kd_tool/core/application_builder.py - v4.7
 - 依赖注入方式：全部通过构造函数注入，严禁内部直接实例化依赖。
 - Mock点：所有工厂、Logger、配置对象均可注入Mock实现，便于单元测试。
 
-**【输入输出规范】**  
+**【输入输出规范】**
 - ApplicationBuilder
     - 输入：配置路径（str）、AppConfig、LoggerFactory、LoggerProtocol、StorageFactory、OrchestratorFactory等
     - 输出：Application实例
@@ -33,7 +33,7 @@ kd_tool/core/application_builder.py - v4.7
         - 异常：KDToolError及其子类
 - DTO/ORM边界：所有跨模块数据传递均使用DTO（如PipelineContextDTO），严禁直接传递ORM对象。
 
-**【核心架构约束】**  
+**【核心架构约束】**
 - 禁止直接实例化依赖，所有依赖必须通过注入或工厂模式创建。
 - 禁止业务逻辑与存储耦合，所有存储操作通过StorageInterface。
 - 必须类型注解，所有函数/方法参数与返回值均需类型提示。
@@ -48,7 +48,7 @@ kd_tool/core/application_builder.py - v4.7
     - Application.run_default_pipeline
 - 禁止直接/链式bind持久化logger上下文，所有bind操作仅限本地变量。
 
-**【接口与DTO规范】**  
+**【接口与DTO规范】**
 - 关键接口：
     - LoggerProtocol（日志协议，所有日志操作均通过该协议）
     - StorageInterface（存储接口，所有存储操作均通过该接口）
@@ -59,14 +59,14 @@ kd_tool/core/application_builder.py - v4.7
     - KDToolError及其子类（所有可预见错误均需自定义异常）
 - 工厂/接口隔离：所有工厂与实现分离，接口定义与实现解耦。
 
-**【日志与安全】**  
+**【日志与安全】**
 - 日志记录点：
     - 应用启动、流水线启动/完成、阶段执行、异常捕获等关键节点
     - 日志级别：info（流程）、debug（参数）、error/exception（错误）
 - 敏感信息处理：日志中严禁明文记录敏感数据，需脱敏或省略。
 - 权限/数据安全：如涉及，需在日志与异常中避免泄露内部实现细节。
 
-**【任务清单】**  
+**【任务清单】**
 1. **load_config函数**：已实现占位符函数，具备接口与警告提示，尚未实现真实的配置加载逻辑（如YAML/ENV/CLI解析）。
 2. **Application类**：已完整实现，包含Orchestrator与LoggerProtocol注入，run_default_pipeline方法实现了参数转换、异常处理、日志记录等关键流程，符合规范。
 3. **ApplicationBuilder类**：已完整实现，支持所有依赖注入，工厂模式组装，未见直接实例化依赖。
@@ -78,7 +78,7 @@ kd_tool/core/application_builder.py - v4.7
 9. **日志与异常处理**：日志与异常处理严格遵守架构规范，所有异常均结构化日志输出，敏感信息未见泄露。
 10. **单元测试**：当前文件未包含测试代码，未见单元测试实现，需在tests目录下补充。
 
-**【其他说明】**  
+**【其他说明】**
 - 未来如需扩展新阶段，仅需新增工厂并在_create_stages中注册，无需修改核心逻辑，完全符合开闭原则。
 - 若需支持多种配置来源（如YAML/ENV/CLI），load_config需适配多种解析方式。
 - 历史遗留/未来TODO：后续可考虑将ApplicationBuilder进一步解耦为多级工厂，支持插件化阶段注册。
@@ -126,14 +126,10 @@ def load_config(path: str) -> AppConfig:
     加载应用程序配置。
     【注意】占位符实现：返回一个带最小可用 StorageSettingsDTO.backend_type 的默认配置。
     """
-    print(
-        f"⚠️  使用占位默认配置；实际项目应从 {path} 加载 YAML / ENV 等配置文件。"
-    )
+    print(f"⚠️  使用占位默认配置；实际项目应从 {path} 加载 YAML / ENV 等配置文件。")
     from kd_tool.storage.settings_models import StorageSettingsDTO, StorageBackend
 
-    return AppConfig(
-        storage=StorageSettingsDTO(backend=StorageBackend.SQLITE)
-    )
+    return AppConfig(storage=StorageSettingsDTO(backend=StorageBackend.SQLITE))
 
 
 class Application:

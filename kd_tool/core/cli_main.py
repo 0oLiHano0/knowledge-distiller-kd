@@ -3,15 +3,15 @@
 kd_tool/core/cli_main.py - v0.1
 =================================================
 
-**【文件定位】**  
+**【文件定位】**
 - 路径：kd_tool/core/cli_main.py
 - 所属：核心服务层（Core Layer）- 命令行入口（CLI Entrypoint）
 - 作用：作为 KD_Tool 的主命令行入口，负责参数解析、顶层异常处理、主流程调度，连接 ApplicationBuilder 与主业务流程。
 
-**【模块职责（SRP）】**  
+**【模块职责（SRP）】**
 - 唯一职责：提供 CLI 入口，完成参数校验、配置加载、主流程调度与顶层异常处理，不包含任何业务实现细节。
 
-**【依赖关系与注入】**  
+**【依赖关系与注入】**
 - 依赖：
     - ApplicationBuilder（kd_tool/core/application_builder.py）：应用构建器，负责组装主应用
     - LoggerProtocol（kd_tool/logging/protocols.py）：日志协议，日志实例由 Application 注入
@@ -22,7 +22,7 @@ kd_tool/core/cli_main.py - v0.1
 - Mock点：
     - 单元测试时需 Mock ApplicationBuilder、LoggerProtocol，模拟异常与日志输出
 
-**【输入输出规范】**  
+**【输入输出规范】**
 - 输入参数：
     - input_paths: List[Path]，待处理的文件或目录路径，必须存在且可读
     - config_file: Optional[Path]，配置文件路径，可选，需校验存在性与可读性
@@ -35,7 +35,7 @@ kd_tool/core/cli_main.py - v0.1
 - DTO/ORM边界：
     - 本文件不直接定义DTO，仅作为 CLI 参数与下层 DTO/配置对象的桥梁
 
-**【核心架构约束】**  
+**【核心架构约束】**
 - 禁止直接实例化依赖，所有依赖通过工厂/构建器注入
 - 禁止业务逻辑与存储/模型等底层耦合
 - 所有函数/方法必须类型注解
@@ -45,7 +45,7 @@ kd_tool/core/cli_main.py - v0.1
 - 所有可预见错误必须抛出自定义异常，严禁直接捕获 Exception 处理业务错误
 - 日志上下文绑定仅在 Application 层完成，CLI 层不做 bind
 
-**【接口与DTO规范】**  
+**【接口与DTO规范】**
 - 关键接口：
     - ApplicationBuilder.build() -> Application
     - application.run_default_pipeline(input_paths: List[str]) -> None
@@ -54,7 +54,7 @@ kd_tool/core/cli_main.py - v0.1
 - 接口定义与实现分离：
     - CLI 层仅调用接口，不关心实现细节
 
-**【日志与安全】**  
+**【日志与安全】**
 - 日志记录点：
     - 应用启动、配置加载、主流程启动/完成、异常捕获
 - 日志级别：
@@ -64,7 +64,7 @@ kd_tool/core/cli_main.py - v0.1
 - 权限/安全约束：
     - CLI 层需校验输入路径/配置文件的可读性
 
-**【任务清单】**  
+**【任务清单】**
 1. 明确参数校验与错误处理流程，确保所有输入均被严格校验（已完成）
 2. 规范依赖注入与工厂模式使用，禁止直接实例化依赖（已完成）
 3. 设计并实现详细的日志记录点，确保所有关键事件均有日志（已完成）
@@ -74,7 +74,7 @@ kd_tool/core/cli_main.py - v0.1
 7. 预留未来功能（如 init, show_config）接口与占位符，便于后续扩展（已完成）
 8. 定期审查依赖注入与日志上下文绑定，防止架构腐化（已落实）
 
-**【其他说明】**  
+**【其他说明】**
 - 未来功能（如 `init`, `show_config`）需预留接口与占位符，便于后续扩展
 - 所有命令均需输出用户友好提示，提升CLI可用性
 - 需定期审查依赖注入与日志上下文绑定，防止架构腐化
@@ -121,14 +121,14 @@ def run(
     ),
 ):
     """
-    WHY: 
+    WHY:
         作为 KD_Tool 的主命令行入口，确保所有输入参数、配置文件均被严格校验，统一调度主业务流程，并对所有异常进行顶层捕获和日志记录，保障 CLI 层的健壮性与用户体验。
-    WHAT: 
+    WHAT:
         1. 校验所有输入路径的存在性、类型与可读性；
         2. 查找并校验配置文件，支持默认路径与用户指定路径；
         3. 通过 ApplicationBuilder 构建主应用，注入日志实例；
         4. 调用主业务流水线，捕获并分级处理所有业务与系统异常，输出用户友好提示与日志。
-    HOW: 
+    HOW:
         - 采用多层 try/except 结构，分别处理依赖注入、主流程执行、异常分级与日志输出；
         - 所有依赖均通过工厂注入，禁止直接实例化；
         - 日志仅通过注入的 logger 统一管理，CLI 层不做上下文绑定；
@@ -140,7 +140,9 @@ def run(
             typer.secho(f"❌ 输入路径不存在: {p}", fg=typer.colors.RED, err=True)
             raise typer.Exit(code=1)
         if not (p.is_file() or p.is_dir()):
-            typer.secho(f"❌ 输入路径不是文件或目录: {p}", fg=typer.colors.RED, err=True)
+            typer.secho(
+                f"❌ 输入路径不是文件或目录: {p}", fg=typer.colors.RED, err=True
+            )
             raise typer.Exit(code=1)
         if not os.access(p, os.R_OK):
             typer.secho(f"❌ 输入路径不可读: {p}", fg=typer.colors.RED, err=True)
@@ -151,7 +153,9 @@ def run(
         for path in DEFAULT_CONFIG_PATHS:
             if path.exists() and path.is_file() and os.access(path, os.R_OK):
                 actual_config_path = path
-                typer.secho(f"✅ 在 {actual_config_path} 找到配置文件。", fg=typer.colors.GREEN)
+                typer.secho(
+                    f"✅ 在 {actual_config_path} 找到配置文件。", fg=typer.colors.GREEN
+                )
                 break
     if actual_config_path is None or not actual_config_path.exists():
         typer.secho(
@@ -161,10 +165,18 @@ def run(
         )
         raise typer.Exit(code=1)
     if not actual_config_path.is_file():
-        typer.secho(f"❌ 错误: 配置文件不是有效的文件: {actual_config_path}", fg=typer.colors.RED, err=True)
+        typer.secho(
+            f"❌ 错误: 配置文件不是有效的文件: {actual_config_path}",
+            fg=typer.colors.RED,
+            err=True,
+        )
         raise typer.Exit(code=1)
     if not os.access(actual_config_path, os.R_OK):
-        typer.secho(f"❌ 错误: 配置文件不可读: {actual_config_path}", fg=typer.colors.RED, err=True)
+        typer.secho(
+            f"❌ 错误: 配置文件不可读: {actual_config_path}",
+            fg=typer.colors.RED,
+            err=True,
+        )
         raise typer.Exit(code=1)
     logger: Optional[LoggerProtocol] = None
     try:
@@ -184,7 +196,7 @@ def run(
         typer.secho(
             f"❌ 严重错误: Logger未能成功初始化。", fg=typer.colors.RED, err=True
         )
-        if getattr(e, 'original_exception', None):
+        if getattr(e, "original_exception", None):
             typer.secho("--- 原始错误详情 ---", fg=typer.colors.YELLOW, err=True)
             traceback.print_exception(
                 type(e.original_exception),
@@ -259,6 +271,7 @@ def show_config(
     """
     typer.echo("此功能尚未实现。")
     raise typer.Exit(code=126)
+
 
 def main() -> None:
     """

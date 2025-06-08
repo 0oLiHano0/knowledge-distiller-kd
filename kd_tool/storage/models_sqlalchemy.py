@@ -23,7 +23,9 @@ class ContentBlockORM(Base):
     md5: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
     content: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
     file_id: Mapped[str] = mapped_column(String(36), nullable=False)  # UUID 长度
-    block_type: Mapped[str] = mapped_column(String(32), nullable=False)  # BlockType 枚举值
+    block_type: Mapped[str] = mapped_column(
+        String(32), nullable=False
+    )  # BlockType 枚举值
     created_at: Mapped[dt.datetime] = mapped_column(
         DateTime, default=dt.datetime.utcnow
     )

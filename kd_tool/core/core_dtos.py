@@ -3,21 +3,21 @@
 kd_tool/core/core_dtos.py - v4.8
 =================================================
 
-**【文件定位】**  
+**【文件定位】**
 - 路径：kd_tool/core/core_dtos.py
 - 所属：核心服务层（core），为 Orchestrator 及各 Stage 提供全局数据上下文与关键 DTO。
 - 依赖：kd_tool.logging.protocols、kd_tool.schemas.dtos、kd_tool.schemas.enums、kd_tool.core.errors、Pydantic、Pathlib、UUID。
 
-**【模块职责（SRP）】**  
+**【模块职责（SRP）】**
 - 唯一职责：定义并管理 Orchestrator 流水线全局上下文的数据传输对象（PipelineContextDTO），作为数据与状态的唯一载体，贯穿各 Stage。
 
-**【依赖关系与注入】**  
+**【依赖关系与注入】**
 - 依赖外部日志协议 LoggerProtocol（run_logger 字段），通过构造器注入，严禁内部实例化。
 - 依赖 DTO（FileRecordDTO、ContentBlockDTO、AnalysisResultDTO、UserDecisionDTO）、枚举（AnalysisType）、自定义异常（KDToolError），均为绝对导入。
 - 不依赖底层存储或业务服务，符合解耦要求。
 - 如需 Mock，LoggerProtocol 可被替换为 MockLogger。
 
-**【输入输出规范】**  
+**【输入输出规范】**
 - PipelineContextDTO 字段及方法参数均有类型注解，详见下表：
 
 | 字段/方法名 | 类型 | 说明 |
@@ -43,7 +43,7 @@ kd_tool/core/core_dtos.py - v4.8
 
 - 异常类型：仅允许 KDToolError 及其子类，禁止使用 Exception 或 None 传递错误。
 
-**【核心架构约束】**  
+**【核心架构约束】**
 - 禁止直接实例化依赖，所有依赖通过注入。
 - 禁止业务逻辑与存储耦合，仅为数据容器。
 - 所有字段、方法参数与返回值必须类型注解。
@@ -51,18 +51,18 @@ kd_tool/core/core_dtos.py - v4.8
 - 仅允许通过 DTO 传递数据，禁止 ORM 直传。
 - 绝对导入，禁止相对导入。
 
-**【接口与DTO规范】**  
+**【接口与DTO规范】**
 - 仅暴露 PipelineContextDTO 及其方法。
 - DTO、枚举、协议等均通过绝对路径导入，接口与实现分离。
 - 不直接暴露底层实现细节。
 
-**【日志与安全】**  
+**【日志与安全】**
 - 日志记录点：所有 add 方法、异常捕获、分析流程关键节点。
 - 日志级别：trace/debug/info/error，异常必须用 error 级别。
 - 敏感信息不得写入日志。
 - 日志上下文绑定：run_logger 必须已绑定 task_id。
 
-**【任务清单】**  
+**【任务清单】**
 1. 检查并补充 PipelineContextDTO 字段的类型注解与描述，确保类型安全与文档完整。
 2. 检查 run_logger 注入方式，确保无内部实例化，符合依赖注入规范。
 3. 补充/完善 add_error、add_analysis_result、get_content_blocks_for_analysis 等关键方法的三段式注释（WHY/WHAT/HOW）。
@@ -73,7 +73,7 @@ kd_tool/core/core_dtos.py - v4.8
 8. 评估 shared_data 字段的使用范围，补充警告与使用建议，防止滥用。
 9. 未来如需扩展字段或功能，需通过工厂/接口实现，禁止直接修改核心逻辑。
 
-**【其他说明】**  
+**【其他说明】**
 - 该 DTO 仅为数据载体，严禁添加任何业务逻辑。
 - 未来如需扩展字段，需评估对下游兼容性影响。
 - 需定期与架构规范同步，防止技术债累积。

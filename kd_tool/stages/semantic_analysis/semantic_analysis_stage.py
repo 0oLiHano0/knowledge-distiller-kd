@@ -148,7 +148,7 @@ class SemanticAnalysisStage(StageInterface):
     ) -> List[Tuple[str, str]]:
         """
         获取需要比较的块对。
-        
+
         性能警告：
         - 当前实现为 O(n^2) 复杂度，适用于小规模数据
         - 大规模数据（>1000块）时，建议实现降采样或近似算法

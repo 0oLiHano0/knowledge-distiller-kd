@@ -26,11 +26,13 @@ def register(name: str):
     Raises:
         ValueError: 如果 *name* 已经被注册。
     """
+
     def decorator(cls: Type[LoggerProtocol]) -> Type[LoggerProtocol]:
         if name in _REGISTRY:
             raise ValueError(f"日志记录器实现 '{name}' 已注册")
         _REGISTRY[name] = cls
         return cls
+
     return decorator
 
 

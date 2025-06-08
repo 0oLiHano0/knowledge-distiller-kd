@@ -39,4 +39,3 @@ class LoggerProtocol(Protocol):
     # ──────────────────────────────────────────────────────────
     @classmethod
     def configure(cls, cfg: LoggingConfigDTO) -> "LoggerProtocol": ...
-

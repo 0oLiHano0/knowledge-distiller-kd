@@ -8,4 +8,6 @@ from __future__ import annotations
 
 from kd_tool.logging.factory import LoggerFactory
 from kd_tool.logging.settings import LoggingConfigDTO
-from kd_tool.logging import providers  # 这样 loguru_impl.py 会被 import，注册逻辑会自动执行
+from kd_tool.logging import (
+    providers,
+)  # 这样 loguru_impl.py 会被 import，注册逻辑会自动执行

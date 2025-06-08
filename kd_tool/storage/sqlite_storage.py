@@ -82,7 +82,7 @@ class SQLiteStorage(StorageInterface):
                     md5=dto.text_hash_md5,
                     content=dto.text_content.encode("utf-8"),
                     file_id=dto.file_id,
-                    block_type=dto.block_type.value
+                    block_type=dto.block_type.value,
                 )
                 session.add(obj)
         else:
@@ -92,7 +92,7 @@ class SQLiteStorage(StorageInterface):
                         md5=dto.text_hash_md5,
                         content=dto.text_content.encode("utf-8"),
                         file_id=dto.file_id,
-                        block_type=dto.block_type.value
+                        block_type=dto.block_type.value,
                     )
                     session.add(obj)
                 session.commit()
@@ -107,7 +107,7 @@ class SQLiteStorage(StorageInterface):
                 text_hash_md5=obj.md5,
                 text_content=obj.content.decode("utf-8"),
                 file_id=obj.file_id,
-                block_type=BlockType(obj.block_type)
+                block_type=BlockType(obj.block_type),
             )
 
     # ---------- Close ----------

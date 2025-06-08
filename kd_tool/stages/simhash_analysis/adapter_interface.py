@@ -3,20 +3,20 @@
 kd_tool/stages/simhash_analysis/adapter_interface.py - v0.1
 =================================================
 
-**【文件定位】**  
+**【文件定位】**
 - 路径：kd_tool/stages/simhash_analysis/adapter_interface.py
 - 所属：simhash_analysis 阶段模块，适配器接口层。
 - 作用：为SimHash算法适配器定义标准抽象接口，供具体实现类继承，服务于文本块级去重流程。
 
-**【模块职责（SRP）】**  
+**【模块职责（SRP）】**
 - 唯一职责：定义SimHash相关算法的标准接口，确保不同实现的可插拔与可替换。
 
-**【依赖关系与注入】**  
+**【依赖关系与注入】**
 - 依赖：无外部依赖，仅依赖标准库（abc、typing）及本阶段专属异常（通过绝对导入）。
 - 注入方式：具体实现类通过工厂注入到Stage层。
 - Mock点：需为接口定义Mock实现，便于Stage层单元测试。
 
-**【输入输出规范】**  
+**【输入输出规范】**
 - `calculate_simhash(text: str, hash_bits: int) -> str`
   - 输入：原始文本（str）、SimHash位数（int，64或128）
   - 输出：SimHash指纹（十六进制字符串）
@@ -30,7 +30,7 @@ kd_tool/stages/simhash_analysis/adapter_interface.py - v0.1
   - 输出：相似对及距离列表
   - 异常：实现可自定义抛出SimHashAnalysisError子类
 
-**【核心架构约束】**  
+**【核心架构约束】**
 - 禁止直接实例化依赖，禁止业务逻辑与存储耦合。
 - 所有方法参数与返回值必须类型注解。
 - 仅定义接口，不包含任何实现逻辑。
@@ -38,15 +38,15 @@ kd_tool/stages/simhash_analysis/adapter_interface.py - v0.1
 - 异常类型必须通过绝对导入引用`kd_tool.stages.simhash_analysis.errors`。
 - 日志记录由具体实现负责，接口不涉及日志。
 
-**【接口与DTO规范】**  
+**【接口与DTO规范】**
 - 仅暴露抽象方法，不含实现。
 - DTO/异常类需在专用模块定义并绝对导入。
 - 若需结构化数据，后续通过Pydantic DTO扩展。
 
-**【日志与安全】**  
+**【日志与安全】**
 - 本接口不涉及日志与安全，具体实现需遵循日志上下文绑定与敏感信息处理规范。
 
-**【任务清单】**  
+**【任务清单】**
 1. 在`adapter_interface.py`顶部及关键类/方法补充WHY/WHAT/HOW三段式注释。
 2. 通过绝对导入引用`kd_tool.stages.simhash_analysis.errors`中的异常类型。
 3. 明确接口方法签名与注释，确保类型注解与文档规范。
@@ -54,7 +54,7 @@ kd_tool/stages/simhash_analysis/adapter_interface.py - v0.1
 5. 检查所有导入均为绝对导入，符合架构规范。
 6. 预留DTO/Pydantic扩展点，便于未来结构化数据传递。
 
-**【其他说明】**  
+**【其他说明】**
 - 若需支持多种SimHash算法或第三方库，均应通过本接口扩展。
 - 若需支持分布式/批量高效查重，可在`find_similar_pairs`方法扩展参数与返回结构。
 - 若后续异常类型增多，建议在`errors.py`中分层管理，保持异常体系清晰。
@@ -76,7 +76,7 @@ class SimHashAdapterInterface(ABC):
         """
         WHY: 计算文本的SimHash指纹，便于后续相似性检测。
         WHAT: 输入原始文本和目标位数，输出SimHash十六进制指纹。
-        HOW: 
+        HOW:
             - 实现不负责文本预处理，调用方需保证输入已规范化。
             - 仅支持64或128位SimHash。
         参数:

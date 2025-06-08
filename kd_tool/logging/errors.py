@@ -9,9 +9,9 @@ from kd_tool.core.errors import KDToolError
 
 
 class ErrorSeverity(Enum):
-    FATAL = auto()     # 需要立即终止或降级启动
+    FATAL = auto()  # 需要立即终止或降级启动
     RECOVERABLE = auto()  # 可通过重试/降级继续
-    WARNING = auto()      # 仅提醒
+    WARNING = auto()  # 仅提醒
 
 
 @dataclass(frozen=True)
@@ -31,9 +31,13 @@ class LoggingConfigError(LoggingError):
 
 class LogSinkUnavailableError(LoggingError):
     def __init__(self, sink: str, detail: str | None = None):
-        super().__init__("SINK_LOST", ErrorSeverity.RECOVERABLE, detail or f"sink={sink}")
+        super().__init__(
+            "SINK_LOST", ErrorSeverity.RECOVERABLE, detail or f"sink={sink}"
+        )
 
 
 class LogHookError(LoggingError):
     def __init__(self, hook_name: str, detail: str | None = None):
-        super().__init__("HOOK_FAIL", ErrorSeverity.RECOVERABLE, detail or f"hook={hook_name}")
+        super().__init__(
+            "HOOK_FAIL", ErrorSeverity.RECOVERABLE, detail or f"hook={hook_name}"
+        )
