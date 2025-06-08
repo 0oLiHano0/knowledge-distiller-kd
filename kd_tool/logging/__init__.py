@@ -6,6 +6,6 @@ kd_tool.logging 模块的公共接口层，通过导入机制实现业务逻辑�
 """
 from __future__ import annotations
 
-from .factory import LoggerFactory
-from .settings import LoggingConfigDTO
-from . import providers  # 这样 loguru_impl.py 会被 import，注册逻辑会自动执行
+from kd_tool.logging.factory import LoggerFactory
+from kd_tool.logging.settings import LoggingConfigDTO
+from kd_tool.logging import providers  # 这样 loguru_impl.py 会被 import，注册逻辑会自动执行

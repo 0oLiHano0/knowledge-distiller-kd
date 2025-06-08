@@ -210,6 +210,7 @@ def test_pseudo_code_conformance():
         "kd_tool/storage/sqlite_storage.py", # 实现接口，需要方法体
         "stage.py", # 匹配所有如 xxx_stage.py, yyy_stage.py 的文件
         "adapter.py", # 各种适配器的具体实现，通常会有逻辑
+        "loguru_impl.py", # 添加 Loguru 实现文件
 
         # 测试相关的工具和辅助模块
         "in_memory_storage.py",

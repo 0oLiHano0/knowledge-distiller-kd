@@ -36,24 +36,24 @@ def mock_logger():
 def dummy_settings():
     return BlockMergerStageSettings()
 
-def test_init_signature(dummy_logger, dummy_settings):
+def test_init_signature(mock_logger, dummy_settings):
     """
-    为什么: 检查 BlockMergingStage 的 __init__ 是否支持依赖注入。
-    做什么: 断言 __init__ 参数包含 logger 和 settings。
-    怎么做: 用 inspect 获取签名。
+    为什么: 检查 BlockMergingStage 的初始化签名是否符合预期。
+    做什么: 验证构造函数参数和类型。
+    怎么做: 使用 mock_logger 和 dummy_settings 创建实例。
     """
     sig = inspect.signature(BlockMergingStage.__init__)
     params = list(sig.parameters.keys())
     assert 'logger' in params
     assert 'settings' in params
 
-def test_is_stateless(dummy_logger, dummy_settings):
+def test_is_stateless(mock_logger, dummy_settings):
     """
-    为什么: 检查 BlockMergingStage 是否无状态。
-    做什么: 断言实例属性不包含除依赖外的可变状态。
-    怎么做: 实例化后检查 __dict__。
+    为什么: 验证 BlockMergingStage 是无状态的。
+    做什么: 检查实例方法不依赖实例状态。
+    怎么做: 使用 mock_logger 和 dummy_settings 创建实例并测试。
     """
-    stage = BlockMergingStage(dummy_logger, dummy_settings)
+    stage = BlockMergingStage(mock_logger, dummy_settings)
     allowed = {'_logger', '_settings'}
     assert set(stage.__dict__.keys()) <= allowed
 
@@ -69,13 +69,13 @@ def test_process_signature():
     assert params[1].annotation is PipelineContextDTO
 
 
-def test_process_interaction(dummy_logger, dummy_settings):
+def test_process_interaction(mock_logger, dummy_settings):
     """
     为什么: 检查 process 方法能否与 PipelineContextDTO、StorageInterface 交互。
-    做什么: 伪造 context，调用 process。
-    怎么做: 用 DummyStorage 和 PipelineContextDTO。
+    做什么: 伪造 context，调用 process，检查日志行为。
+    怎么做: 用 mock_logger 和 PipelineContextDTO，断言日志内容。
     """
-    stage = BlockMergingStage(dummy_logger, dummy_settings)
-    context = PipelineContextDTO(run_logger=dummy_logger)
+    stage = BlockMergingStage(mock_logger, dummy_settings)
+    context = PipelineContextDTO(run_logger=mock_logger)
     result = stage.process(context)
     assert isinstance(result, PipelineContextDTO) 
