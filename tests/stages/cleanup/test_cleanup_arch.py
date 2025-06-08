@@ -12,7 +12,7 @@ from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.stages.cleanup.settings_models import CleanupStageSettings
 from kd_tool.stages.cleanup.adapter_interface import FileSystemAdapterInterface
 from kd_tool.logging.protocols import LoggerProtocol
-from unittest.mock import MagicMock
+from tests.logging.dummy_logger import MockLogger
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -50,7 +50,7 @@ def dummy_fs_adapter():
 @pytest.fixture
 def mock_logger() -> LoggerProtocol:
     """返回一个 MagicMock 实例作为日志模拟"""
-    return MagicMock()
+    return MockLogger()
 
 def test_init_signature(mock_logger, dummy_settings, dummy_fs_adapter):
     """
@@ -85,16 +85,14 @@ def test_process_signature():
     assert len(params) == 2  # self, context
     assert params[1].annotation is PipelineContextDTO
 
-def test_process_interaction(mock_logger, dummy_settings, dummy_fs_adapter):
+def test_process_interaction(dummy_settings, dummy_fs_adapter):
     """
     为什么: 检查 process 方法能否与 PipelineContextDTO、StorageInterface 交互。
     做什么: 伪造 context，调用 process，验证基本功能。
     怎么做: 验证返回值和类型。
     """
+    mock_logger = MockLogger()
     stage = CleanupStage(mock_logger, dummy_settings, dummy_fs_adapter)
     context = PipelineContextDTO(run_logger=mock_logger)
     result = stage.process(context)
-    
-    # 只验证基本功能
-    assert isinstance(result, PipelineContextDTO)
-    # 不验证具体的日志方法调用 
+    assert isinstance(result, PipelineContextDTO) 

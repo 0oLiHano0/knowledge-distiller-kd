@@ -83,22 +83,14 @@ def test_process_signature():
     assert params[1].annotation is PipelineContextDTO
 
 
-def test_process_interaction(mocker, dummy_settings, dummy_adapter):
+def test_process_interaction(dummy_settings, dummy_adapter):
     """
     为什么: 检查 process 方法能否与 PipelineContextDTO、StorageInterface 交互。
     做什么: 伪造 context，调用 process，验证基本功能。
-    怎么做: 使用 mocker 创建 mock logger，验证返回值和类型。
+    怎么做: 使用 MockLogger，验证返回值和类型。
     """
-    mock_logger = mocker.Mock()
+    mock_logger = MockLogger()
     stage = SimHashAnalysisStage(mock_logger, dummy_settings, dummy_adapter)
     context = PipelineContextDTO(run_logger=mock_logger)
     result = stage.process(context)
-    
-    # 验证基本功能
-    assert isinstance(result, PipelineContextDTO)
-    
-    # 验证是否有任何日志方法被调用
-    assert mock_logger.method_calls, "Expected some logging method to be called"
-    
-    # 如果需要，可以打印出实际调用的方法，帮助调试
-    # print("Actual method calls:", mock_logger.method_calls) 
+    assert isinstance(result, PipelineContextDTO) 

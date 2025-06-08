@@ -11,7 +11,7 @@ from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.stages.blockmerging.settings_models import BlockMergerStageSettings
 from kd_tool.logging.protocols import LoggerProtocol
-from unittest.mock import MagicMock
+from tests.logging.dummy_logger import MockLogger
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -30,7 +30,7 @@ def dummy_storage():
 
 @pytest.fixture()
 def mock_logger():
-    return MagicMock()
+    return MockLogger()
 
 @pytest.fixture
 def dummy_settings():
@@ -69,12 +69,13 @@ def test_process_signature():
     assert params[1].annotation is PipelineContextDTO
 
 
-def test_process_interaction(mock_logger, dummy_settings):
+def test_process_interaction(dummy_settings):
     """
     为什么: 检查 process 方法能否与 PipelineContextDTO、StorageInterface 交互。
     做什么: 伪造 context，调用 process，检查日志行为。
-    怎么做: 用 mock_logger 和 PipelineContextDTO，断言日志内容。
+    怎么做: 用 MockLogger 和 PipelineContextDTO，断言日志内容。
     """
+    mock_logger = MockLogger()
     stage = BlockMergingStage(mock_logger, dummy_settings)
     context = PipelineContextDTO(run_logger=mock_logger)
     result = stage.process(context)
