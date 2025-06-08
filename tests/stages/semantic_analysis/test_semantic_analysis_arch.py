@@ -35,11 +35,6 @@ def dummy_storage():
     return DummyStorage()
 
 @pytest.fixture
-def dummy_logger() -> LoggerProtocol:
-    """返回一个 mock logger 实例"""
-    return MagicMock()
-
-@pytest.fixture
 def dummy_settings():
     return SemanticAnalysisStageSettings()
 

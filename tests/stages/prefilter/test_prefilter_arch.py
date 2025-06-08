@@ -35,11 +35,6 @@ def dummy_storage():
     return DummyStorage()
 
 @pytest.fixture
-def dummy_logger() -> LoggerProtocol:
-    """返回一个 mock logger 实例"""
-    return MagicMock()
-
-@pytest.fixture
 def dummy_settings():
     czkawka_cfg = CzkawkaSettings(
         executable_path=Path("/tmp/fake_czkawka"),
@@ -86,7 +81,11 @@ def test_is_stateless(dummy_logger, dummy_settings, dummy_adapter):
     做什么: 断言实例属性不包含除依赖外的可变状态。
     怎么做: 实例化后检查 __dict__。
     """
-    stage = PrefilterStage(dummy_logger, dummy_settings, dummy_adapter)
+    stage = PrefilterStage(
+        logger=dummy_logger,
+        settings=dummy_settings,
+        adapter=dummy_adapter
+    )
     allowed = {'_logger', '_settings', '_adapter'}
     assert set(stage.__dict__.keys()) <= allowed
 
@@ -108,7 +107,11 @@ def test_process_interaction(dummy_logger, dummy_settings, dummy_adapter):
     做什么: 伪造 context，调用 process。
     怎么做: 用 DummyAdapter 和 PipelineContextDTO。
     """
-    stage = PrefilterStage(dummy_logger, dummy_settings, dummy_adapter)
+    stage = PrefilterStage(
+        logger=dummy_logger,
+        settings=dummy_settings,
+        adapter=dummy_adapter
+    )
     context = PipelineContextDTO(run_logger=dummy_logger)
     result = stage.process(context)
     assert isinstance(result, PipelineContextDTO) 

@@ -33,11 +33,6 @@ def dummy_storage():
     return DummyStorage()
 
 @pytest.fixture
-def dummy_logger() -> LoggerProtocol:
-    """返回一个 mock logger 实例"""
-    return MagicMock()
-
-@pytest.fixture
 def dummy_settings():
     return DecisionStageSettings()
 
@@ -58,7 +53,10 @@ def test_is_stateless(dummy_logger, dummy_settings):
     做什么: 断言实例属性不包含除依赖外的可变状态。
     怎么做: 实例化后检查 __dict__。
     """
-    stage = DecisionStage(dummy_logger, dummy_settings)
+    stage = DecisionStage(
+        logger=dummy_logger,
+        settings=dummy_settings
+    )
     allowed = {'_logger', '_settings', '_sorted_rules'}
     assert set(stage.__dict__.keys()) <= allowed
 
@@ -80,7 +78,10 @@ def test_process_interaction(dummy_logger, dummy_settings):
     做什么: 伪造 context，调用 process。
     怎么做: 用 DummyStorage 和 PipelineContextDTO。
     """
-    stage = DecisionStage(dummy_logger, dummy_settings)
+    stage = DecisionStage(
+        logger=dummy_logger,
+        settings=dummy_settings
+    )
     context = PipelineContextDTO(run_logger=dummy_logger)
     result = stage.process(context)
     assert isinstance(result, PipelineContextDTO) 

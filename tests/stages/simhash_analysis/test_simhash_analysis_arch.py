@@ -14,6 +14,7 @@ from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
 import numpy as np
+from tests.logging.dummy_logger import MockLogger
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -33,11 +34,6 @@ class DummyStorage(StorageInterface):
 @pytest.fixture
 def dummy_storage():
     return DummyStorage()
-
-@pytest.fixture
-def dummy_logger() -> LoggerProtocol:
-    """返回一个 mock logger 实例"""
-    return MagicMock()
 
 @pytest.fixture
 def dummy_settings():

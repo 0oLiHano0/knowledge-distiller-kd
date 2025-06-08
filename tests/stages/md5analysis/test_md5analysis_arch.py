@@ -33,11 +33,6 @@ def dummy_storage():
     return DummyStorage()
 
 @pytest.fixture
-def dummy_logger() -> LoggerProtocol:
-    """返回一个 mock logger 实例"""
-    return MagicMock()
-
-@pytest.fixture
 def dummy_settings():
     """
     why: 提供 MD5AnalysisStage 的 settings 依赖
@@ -63,7 +58,10 @@ def test_is_stateless(dummy_logger, dummy_settings):
     做什么: 断言实例属性不包含除依赖外的可变状态。
     怎么做: 实例化后检查 __dict__。
     """
-    stage = MD5AnalysisStage(dummy_logger, dummy_settings)
+    stage = MD5AnalysisStage(
+        logger=dummy_logger,
+        settings=dummy_settings
+    )
     allowed = {'_logger', '_settings'}
     assert set(stage.__dict__.keys()) <= allowed
 
@@ -85,7 +83,10 @@ def test_process_interaction(dummy_logger, dummy_settings):
     做什么: 伪造 context，调用 process。
     怎么做: 用 DummySettings 和 PipelineContextDTO。
     """
-    stage = MD5AnalysisStage(dummy_logger, dummy_settings)
+    stage = MD5AnalysisStage(
+        logger=dummy_logger,
+        settings=dummy_settings
+    )
     context = PipelineContextDTO(run_logger=dummy_logger)
     result = stage.process(context)
     assert isinstance(result, PipelineContextDTO) 

@@ -39,11 +39,6 @@ def dummy_storage():
     return DummyStorage()
 
 @pytest.fixture
-def dummy_logger() -> LoggerProtocol:
-    """返回一个 mock logger 实例"""
-    return MagicMock()
-
-@pytest.fixture
 def dummy_settings():
     """
     why: 提供 DocProcessingStage 的 settings 依赖
@@ -70,7 +65,11 @@ def test_is_stateless(dummy_logger, dummy_settings):
     做什么: 断言实例属性不包含除依赖外的可变状态。
     怎么做: 实例化后检查 __dict__。
     """
-    stage = DocumentProcessingStage(dummy_logger, dummy_settings, DummyParserAdapter())
+    stage = DocumentProcessingStage(
+        logger=dummy_logger,
+        settings=dummy_settings,
+        parser_adapter=DummyParserAdapter()
+    )
     allowed = {'_logger', '_settings', '_parser'}
     assert set(stage.__dict__.keys()) <= allowed
 
@@ -90,9 +89,13 @@ def test_process_interaction(dummy_logger, dummy_settings):
     """
     为什么: 检查 process 方法能否与 PipelineContextDTO、StorageInterface 交互。
     做什么: 伪造 context，调用 process。
-    怎么做: 用 DummySettings 和 PipelineContextDTO。
+    怎么做: 用 DummyStorage 和 PipelineContextDTO。
     """
-    stage = DocumentProcessingStage(dummy_logger, dummy_settings, DummyParserAdapter())
+    stage = DocumentProcessingStage(
+        logger=dummy_logger,
+        settings=dummy_settings,
+        parser_adapter=DummyParserAdapter()
+    )
     context = PipelineContextDTO(run_logger=dummy_logger)
     result = stage.process(context)
     assert isinstance(result, PipelineContextDTO) 
