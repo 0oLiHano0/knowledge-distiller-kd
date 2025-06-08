@@ -11,7 +11,7 @@ from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.stages.blockmerging.settings_models import BlockMergerStageSettings
 from kd_tool.logging.protocols import LoggerProtocol
-from kd_tool.logging.providers.dummy_impl import DummyLogger  # type: ignore
+from unittest.mock import MagicMock
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -28,10 +28,9 @@ class DummyStorage(StorageInterface):
 def dummy_storage():
     return DummyStorage()
 
-@pytest.fixture
-def dummy_logger() -> LoggerProtocol:
-    """返回一个 DummyLogger 实例"""
-    return DummyLogger()
+@pytest.fixture()
+def mock_logger():
+    return MagicMock()
 
 @pytest.fixture
 def dummy_settings():

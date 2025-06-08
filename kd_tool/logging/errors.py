@@ -1,4 +1,7 @@
+# =====================================================
 # kd_tool/logging/errors.py
+# =====================================================
+"""自定义错误类，用于日志记录层。"""
 from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, auto
