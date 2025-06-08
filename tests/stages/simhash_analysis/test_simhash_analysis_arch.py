@@ -5,6 +5,7 @@
 """
 import inspect
 import pytest
+from unittest.mock import MagicMock
 from kd_tool.stages.simhash_analysis.simhash_analysis_stage import SimHashAnalysisStage
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
@@ -13,7 +14,6 @@ from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.simhash_analysis.settings_models import SimHashAnalysisStageSettings
 from kd_tool.stages.simhash_analysis.adapter_interface import SimHashAdapterInterface
 import numpy as np
-from kd_tool.logging.providers.dummy_impl import DummyLogger  # type: ignore
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -36,8 +36,8 @@ def dummy_storage():
 
 @pytest.fixture
 def dummy_logger() -> LoggerProtocol:
-    """返回一个 DummyLogger 实例"""
-    return DummyLogger()
+    """返回一个 mock logger 实例"""
+    return MagicMock()
 
 @pytest.fixture
 def dummy_settings():

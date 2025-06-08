@@ -5,13 +5,13 @@
 """
 import inspect
 import pytest
+from unittest.mock import MagicMock
 from kd_tool.stages.md5analysis.md5_analysis_stage import MD5AnalysisStage
 from kd_tool.core.interfaces import StageInterface
 from kd_tool.core.core_dtos import PipelineContextDTO
 from kd_tool.storage.storage_interface import StorageInterface
-from kd_tool.logging.protocols import LoggerProtocol
 from kd_tool.stages.md5analysis.settings_models import MD5AnalysisStageSettings
-from kd_tool.logging.providers.dummy_impl import DummyLogger  # type: ignore
+from kd_tool.logging.protocols import LoggerProtocol
 
 class DummyStorage(StorageInterface):
     def save_pipeline_context(self, context): pass
@@ -34,8 +34,8 @@ def dummy_storage():
 
 @pytest.fixture
 def dummy_logger() -> LoggerProtocol:
-    """返回一个 DummyLogger 实例"""
-    return DummyLogger()
+    """返回一个 mock logger 实例"""
+    return MagicMock()
 
 @pytest.fixture
 def dummy_settings():
