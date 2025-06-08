@@ -68,7 +68,7 @@ kd_tool/logging/errors.py - v1.0
 
 from enum import Enum
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 import inspect
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from kd_tool.core.errors import KDToolError
@@ -90,10 +90,10 @@ class ErrorType(str, Enum):
 class ErrorContext(BaseModel):
     """错误上下文。"""
 
-    error_type: str
+    error_type: ErrorType = Field(..., description="错误类型")
     error_message: str
     error_details: Dict[str, Any] = Field(default_factory=dict)
-    timestamp: datetime = Field(default_factory=datetime.now)
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     model_config = ConfigDict(
         extra="forbid",
@@ -101,7 +101,7 @@ class ErrorContext(BaseModel):
         frozen=False
     )
 
-    @field_validator("error_details")
+    @field_validator("error_details", mode="before")
     @classmethod
     def sanitize_sensitive_data(cls, v: Dict[str, Any]) -> Dict[str, Any]:
         """脱敏敏感信息"""
@@ -138,7 +138,7 @@ class ErrorContext(BaseModel):
             error_type=error_type,
             error_message=f"{module or __name__}:{operation or 'unknown'}",
             error_details=details or {},
-            timestamp=datetime.now()
+            timestamp=datetime.now(timezone.utc)
         )
 
 
@@ -148,7 +148,6 @@ class LoggingError(KDToolError):
     WHAT: 初始化或写入失败时抛出，包含错误上下文
     HOW: 继承项目统一错误基类，提供结构化错误信息
     """
-    __slots__ = ("context",)
 
     def __init__(
         self, 
@@ -162,11 +161,7 @@ class LoggingError(KDToolError):
         HOW: 调用父类构造，可选附加上下文
         """
         super().__init__(message)
-        self.context = context or ErrorContext.create(
-            error_type=ErrorType.LOG_WRITE,
-            module=__name__,
-            operation="log_write"
-        )
+        self.context = context or self._default_ctx()
 
     def __str__(self) -> str:
         """
@@ -174,8 +169,21 @@ class LoggingError(KDToolError):
         WHAT: 格式化错误消息和上下文
         HOW: 使用f-string格式化
         """
-        msg = getattr(self, 'message', None) or (self.args[0] if self.args else '')
+        msg = self.args[0] if self.args else ""
         return f"{msg} (context: {self.context.model_dump_json()})"
+
+    @classmethod
+    def _default_ctx(cls, error_type: ErrorType = ErrorType.LOG_WRITE) -> ErrorContext:
+        """
+        WHY: 提供默认的错误上下文创建方法
+        WHAT: 创建标准化的错误上下文
+        HOW: 使用 ErrorContext.create 创建上下文
+        """
+        return ErrorContext.create(
+            error_type=error_type,
+            module=__name__,
+            operation="log_write"
+        )
 
 
 class LoggerInitError(LoggingError):
@@ -192,11 +200,7 @@ class LoggerInitError(LoggingError):
     ) -> None:
         super().__init__(
             message,
-            context=context or ErrorContext.create(
-                error_type=ErrorType.LOGGER_INIT,
-                module=__name__,
-                operation="logger_init"
-            )
+            context=context or self._default_ctx(ErrorType.LOGGER_INIT)
         )
 
 
@@ -214,11 +218,7 @@ class LogWriteError(LoggingError):
     ) -> None:
         super().__init__(
             message,
-            context=context or ErrorContext.create(
-                error_type=ErrorType.LOG_WRITE,
-                module=__name__,
-                operation="log_write"
-            )
+            context=context or self._default_ctx(ErrorType.LOG_WRITE)
         )
 
 
@@ -236,11 +236,7 @@ class LogFormatError(LoggingError):
     ) -> None:
         super().__init__(
             message,
-            context=context or ErrorContext.create(
-                error_type=ErrorType.LOG_FORMAT,
-                module=__name__,
-                operation="log_format"
-            )
+            context=context or self._default_ctx(ErrorType.LOG_FORMAT)
         )
 
 
@@ -258,11 +254,7 @@ class ContextBindError(LoggingError):
     ) -> None:
         super().__init__(
             message,
-            context=context or ErrorContext.create(
-                error_type=ErrorType.CONTEXT_BIND,
-                module=__name__,
-                operation="context_bind"
-            )
+            context=context or self._default_ctx(ErrorType.CONTEXT_BIND)
         )
 
 
@@ -280,9 +272,5 @@ class ValidationError(LoggingError):
     ) -> None:
         super().__init__(
             message,
-            context=context or ErrorContext.create(
-                error_type=ErrorType.VALIDATION,
-                module=__name__,
-                operation="validation"
-            )
+            context=context or self._default_ctx(ErrorType.VALIDATION)
         )

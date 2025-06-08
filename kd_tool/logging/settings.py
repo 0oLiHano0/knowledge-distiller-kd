@@ -7,12 +7,16 @@
 from __future__ import annotations
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set
 import os
 
 from pydantic import BaseModel, Field
 
-__all__ = ["LogLevel", "LoggingConfigDTO"]
+__all__ = ["LogLevel", "LoggingConfigDTO", "FORBID_DUP_KEYS"]
+
+
+# 受限的上下文键集合
+FORBID_DUP_KEYS: Set[str] = {"task_id", "stage_name"}
 
 
 class LogLevel(str, Enum):
@@ -60,6 +64,7 @@ class LoggingConfigDTO(BaseModel):
     serialize: bool = Field(default=False, description="是否序列化日志")
     console: ConsoleConfigDTO = Field(default_factory=ConsoleConfigDTO, description="控制台输出配置")
     file: FileConfigDTO = Field(default_factory=FileConfigDTO, description="文件输出配置")
+    idempotent: bool = Field(default=False, description="是否幂等配置（True 时不清除现有处理器）")
 
     @classmethod
     def from_env(cls) -> "LoggingConfigDTO":
@@ -75,6 +80,9 @@ class LoggingConfigDTO(BaseModel):
         
         if "KD_LOGGING_SERIALIZE" in os.environ:
             config.serialize = os.environ["KD_LOGGING_SERIALIZE"].lower() == "true"
+        
+        if "KD_LOGGING_IDEMPOTENT" in os.environ:
+            config.idempotent = os.environ["KD_LOGGING_IDEMPOTENT"].lower() == "true"
         
         # 控制台配置
         if "KD_LOGGING_CONSOLE_ENABLED" in os.environ:

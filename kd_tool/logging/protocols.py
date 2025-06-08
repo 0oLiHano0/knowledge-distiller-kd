@@ -155,14 +155,15 @@ kd_tool/logging/protocols.py - v4.2
 """
 
 from __future__ import annotations
-from typing import Protocol, runtime_checkable, Any, Dict, Optional, Union, Callable, Awaitable, List
+from typing import Protocol, runtime_checkable, Any, Dict, Optional, Union, Callable, Awaitable, List, Self
 from datetime import datetime
 from pydantic import BaseModel, Field, field_validator, ConfigDict
 from enum import Enum
 import inspect
 import uuid
+import asyncio
 
-from kd_tool.logging.settings import LogLevel, LoggingConfigDTO
+from kd_tool.logging.settings import LogLevel, LoggingConfigDTO, FORBID_DUP_KEYS
 
 
 class LogField(str, Enum):
@@ -282,8 +283,7 @@ class LoggingContextDTO(BaseModel):
         Raises:
             ValueError: 包含受限键时抛出
         """
-        from kd_tool.logging.service import _FORBID_DUP_KEYS
-        dup_keys = _FORBID_DUP_KEYS.intersection(v.keys())
+        dup_keys = FORBID_DUP_KEYS.intersection(v.keys())
         if dup_keys:
             raise ValueError(f"Extra 字段包含受限键: {', '.join(dup_keys)}")
         return v
@@ -406,11 +406,43 @@ class LoggingContextProtocol(Protocol):
 
 
 @runtime_checkable
-class LoggerProtocol(Protocol):
+class SyncLoggerProtocol(Protocol):
     """
-    WHY: 定义日志记录器的标准接口，确保日志系统的一致性和可扩展性
-    WHAT: 提供统一的日志记录方法，支持同步和异步操作
+    WHY: 定义同步日志记录器的标准接口
+    WHAT: 提供基础的同步日志记录方法
     HOW: 使用 Protocol 定义接口，确保类型安全
+    """
+    def debug(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    def info(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    def warning(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    def error(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    def critical(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    def success(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    def trace(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+
+
+@runtime_checkable
+class AsyncLoggerProtocol(Protocol):
+    """
+    WHY: 定义异步日志记录器的标准接口
+    WHAT: 提供异步日志记录方法
+    HOW: 使用 Protocol 定义接口，确保类型安全
+    """
+    async def async_debug(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    async def async_info(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    async def async_warning(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    async def async_error(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    async def async_critical(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    async def async_success(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+    async def async_trace(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None: ...
+
+
+@runtime_checkable
+class LoggerProtocol(SyncLoggerProtocol, AsyncLoggerProtocol):
+    """
+    WHY: 定义完整的日志记录器接口，支持同步和异步操作
+    WHAT: 组合同步和异步接口，提供统一的日志记录功能
+    HOW: 使用 Protocol 多重继承，确保类型安全
 
     [方法契约]
     1. 日志级别方法：
@@ -429,251 +461,13 @@ class LoggerProtocol(Protocol):
        - 异常：LoggingError
     """
 
-    def debug(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        记录调试级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    def info(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        记录信息级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    def warning(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        记录警告级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    def error(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        记录错误级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    def critical(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        记录严重错误级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    def success(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        记录成功级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    def trace(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        记录跟踪级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    # 异步日志方法
-    async def async_debug(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        异步记录调试级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    async def async_info(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        异步记录信息级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    async def async_warning(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        异步记录警告级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    async def async_error(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        异步记录错误级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    async def async_critical(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        异步记录严重错误级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    async def async_success(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        异步记录成功级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    async def async_trace(self, msg: str, *, extra: Optional[Dict[str, Any]] = None) -> None:
-        """
-        异步记录跟踪级别日志。
-
-        Args:
-            msg: 日志消息
-            extra: 额外的上下文信息
-        """
-        ...
-
-    def bind(self, **kwargs: Any) -> "LoggerProtocol":
-        """
-        绑定上下文到日志记录器。
-
-        Args:
-            **kwargs: 要绑定的上下文键值对
-
-        Returns:
-            绑定上下文后的新日志记录器实例
-
-        Raises:
-            ContextBindError: 当尝试链式绑定上下文时
-        """
-        ...
-
-    def with_task(self, task_id: str) -> "LoggerProtocol":
-        """
-        绑定任务ID到日志记录器。
-
-        Args:
-            task_id: 任务ID
-
-        Returns:
-            绑定任务ID后的新日志记录器实例
-
-        Raises:
-            ValidationError: 当任务ID格式无效时
-        """
-        ...
-
-    def get_context(self) -> Dict[str, Any]:
-        """
-        获取当前日志记录器的上下文。
-
-        Returns:
-            当前上下文字典
-        """
-        ...
-
-    def clear_context(self) -> None:
-        """
-        清除当前日志记录器的上下文。
-        """
-        ...
-
-    def error_with_context(self, msg: str, error: Exception, context: Dict[str, Any]) -> None:
-        """
-        记录带上下文的错误日志。
-
-        Args:
-            msg: 日志消息
-            error: 异常对象
-            context: 上下文信息
-        """
-        ...
-
-    def trace_error(self, msg: str, error: Exception, context: Dict[str, Any]) -> None:
-        """
-        记录带上下文的错误跟踪日志。
-
-        Args:
-            msg: 日志消息
-            error: 异常对象
-            context: 上下文信息
-        """
-        ...
-
-    def add(self, sink: Any, level: str = "DEBUG", **kwargs: Any) -> int:
-        """
-        添加日志处理器。
-
-        Args:
-            sink: 日志输出目标
-            level: 日志级别
-            **kwargs: 其他配置参数
-
-        Returns:
-            处理器ID
-        """
-        ...
-
-    def remove(self, handler_id: int) -> None:
-        """
-        移除日志处理器。
-
-        Args:
-            handler_id: 处理器ID
-        """
-        ...
-
-    def configure(self, config: LoggingConfigDTO) -> None:
-        """
-        配置日志记录器。
-
-        Args:
-            config: 日志配置DTO
-        """
-        ...
-
-    def get_test_context(self) -> Dict[str, Any]:
-        """
-        获取测试上下文。
-
-        Returns:
-            测试上下文字典
-        """
-        ...
+    def bind(self, **kwargs: Any) -> Self: ...
+    def with_task(self, task_id: str) -> Self: ...
+    def get_context(self) -> Dict[str, Any]: ...
+    def clear_context(self) -> None: ...
+    def error_with_context(self, msg: str, error: Exception, context: Dict[str, Any]) -> None: ...
+    def trace_error(self, msg: str, error: Exception, context: Dict[str, Any]) -> None: ...
+    def add(self, sink: Any, level: str = "DEBUG", **kwargs: Any) -> int: ...
+    def remove(self, handler_id: int) -> None: ...
+    def configure(self, config: LoggingConfigDTO) -> None: ...
+    def get_test_context(self) -> Dict[str, Any]: ...
