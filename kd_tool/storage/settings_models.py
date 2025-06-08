@@ -23,7 +23,6 @@ class StorageSettingsDTO(BaseModel):
     db_path: Path = Field(default=Path("./kd_tool.db"))
     echo_sql: bool = False
     extras: Optional[dict[str, Any]] = None
-    backend_type: str = Field(..., description="存储后端类型")
 
     # ---------- 验证 ----------
     @field_validator("db_path")

@@ -129,10 +129,10 @@ def load_config(path: str) -> AppConfig:
     print(
         f"⚠️  使用占位默认配置；实际项目应从 {path} 加载 YAML / ENV 等配置文件。"
     )
-    from kd_tool.storage.settings_models import StorageSettingsDTO
+    from kd_tool.storage.settings_models import StorageSettingsDTO, StorageBackend
 
     return AppConfig(
-        storage=StorageSettingsDTO(backend_type="sqlite")
+        storage=StorageSettingsDTO(backend=StorageBackend.SQLITE)
     )
 
 

@@ -118,37 +118,59 @@ def test_storage_factory_creates_storage_instance():
     # 目前工厂仅支持 SQLITE
     (StorageBackend.SQLITE, SQLiteStorage),
 ])
-def test_factory_returns_correct_storage_type(backend, expected_cls):
+def test_factory_returns_correct_storage_type(backend, expected_cls, tmp_path):
     """
     why: StorageFactory 应根据 backend 返回正确类型的 Storage 实例。
     what: 验证不同 backend 配置下，工厂产出的实例类型是否正确。
     how: 参数化传入 backend，断言 create() 返回的实例类型。
     """
     mock_logger = Mock()
-    settings = StorageSettingsDTO(backend=backend, db_path=":memory:", echo_sql=False, backend_type="sqlite")
+    test_db_path = tmp_path / "test.db"
+    settings = StorageSettingsDTO(
+        backend=backend,
+        db_path=test_db_path,  # 使用临时目录中的文件
+        echo_sql=False
+    )
     factory = StorageFactory(mock_logger, settings)
     storage = factory.create()
     assert isinstance(storage, expected_cls)
 
-def test_factory_injects_logger_and_settings():
+def test_factory_injects_logger_and_settings(tmp_path):
     """
     why: StorageFactory 产出的 Storage 实例应持有 logger 和 settings。
     what: 检查 create() 返回的实例是否正确保存注入的依赖。
     how: 通过 getattr 检查 logger 和 settings 属性。
     """
     mock_logger = Mock()
-    settings = StorageSettingsDTO(backend=StorageBackend.SQLITE, db_path=":memory:", echo_sql=False, backend_type="sqlite")
+    test_db_path = tmp_path / "test.db"
+    settings = StorageSettingsDTO(
+        backend=StorageBackend.SQLITE,
+        db_path=test_db_path,  # 使用临时目录中的文件
+        echo_sql=False
+    )
     factory = StorageFactory(mock_logger, settings)
     storage = factory.create()
     assert getattr(storage, "_logger", None) is mock_logger
     assert getattr(storage, "_settings", None) == settings
 
-def test_settings_dto_invalid_backend_raises():
+@pytest.mark.parametrize("invalid_backend", [
+    "invalid",
+    "postgres",  # 未来可能支持但当前不支持的后端
+    "mysql",
+    "",  # 空字符串
+])
+def test_settings_dto_invalid_backend_raises(tmp_path, invalid_backend):
     """
     why: StorageSettingsDTO 应在非法 backend 时抛出校验异常。
     what: 直接实例化 DTO，断言抛出 ValidationError。
     how: 使用 pytest.raises 捕获异常。
     """
     from pydantic import ValidationError
+    test_db_path = tmp_path / "test.db"
+    
     with pytest.raises(ValidationError):
-        StorageSettingsDTO(backend="invalid", db_path=":memory:", echo_sql=False, backend_type="invalid") 
+        StorageSettingsDTO(
+            backend=invalid_backend,  # type: ignore  # 故意使用无效值来触发验证错误
+            db_path=test_db_path,
+            echo_sql=False
+        ) 

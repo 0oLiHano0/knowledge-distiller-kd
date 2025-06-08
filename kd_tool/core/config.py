@@ -81,7 +81,7 @@ from kd_tool.core.core_settings_models import OrchestratorSettings, Orchestrator
 from kd_tool.logging.settings import (
     LoggingConfigDTO,
 )  # kd_tool/logging/settings.py 日志配置
-from kd_tool.storage.settings_models import StorageSettingsDTO
+from kd_tool.storage.settings_models import StorageSettingsDTO, StorageBackend
 from kd_tool.stages.prefilter.settings_models import PrefilterStageSettings
 from kd_tool.stages.docprocessing.settings_models import DocumentProcessingStageSettings
 from kd_tool.stages.blockmerging.settings_models import BlockMergerStageSettings
@@ -110,7 +110,8 @@ class AppConfig(BaseModel):
     )
     project_version: str = Field(default="4.6.0-dev", description="项目的当前版本号。")
     storage: StorageSettingsDTO = Field(
-        default_factory=lambda: StorageSettingsDTO(backend_type="sqlite"), description="存储服务配置。"
+        default_factory=lambda: StorageSettingsDTO(backend=StorageBackend.SQLITE),
+        description="存储服务配置。"
     )
     orchestrator: OrchestratorSettings = Field(
         default_factory=OrchestratorSettings, description="编排器配置。"

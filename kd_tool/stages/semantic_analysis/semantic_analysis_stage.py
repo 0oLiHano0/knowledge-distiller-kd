@@ -118,19 +118,19 @@ class SemanticAnalysisStage(StageInterface):
                 context.add_analysis_result(result)
             run_logger.success("语义分析阶段执行完毕。")
         except ModelLoadingError as mle:
-            run_logger.error(f"语义模型加载失败: {mle}", exc_info=True)
+            run_logger.error(f"语义模型加载失败: {mle}")
             context.add_error(mle)
         except EmbeddingCalculationError as ece:
-            run_logger.error(f"嵌入向量计算失败: {ece}", exc_info=True)
+            run_logger.error(f"嵌入向量计算失败: {ece}")
             context.add_error(ece)
         except SimilarityCalculationError as sce:
-            run_logger.error(f"相似度计算失败: {sce}", exc_info=True)
+            run_logger.error(f"相似度计算失败: {sce}")
             context.add_error(sce)
         except Exception as e:
             error = SemanticAnalysisError(
                 f"语义分析阶段发生未知错误: {e}", original_exception=e
             )
-            run_logger.exception(error)
+            run_logger.exception(str(error))
             context.add_error(error)
         return context
 
@@ -147,7 +147,12 @@ class SemanticAnalysisStage(StageInterface):
         self, block_ids: List[str], context: PipelineContextDTO, logger: LoggerProtocol
     ) -> List[Tuple[str, str]]:
         """
-        O(n^2)暴力枚举所有块对，数据量大时严重影响性能。强烈建议用索引、降采样或近似算法优化。
+        获取需要比较的块对。
+        
+        性能警告：
+        - 当前实现为 O(n^2) 复杂度，适用于小规模数据
+        - 大规模数据（>1000块）时，建议实现降采样或近似算法
+        - 考虑使用向量索引（如 FAISS）优化相似度计算
         """
         pairs = []
         n = len(block_ids)
@@ -180,10 +185,10 @@ class SemanticAnalysisStage(StageInterface):
         for i in range(n):
             for j in range(i + 1, n):
                 b1_id, b2_id = block_ids[i], block_ids[j]
-                temp_pair_id_md5 = AnalysisResultDTO._calculate_pair_analysis_id(
+                temp_pair_id_md5 = AnalysisResultDTO._make_id(
                     b1_id, b2_id, AnalysisType.MD5
                 )
-                temp_pair_id_simhash = AnalysisResultDTO._calculate_pair_analysis_id(
+                temp_pair_id_simhash = AnalysisResultDTO._make_id(
                     b1_id, b2_id, AnalysisType.SIMHASH
                 )
                 if (
@@ -213,6 +218,9 @@ class SemanticAnalysisStage(StageInterface):
                 similarity = self._adapter.calculate_pair_similarity(emb1, emb2)
                 if similarity >= threshold:
                     result = AnalysisResultDTO(
+                        pair_analysis_id=AnalysisResultDTO._make_id(
+                            b1_id, b2_id, AnalysisType.SEMANTIC
+                        ),
                         block_id_1=b1_id,
                         block_id_2=b2_id,
                         analysis_type=AnalysisType.SEMANTIC,

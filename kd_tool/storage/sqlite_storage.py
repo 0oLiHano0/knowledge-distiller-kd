@@ -23,6 +23,7 @@ from kd_tool.storage.models_sqlalchemy import Base, ContentBlockORM
 from kd_tool.storage.settings_models import StorageSettingsDTO
 from kd_tool.storage.storage_interface import StorageInterface
 from kd_tool.logging.protocols import LoggerProtocol
+from kd_tool.schemas.enums import BlockType
 
 
 class SQLiteStorage(StorageInterface):
@@ -75,18 +76,23 @@ class SQLiteStorage(StorageInterface):
         否则（无事务）自动管理session和commit。
         """
         if hasattr(self, "_session") and self._session is not None:
-            # 在显式事务中，复用 session，不自动 commit，必须由外部统一提交
             session = self._session
             for dto in blocks:
-                obj = ContentBlockORM(md5=dto.md5, content=dto.content.encode("utf-8"))
+                obj = ContentBlockORM(
+                    md5=dto.text_hash_md5,
+                    content=dto.text_content.encode("utf-8"),
+                    file_id=dto.file_id,
+                    block_type=dto.block_type.value
+                )
                 session.add(obj)
-            # 由外部 commit
         else:
-            # 无显式事务，自动管理 session 和 commit
             with self._Session() as session:
                 for dto in blocks:
                     obj = ContentBlockORM(
-                        md5=dto.md5, content=dto.content.encode("utf-8")
+                        md5=dto.text_hash_md5,
+                        content=dto.text_content.encode("utf-8"),
+                        file_id=dto.file_id,
+                        block_type=dto.block_type.value
                     )
                     session.add(obj)
                 session.commit()
@@ -96,12 +102,12 @@ class SQLiteStorage(StorageInterface):
             stmt = select(ContentBlockORM).where(ContentBlockORM.md5 == md5)
             obj = session.scalar(stmt)
             if not obj:
-                raise RecordNotFoundError()
-            # DTO 转换
+                return None
             return ContentBlockDTO(
-                md5=obj.md5,
-                content=obj.content.decode("utf-8"),
-                created_at=obj.created_at,
+                text_hash_md5=obj.md5,
+                text_content=obj.content.decode("utf-8"),
+                file_id=obj.file_id,
+                block_type=BlockType(obj.block_type)
             )
 
     # ---------- Close ----------
